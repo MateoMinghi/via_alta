@@ -1,0 +1,14 @@
+{
+  "extends": ["next", "next/core-web-vitals", "airbnb"],
+  "parserOptions": {
+    "project": "./tsconfig.json"
+  },
+  "rules": {
+    "react/jsx-props-no-spreading": "off",
+    "react/jsx-filename-extension": [
+      1,
+      { "extensions": [".tsx", ".jsx"] }
+    ]
+
+  }
+}
