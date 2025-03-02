@@ -8,7 +8,11 @@
     "react/jsx-filename-extension": [
       1,
       { "extensions": [".tsx", ".jsx"] }
-    ]
-
+    ],
+    "import/extensions": ["error", "ignorePackages", {
+      "ts": "never",
+      "tsx": "never"
+    }],
+    "import/prefer-default-export": "off"
   }
 }
