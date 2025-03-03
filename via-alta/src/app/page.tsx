@@ -1,12 +1,11 @@
-import Footer from '@/components/Footer';
-import Login from '@/components/Login';
 import React from 'react';
+
+import Login from '@/components/Login';
 
 export default function Home() {
   return (
-    <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start font-[family-name:var(--font-poppins)]">
+    <main className="relative bg-[url('/img1.jpg')] bg-cover bg-center">
       <Login />
-      <Footer />
     </main>
   );
 }

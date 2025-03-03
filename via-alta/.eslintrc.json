@@ -13,6 +13,7 @@
       "ts": "never",
       "tsx": "never"
     }],
-    "import/prefer-default-export": "off"
+    "import/prefer-default-export": "off",
+     "no-console": "off"
   }
 }
