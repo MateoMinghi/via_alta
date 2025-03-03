@@ -83,11 +83,11 @@ export default function Login() {
                     </FormControl>
                     <FormDescription className="flex items-center space-x-2">
                       <Checkbox id="mostrar" onClick={() => setShowPassword(!showPassword)} />
-                      <p
+                      <span
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
                         Mostrar Contraseña
-                      </p>
+                      </span>
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

@@ -8,6 +8,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        via: '#84251c',
         background: 'var(--background)',
         foreground: 'var(--foreground)',
         card: 'var(--card)',
