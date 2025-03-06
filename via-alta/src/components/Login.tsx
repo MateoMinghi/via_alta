@@ -94,6 +94,22 @@ export default function Login() {
                 )}
               />
               <Button type="submit">Iniciar Sesión</Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  window.location.href = '/coordinador/';
+                }}
+              >
+                INICIAR SESION COMO COORDINADOR
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  window.location.href = '/estudiante/';
+                }}
+              >
+                INICIAR SESION COMO ESTUDIANTE
+              </Button>
             </form>
           </Form>
         </CardContent>
