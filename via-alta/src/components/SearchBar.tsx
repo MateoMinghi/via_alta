@@ -73,6 +73,7 @@ export default function SearchBar() {
           />
           <Button
             onClick={() => setSearchQuery('')}
+            className='bg-red-700 text-white'
           >
             Limpiar
           </Button>

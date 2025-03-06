@@ -1,6 +1,6 @@
-import Coordinador from '@/components/Coordinador';
+import Coordinador from '@/components/pages/Coordinador';
 import Footer from '@/components/Footer';
-import Header from '@/components/Header';
+import Header from '@/components/CoordinadorHeader';
 import React from 'react';
 
 export default function Home() {

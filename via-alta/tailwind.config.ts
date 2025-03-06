@@ -46,6 +46,17 @@ const config: Config = {
           ring: 'var(--sidebar-ring)',
         },
       },
+      borderColor: {
+        DEFAULT: 'var(--border)',
+      },
+      ringColor: {
+        DEFAULT: 'var(--ring)',
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
     },
   },
   plugins: [

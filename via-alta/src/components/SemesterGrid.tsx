@@ -37,6 +37,7 @@ export default function SemesterGrid() {
 
             <CardTitle className="font-light">
               Horario del
+              {' '}
               <span className="font-bold">
                 Semestre
                 {semester.id}
