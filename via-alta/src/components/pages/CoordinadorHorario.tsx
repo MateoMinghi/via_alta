@@ -6,7 +6,7 @@ import { Button } from '../ui/button';
 import Subjects from '../SubjectsGrid';
 import ScheduleView from '../ScheduleGrid';
 
-export default function Student() {
+export default function CoordinadorHorario() {
   const [showScheduleView, setShowScheduleGrid] = useState(true);
 
   const toggleView = () => {

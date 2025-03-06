@@ -19,10 +19,9 @@ export default function Header() {
       <Image src="/logo.svg" alt="logo" width={50} height={50} className="cursor-pointer" onClick={() => router.push('/')} />
       <div className="flex flex-row text-xl justify-around w-full gap-4 mx-8">
 
-      <Button variant="ghost" className="cursor-pointer w-full font-bold" onClick={() => router.push('/coordinador/estudiantes')}>Estudiantes</Button>
+      <Button variant="ghost" className="cursor-pointer w-full font-bold" onClick={() => router.push('/coordinador/')}>Estudiantes</Button>
       <Button variant="ghost"  className="cursor-pointer w-full font-bold" onClick={() => router.push('/coordinador/profesores')}>Profesores</Button>
-      <Button variant="ghost"  className="cursor-pointer w-full font-bold" onClick={() => router.push('/coordinador/salones')}>Salones</Button>
-
+      
       </div>
       <div className="flex items-center gap-2">
           <Calendar className="h-5 w-5" />

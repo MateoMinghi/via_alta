@@ -58,7 +58,7 @@ export default function SearchBar() {
   }, [searchQuery]);
 
   const handleStudentClick = (studentId: string) => {
-    router.push(`/coordinador/estudiantes/${studentId}`);
+    router.push(`/coordinador/${studentId}`);
   };
 
   return (

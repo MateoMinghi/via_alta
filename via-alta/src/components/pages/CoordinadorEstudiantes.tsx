@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import SemesterView from '../SemesterGrid';
+import SemesterGrid from '../SemesterGrid';
 import SearchBar from '../SearchBar';
 import SolicitudesBanner from '../SolicitudesBanner';
 
@@ -18,7 +18,7 @@ export default function CoordinadorEstudiantes() {
       <p className="font-bold text-2xl">Horarios de Alumnos Irregulares:</p>
       <SearchBar />
       <p className="font-bold text-2xl">Horarios Generales:</p>
-      <SemesterView />
+      <SemesterGrid />
     </div>
   );
 }
