@@ -2,16 +2,17 @@
 
 import React, { useState } from 'react';
 import { Eye } from 'lucide-react';
-import { Button } from './ui/button';
-import Subjects from './Subjects';
-import ScheduleView from './ScheduleView';
+import { Button } from '../ui/button';
+import Subjects from '../SubjectsGrid';
+import ScheduleView from '../ScheduleGrid';
 
-function Schedule() {
-  const [showScheduleView, setShowScheduleView] = useState(true);
+export default function Student() {
+  const [showScheduleView, setShowScheduleGrid] = useState(true);
 
   const toggleView = () => {
-    setShowScheduleView(!showScheduleView);
+    setShowScheduleGrid(!showScheduleView);
   };
+
   const subjects = [
     {
       id: 129,
@@ -139,5 +140,3 @@ function Schedule() {
     </div>
   );
 }
-
-export default Schedule;

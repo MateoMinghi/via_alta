@@ -21,7 +21,7 @@ interface SubjectsProps {
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 const timeSlots = ['7:00', '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00'];
 
-export default function ScheduleView({ subjects }: SubjectsProps) {
+export default function ScheduleGrid({ subjects }: SubjectsProps) {
   const [activeDayIndex, setActiveDayIndex] = useState(0);
 
   const findSubject = (day: string, time: string) => subjects.find((subject) => subject.hours.some(

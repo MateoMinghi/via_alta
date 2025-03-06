@@ -4,7 +4,7 @@ import { User } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from './ui/button';
 
-function Header() {
+export default function Header() {
   const studentName = 'Enrique Ayala Zapata';
   const studentId = '100127';
 
@@ -26,5 +26,3 @@ function Header() {
     </div>
   );
 }
-
-export default Header;

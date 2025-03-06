@@ -4,7 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from './ui/button';
 
-function CoordinadorPage() {
+export default function Coordinador() {
   const router = useRouter();
 
   return (
@@ -22,5 +22,3 @@ function CoordinadorPage() {
     </div>
   );
 }
-
-export default CoordinadorPage;

@@ -16,11 +16,11 @@ interface Subject {
     credits: number;
     hours: { day: string; time: string }[];
 }
-  interface SubjectsProps {
+  interface SubjectsGridProps {
     subjects: Subject[];
   }
 
-function Subjects({ subjects }: SubjectsProps) {
+export default function SubjectsGrid({ subjects }: SubjectsGridProps) {
   return (
     <>
       {subjects.map((subject) => (
@@ -54,5 +54,3 @@ function Subjects({ subjects }: SubjectsProps) {
     </>
   );
 }
-
-export default Subjects;
