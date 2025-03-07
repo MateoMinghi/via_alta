@@ -51,7 +51,7 @@ export default function SemesterGrid() {
           <CardContent className="flex flex-row justify-between w-full" />
           <CardFooter className="flex flex-col sm:flex-row justify-between w-full pt-4 items-end h-full">
 
-            <Button className="w-full font-bold" onClick={() => router.push(`coordinador/semestre${semester.id}`)}>Ver Horario</Button>
+            <Button className="w-full font-bold" onClick={() => router.push(`coordinador/semestre-${semester.id}`)}>Ver Horario</Button>
           </CardFooter>
         </Card>
       ))}

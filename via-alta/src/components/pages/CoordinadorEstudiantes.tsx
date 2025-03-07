@@ -2,7 +2,7 @@
 
 import React from 'react';
 import SemesterGrid from '../SemesterGrid';
-import SearchBar from '../SearchBar';
+import StudentSearch from '../StudentSearch';
 import SolicitudesBanner from '../SolicitudesBanner';
 
 export default function CoordinadorEstudiantes() {
@@ -16,7 +16,7 @@ export default function CoordinadorEstudiantes() {
       </div>
 
       <p className="font-bold text-2xl">Horarios de Alumnos Irregulares:</p>
-      <SearchBar />
+      <StudentSearch />
       <p className="font-bold text-2xl">Horarios Generales:</p>
       <SemesterGrid />
     </div>

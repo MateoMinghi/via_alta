@@ -1,25 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Eye } from 'lucide-react';
+import React from 'react';
+import { Save } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import { Button } from '../ui/button';
-import Subjects from '../SubjectsGrid';
-import ScheduleView from '../ScheduleGrid';
+import ScheduleGrid from '../ScheduleGrid';
 
 export default function CoordinadorHorario() {
-  const [showScheduleView, setShowScheduleGrid] = useState(true);
-
-  const toggleView = () => {
-    setShowScheduleGrid(!showScheduleView);
-  };
-
+  const params = useParams();
+  const { slug } = params;
   const subjects = [
     {
       id: 129,
       title: 'Matemáticas',
-      description: 'Un curso introductorio a las Matemáticas.',
       professor: 'Dr. John Doe',
       credits: 3,
+      salon: 'A101',
       hours: [
         { day: 'Lunes', time: '10:00' },
         { day: 'Lunes', time: '11:00' },
@@ -29,9 +25,9 @@ export default function CoordinadorHorario() {
     {
       id: 202,
       title: 'Historia',
-      description: 'Un estudio comprensivo de la historia mundial.',
       professor: 'Dr. Jane Doe',
       credits: 9,
+      salon: 'B202',
       hours: [
         { day: 'Martes', time: '14:00' },
         { day: 'Jueves', time: '14:00' },
@@ -41,9 +37,9 @@ export default function CoordinadorHorario() {
     {
       id: 401,
       title: 'Literatura',
-      description: 'Exploración de la literatura clásica y moderna.',
       professor: 'Dr. Emily Bronte',
       credits: 4,
+      salon: 'C303',
       hours: [
         { day: 'Lunes', time: '08:00' },
         { day: 'Miércoles', time: '08:00' },
@@ -52,9 +48,9 @@ export default function CoordinadorHorario() {
     {
       id: 502,
       title: 'Física',
-      description: 'Fundamentos de mecánica y termodinámica.',
       professor: 'Dr. Albert Einstein',
       credits: 5,
+      salon: 'D404',
       hours: [
         { day: 'Martes', time: '10:00' },
         { day: 'Jueves', time: '10:00' },
@@ -64,9 +60,9 @@ export default function CoordinadorHorario() {
     {
       id: 603,
       title: 'Química',
-      description: 'Introducción a la química orgánica e inorgánica.',
       professor: 'Dr. Marie Curie',
       credits: 4,
+      salon: 'E505',
       hours: [
         { day: 'Lunes', time: '14:00' },
         { day: 'Miércoles', time: '14:00' },
@@ -75,9 +71,9 @@ export default function CoordinadorHorario() {
     {
       id: 704,
       title: 'Filosofía',
-      description: 'Un estudio de pensamientos y teorías filosóficas.',
       professor: 'Dr. Sócrates',
       credits: 3,
+      salon: 'F606',
       hours: [
         { day: 'Martes', time: '08:00' },
         { day: 'Jueves', time: '08:00' },
@@ -86,9 +82,9 @@ export default function CoordinadorHorario() {
     {
       id: 805,
       title: 'Arte',
-      description: 'Historia y técnicas de las artes visuales.',
       professor: 'Dr. Leonardo da Vinci',
       credits: 2,
+      salon: 'G707',
       hours: [
         { day: 'Viernes', time: '16:00' },
       ],
@@ -96,9 +92,9 @@ export default function CoordinadorHorario() {
     {
       id: 906,
       title: 'Ciencias de la Computación',
-      description: 'Introducción a algoritmos y programación.',
       professor: 'Dr. Alan Turing',
       credits: 6,
+      salon: 'H808',
       hours: [
         { day: 'Lunes', time: '18:00' },
         { day: 'Miércoles', time: '18:00' },
@@ -108,9 +104,9 @@ export default function CoordinadorHorario() {
     {
       id: 9346,
       title: 'Coordinación de eventos de moda',
-      description: 'Introducción a algoritmos y programación.',
       professor: 'Dr. Alan Turing',
       credits: 6,
+      salon: 'I909',
       hours: [
         { day: 'Lunes', time: '8:00' },
         { day: 'Miércoles', time: '8:00' },
@@ -121,21 +117,19 @@ export default function CoordinadorHorario() {
 
   return (
     <div className="p-4">
-      {!showScheduleView && <ScheduleView subjects={subjects} />}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-        {showScheduleView && <Subjects subjects={subjects} />}
-        <button
-          type="button"
-          className="text-via w-full h-full border-1 flex flex-col items-center justify-center rounded-lg py-8"
-          onClick={toggleView}
-        >
-          <Eye className="w-16 h-16" />
-          <span className="p-4 text-3xl font-bold">Vista Previa</span>
-        </button>
-      </div>
-      <div className="flex flex-col sm:flex-row justify-between gap-8 py-8">
-        <Button className="w-full font-bold">Confirmar Horario</Button>
-        <Button className="w-full border-2 border-via text-via font-bold" variant="outline">Solicitar Cambios</Button>
+      <p className="text-3xl font-bold mb-4">
+        Horario propuesto a
+        {slug}
+      </p>
+      <ScheduleGrid subjects={subjects} />
+      <div className="flex justify-between mt-8 gap-4 text-white">
+        <Button variant="outline" className="w-full bg-red-700 text-white">
+          Limpiar
+        </Button>
+        <Button className="w-full">
+          <Save />
+          Guardar
+        </Button>
       </div>
     </div>
   );
