@@ -5,7 +5,7 @@ import { Bell, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SolicitudesBanner() {
-  let count = 10;
+  const count = 10;
 
   const getColorClasses = () => {
     if (count === 0) {
@@ -45,7 +45,7 @@ export default function SolicitudesBanner() {
   };
 
   return (
-    <Link href="/coordinador/estudiantes/estatus" className="block w-full my-8">
+    <Link href="/coordinador/estatus" className="block w-full my-8">
       <div className={`w-full p-4 rounded-lg ${colorClasses.bg} ${colorClasses.hoverBg}`}>
         <div className="flex items-center justify-between">
           <div className={`flex items-center gap-x-3 ${colorClasses.text}`}>
