@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import SemesterGrid from '../SemesterGrid';
-import StudentSearch from '../StudentSearch';
+import StatusTable from '../StatusTable';
 import SolicitudesBanner from '../SolicitudesBanner';
 
 export default function CoordinadorEstudiantes() {
@@ -14,11 +13,10 @@ export default function CoordinadorEstudiantes() {
       <div className="mb-8">
         <SolicitudesBanner />
       </div>
-
-      <p className="font-bold text-2xl">Horarios de Alumnos Irregulares:</p>
-      <StudentSearch />
-      <p className="font-bold text-2xl">Horarios Generales:</p>
-      <SemesterGrid />
+    <div className="text-center">
+      <p className="text-2xl font-bold mb-6">Estatus de Alumnos</p>
+      <StatusTable />
+    </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import React from 'react';
 import { Save } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { Button } from '../ui/button';
-import ScheduleGrid from '../ScheduleGrid';
+import ScheduleGrid from '../CoordinadorSchedule';
 
 export default function CoordinadorHorario() {
   const params = useParams();

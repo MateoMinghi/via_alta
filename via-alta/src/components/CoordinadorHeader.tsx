@@ -22,6 +22,8 @@ export default function Header() {
 
         <Button variant="ghost" className="cursor-pointer w-full font-bold" onClick={() => router.push('/coordinador/')}>Estudiantes</Button>
         <Button variant="ghost" className="cursor-pointer w-full font-bold" onClick={() => router.push('/coordinador/profesores')}>Profesores</Button>
+        <Button variant="ghost" className="cursor-pointer w-full font-bold" onClick={() => router.push('/coordinador/horarios')}>Horarios</Button>
+        <Button variant="ghost" className="cursor-pointer w-full font-bold" onClick={() => router.push('/coordinador/salones')}>Salones</Button>
 
       </div>
       <div className="flex items-center gap-2">
