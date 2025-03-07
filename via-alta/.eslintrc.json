@@ -1,0 +1,26 @@
+{
+  "extends": ["next", "next/core-web-vitals", "airbnb"],
+  "parserOptions": {
+    "project": "./tsconfig.json"
+  },
+  "rules": {
+    "react/jsx-props-no-spreading": "off",
+    "react/jsx-filename-extension": [
+      1,
+      { "extensions": [".tsx", ".jsx"] }
+    ],
+    "import/extensions": ["error", "ignorePackages", {
+      "ts": "never",
+      "tsx": "never"
+    }],
+    "import/prefer-default-export": "off",
+    "no-console": "off",
+    "react/require-default-props": "off",
+    "react/jsx-no-constructed-context-values": "off",
+    "no-use-before-define": "off",
+    "global-require": "off",
+    "jsx-a11y/click-events-have-key-events": "off",
+    "jsx-a11y/no-static-element-interactions": "off",
+     "react/prop-types": "off"
+  }
+}
