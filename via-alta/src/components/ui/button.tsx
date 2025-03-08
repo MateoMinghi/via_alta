@@ -25,6 +25,13 @@ const buttonVariants = cva(
         lg: 'h-11 rounded-md px-8',
         icon: 'h-10 w-10',
       },
+<<<<<<< Updated upstream
+=======
+      isActive: {
+        true: 'bg-black text-white border border-white rounded-full py-4 px-8',
+        false: 'text-white rounded-full py-4 px-8 border border-transparent',
+      },
+>>>>>>> Stashed changes
     },
     defaultVariants: {
       variant: 'default',
@@ -46,7 +53,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : 'button';
     return (
       <Comp
+<<<<<<< Updated upstream
         className={cn(buttonVariants({ variant, size, className }))}
+=======
+        className={cn(buttonVariants({
+          variant, size, isActive, className,
+        }))}
+>>>>>>> Stashed changes
         ref={ref}
         {...props}
       />
