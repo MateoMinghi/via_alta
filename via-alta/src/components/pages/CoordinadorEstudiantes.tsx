@@ -8,7 +8,7 @@ export default function CoordinadorEstudiantes() {
   return (
     <div className="text-center">
       <p className="font-bold text-2xl self-center">
-        Solicitudes de Cambios y estatus de Alumnos:
+        Solicitudes de Cambios:
       </p>
       <div className="mb-8">
         <SolicitudesBanner />

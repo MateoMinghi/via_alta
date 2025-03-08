@@ -4,7 +4,7 @@ import React from 'react';
 import { Save } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { Button } from '../ui/button';
-import ScheduleGrid from '../CoordinadorSchedule';
+import CoordinadorSchedule from '../CoordinadorSchedule';
 
 export default function CoordinadorHorario() {
   const params = useParams();
@@ -121,7 +121,7 @@ export default function CoordinadorHorario() {
         Horario propuesto a
         {slug}
       </p>
-      <ScheduleGrid subjects={subjects} />
+      <CoordinadorSchedule subjects={subjects} />
       <div className="flex justify-between mt-8 gap-4 text-white">
         <Button variant="outline" className="w-full bg-red-700 text-white">
           Limpiar
