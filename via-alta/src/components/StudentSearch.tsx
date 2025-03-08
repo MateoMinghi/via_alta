@@ -6,42 +6,20 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
-const students = [
-  {
-    id: '1001', name: 'Alex Johnson', semestre: '1', regular: true,
-  },
-  {
-    id: '1002', name: 'Samantha Lee', semestre: '2', regular: true,
-  },
-  {
-    id: '1003', name: 'Michael Brown', semestre: '3', regular: false,
-  },
-  {
-    id: '1004', name: 'Jessica Taylor', semestre: '4', regular: true,
-  },
-  {
-    id: '1005', name: 'David Wilson', semestre: '5', regular: false,
-  },
-  {
-    id: '1006', name: 'Emily Davis', semestre: '6', regular: true,
-  },
-  {
-    id: '1007', name: 'James Miller', semestre: '7', regular: true,
-  },
-  {
-    id: '1008', name: 'Olivia Garcia', semestre: '8', regular: false,
-  },
-  {
-    id: '1009', name: 'Daniel Martinez', semestre: '9', regular: true,
-  },
-  {
-    id: '1010', name: 'Sophia Rodriguez', semestre: '1', regular: true,
-  },
-];
+interface Student {
+  id: string;
+  name: string;
+  semestre: string;
+  regular: boolean;
+}
 
-export default function StudentSearch() {
+interface StudentSearchProps {
+  students: Student[];
+}
+
+export default function StudentSearch({ students }: StudentSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<typeof students>([]);
+  const [searchResults, setSearchResults] = useState<Student[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -55,7 +33,7 @@ export default function StudentSearch() {
             || student.name.toLowerCase().includes(query));
 
     setSearchResults(results);
-  }, [searchQuery]);
+  }, [searchQuery, students]);
 
   const handleStudentClick = (studentId: string) => {
     router.push(`horarios/${studentId}`);
