@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-    --background: #ffffff;
+    --background: #F4F6F9;
     --foreground: #0a0a0a;
     --card: #ffffff;
     --card-foreground: #0a0a0a;
@@ -39,10 +39,10 @@
 }
 
 @layer base {
-    * {
-      @apply border-border;
-    }
-    body {
-      @apply bg-background text-foreground;
-    }
+  * {
+    @apply border-border;
   }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

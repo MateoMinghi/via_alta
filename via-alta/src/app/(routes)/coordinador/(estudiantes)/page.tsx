@@ -1,14 +1,10 @@
-import CoordinadorEstudiantes from '@/components/pages/CoordinadorEstudiantes';
-import Footer from '@/components/Footer';
-import Header from '@/components/CoordinadorHeader';
 import React from 'react';
+import Estudiantes from '@/components/pages/Estudiantes';
 
 export default function Home() {
   return (
-    <main className="mx-8">
-      <Header />
-      <CoordinadorEstudiantes />
-      <Footer />
+    <main>
+      <Estudiantes />
     </main>
   );
 }

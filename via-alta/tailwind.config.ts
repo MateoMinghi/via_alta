@@ -11,51 +11,34 @@ const config: Config = {
         via: '#84251c',
         background: 'var(--background)',
         foreground: 'var(--foreground)',
-<<<<<<< Updated upstream
-        card: 'var(--card)',
-        cardForeground: 'var(--card-foreground)',
-        popover: 'var(--popover)',
-        popoverForeground: 'var(--popover-foreground)',
-        primary: 'var(--primary)',
-        primaryForeground: 'var(--primary-foreground)',
-        secondary: 'var(--secondary)',
-        secondaryForeground: 'var(--secondary-foreground)',
-        muted: 'var(--muted)',
-        mutedForeground: 'var(--muted-foreground)',
-        accent: 'var(--accent)',
-        accentForeground: 'var(--accent-foreground)',
-        destructive: 'var(--destructive)',
-        destructiveForeground: 'var(--destructive-foreground)',
-=======
-        card: {
+        card:{
           DEFAULT: 'var(--card)',
           foreground: 'var(--card-foreground)',
         },
-        popover: {
+        popover:{
           DEFAULT: 'var(--popover)',
           foreground: 'var(--popover-foreground)',
         },
-        primary: {
+        primary:{
           DEFAULT: 'var(--primary)',
           foreground: 'var(--primary-foreground)',
         },
-        secondary: {
+        secondary:{
           DEFAULT: 'var(--secondary)',
           foreground: 'var(--secondary-foreground)',
         },
-        muted: {
+        muted:{
           DEFAULT: 'var(--muted)',
           foreground: 'var(--muted-foreground)',
         },
-        accent: {
+        accent:{
           DEFAULT: 'var(--accent)',
           foreground: 'var(--accent-foreground)',
         },
-        destructive: {
+        destructive:{
           DEFAULT: 'var(--destructive)',
           foreground: 'var(--destructive-foreground)',
         },
->>>>>>> Stashed changes
         border: 'var(--border)',
         input: 'var(--input)',
         ring: 'var(--ring)',
@@ -76,12 +59,6 @@ const config: Config = {
           border: 'var(--sidebar-border)',
           ring: 'var(--sidebar-ring)',
         },
-      },
-      borderColor: {
-        DEFAULT: 'var(--border)',
-      },
-      ringColor: {
-        DEFAULT: 'var(--ring)',
       },
       borderRadius: {
         lg: 'var(--radius)',
