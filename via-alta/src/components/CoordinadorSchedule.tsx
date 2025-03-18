@@ -43,7 +43,7 @@ const timeSlots = [
   '16:00',
 ];
 
-export default function ScheduleGrid({ subjects }: SubjectsProps) {
+export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [allSubjects, setAllSubjects] = useState<Subject[]>(subjects);
   const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([]);

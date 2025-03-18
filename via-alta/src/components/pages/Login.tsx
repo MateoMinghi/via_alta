@@ -95,7 +95,7 @@ export default function Login() {
               />
               <Button type="submit">Iniciar Sesión</Button>
               <Button
-                type="button"
+                variant="default"
                 onClick={() => {
                   window.location.href = '/coordinador/';
                 }}

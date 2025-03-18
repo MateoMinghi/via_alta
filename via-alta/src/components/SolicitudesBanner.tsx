@@ -4,11 +4,14 @@ import React from 'react';
 import { Bell, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
-export default function SolicitudesBanner() {
-  const count = 10;
+interface SolicitudesBannerProps {
+  numberOfChanges: number;
+}
+
+export default function SolicitudesBanner({ numberOfChanges }: SolicitudesBannerProps) {
 
   const getColorClasses = () => {
-    if (count === 0) {
+    if (numberOfChanges === 0) {
       return {
         bg: 'bg-green-100',
         hoverBg: 'hover:bg-green-200',
@@ -16,7 +19,7 @@ export default function SolicitudesBanner() {
         badgeBg: 'bg-green-500',
       };
     }
-    if (count < 10) {
+    if (numberOfChanges < 10) {
       return {
         bg: 'bg-amber-100',
         hoverBg: 'hover:bg-amber-200',
@@ -35,13 +38,13 @@ export default function SolicitudesBanner() {
   const colorClasses = getColorClasses();
 
   const getMessage = () => {
-    if (count === 0) {
+    if (numberOfChanges === 0) {
       return 'No tienes solicitudes de cambio pendientes';
     }
-    if (count === 1) {
+    if (numberOfChanges === 1) {
       return 'Tienes 1 solicitud de cambio pendiente';
     }
-    return `Tienes ${count} solicitudes de cambio pendientes`;
+    return `Tienes ${numberOfChanges} solicitudes de cambio pendientes`;
   };
 
   return (
@@ -52,11 +55,11 @@ export default function SolicitudesBanner() {
             <Bell />
             <span className="font-semibold">{getMessage()}</span>
           </div>
-          {count > 0 && (
+          {numberOfChanges > 0 && (
             <div
               className={`flex text-center items-center pl-2 py-2 font-bold rounded-lg ${colorClasses.badgeBg} text-white`}
             >
-              {count}
+              {numberOfChanges}
               <ChevronRight />
             </div>
           )}
