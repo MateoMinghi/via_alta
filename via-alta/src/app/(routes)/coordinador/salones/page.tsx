@@ -1,10 +1,10 @@
 import React from 'react';
-import Estudiantes from '@/components/pages/Estudiantes';
+import Salones from '@/components/pages/Salones';
 
 export default function Home() {
   return (
     <main>
-      <Estudiantes />
+      <Salones />
     </main>
   );
 }

@@ -1,10 +1,10 @@
 import React from 'react';
-import Estudiantes from '@/components/pages/Estudiantes';
+import Horarios from '@/components/pages/Horarios';
 
 export default function Home() {
   return (
-    <main>
-      <Estudiantes />
+    <main >
+      <Horarios />
     </main>
   );
 }
