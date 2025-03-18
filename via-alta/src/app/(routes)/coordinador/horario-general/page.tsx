@@ -1,4 +1,5 @@
 "use client";
+// Importaciones necesarias para el componente
 import React, { useState, useMemo } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -7,20 +8,30 @@ import { cn } from '@/lib/utils';
 import { IndividualSubject } from '@/components/IndividualSubject';
 
 export default function Page() {
+  // Estado para almacenar el horario y la materia seleccionada
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<ScheduleItem | null>(null);
 
+  /**
+   * Genera un nuevo horario utilizando el generador de horarios
+   * @returns {Promise<void>}
+   */
   async function handleGenerateSchedule() {
     const result = await generateSchedule();
     setSchedule(result);
   }
 
+  // Definición de días y horarios disponibles
   const days = useMemo(() => ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'], []);
   const timeSlots = useMemo(() => [
     '07:00', '08:00', '09:00', '10:00', '11:00',
     '12:00', '13:00', '14:00', '15:00', '16:00'
   ], []);
 
+  /**
+   * Crea una matriz bidimensional que representa el horario
+   * @returns {Object} Matriz con estructura [hora][día] conteniendo las materias
+   */
   const scheduleMatrix = useMemo(() => {
     const matrix: { [key: string]: { [key: string]: ScheduleItem[] } } = {};
     
@@ -41,6 +52,13 @@ export default function Page() {
     return matrix;
   }, [schedule, days, timeSlots]);
 
+  /**
+   * Mueve una materia de una posición a otra en el horario
+   * @param {ScheduleItem} item - La materia a mover
+   * @param {string} toDay - Día destino
+   * @param {string} toTime - Hora destino
+   * @returns {void}
+   */
   const moveItem = (item: ScheduleItem, toDay: string, toTime: string) => {
     setSchedule(prev => {
       const newSchedule = [...prev];
@@ -87,6 +105,7 @@ export default function Page() {
     });
   };
 
+  // Componente para una celda que se puede arrastrar
   const DraggableCell = ({ item, heightClass }: { item: ScheduleItem; heightClass: string }) => {
     const [{ isDragging }, dragRef] = useDrag<ScheduleItem, void, { isDragging: boolean }>(() => ({
       type: 'scheduleItem',
@@ -123,6 +142,10 @@ export default function Page() {
     );
   };
   
+  /**
+   * Componente que representa una celda del horario
+   * Permite soltar elementos arrastrables y gestiona la visualización de materias
+   */
   const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time][day];
   
@@ -169,6 +192,7 @@ export default function Page() {
     );
   };
 
+  // Renderizado principal del componente
   return (
     <DndProvider backend={HTML5Backend}>
       <main className="p-4">
