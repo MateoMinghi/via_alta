@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { generateSchedule, ScheduleItem } from '../../../../lib/schedule-generator';
 import { cn } from '@/lib/utils';
 
@@ -18,81 +20,162 @@ export default function Page() {
   ], []);
 
   const scheduleMatrix = useMemo(() => {
-    const matrix: { [key: string]: { [key: string]: ScheduleItem | null } } = {};
+    const matrix: { [key: string]: { [key: string]: ScheduleItem[] } } = {};
     
-    // Initialize empty matrix
     timeSlots.forEach(time => {
       matrix[time] = {};
       days.forEach(day => {
-        matrix[time][day] = null;
+        matrix[time][day] = [];
       });
     });
-
-    // Fill matrix with schedule items
+  
     schedule.forEach(item => {
       const time = item.time;
       if (timeSlots.includes(time)) {
-        matrix[time][item.day] = item;
+        matrix[time][item.day].push(item);
       }
     });
-
+  
     return matrix;
   }, [schedule, days, timeSlots]);
 
-  const Cell = ({ day, time }: { day: string; time: string }) => {
-    const item = scheduleMatrix[time][day];
+  const moveItem = (item: ScheduleItem, toDay: string, toTime: string) => {
+    setSchedule(prev => {
+      const newSchedule = [...prev];
+      
+      // Find the item being moved
+      const movingItemIndex = newSchedule.findIndex(scheduleItem => 
+        scheduleItem.teacher === item.teacher && 
+        scheduleItem.subject === item.subject && 
+        scheduleItem.day === item.day && 
+        scheduleItem.time === item.time
+      );
+  
+      // Find any existing item in the target cell
+      const targetItemIndex = newSchedule.findIndex(scheduleItem =>
+        scheduleItem.day === toDay &&
+        scheduleItem.time === toTime
+      );
+  
+      if (movingItemIndex === -1) return prev;
+  
+      if (targetItemIndex === -1) {
+        // If target cell is empty, update the item's position
+        newSchedule[movingItemIndex] = {
+          ...item,
+          day: toDay,
+          time: toTime
+        };
+      } else {
+        // If target cell has an item, swap their positions
+        const targetItem = newSchedule[targetItemIndex];
+        newSchedule[targetItemIndex] = {
+          ...item,
+          day: toDay,
+          time: toTime
+        };
+        newSchedule[movingItemIndex] = {
+          ...targetItem,
+          day: item.day,
+          time: item.time
+        };
+      }
+  
+      return newSchedule;
+    });
+  };
 
+  const DraggableCell = ({ item }: { item: ScheduleItem }) => {
+    const [{ isDragging }, dragRef] = useDrag<ScheduleItem, void, { isDragging: boolean }>(() => ({
+      type: 'scheduleItem',
+      item: item,
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging(),
+      }),
+    }));
+  
     return (
-      <div className={cn(
-        'h-20 border border-gray-200',
-        item ? 'bg-blue-50' : 'bg-white'
-      )}>
-        {item && (
-          <div className="p-2 text-sm">
-            <div className="font-medium">{item.subject}</div>
-            <div className="text-gray-600">{item.teacher}</div>
-            <div className="text-gray-500 text-xs">{item.classroom}</div>
-          </div>
+      <div
+        ref={(node) => dragRef(node)}
+        className={cn(
+          'p-1.5 text-xs cursor-move rounded-md border border-gray-200 bg-white shadow-sm',
+          'hover:shadow-md transition-shadow',
+          isDragging && 'opacity-50'
         )}
+      >
+        <div className="font-medium text-red-700">{item.subject}</div>
+        <div className="text-gray-600 text-[10px]">{item.teacher}</div>
+        <div className="text-gray-500 text-[10px]">{item.classroom}</div>
+      </div>
+    );
+  };
+  
+  const Cell = ({ day, time }: { day: string; time: string }) => {
+    const items = scheduleMatrix[time][day];
+  
+    const [{ isOver }, dropRef] = useDrop<ScheduleItem, void, { isOver: boolean }>(() => ({
+      accept: 'scheduleItem',
+      drop: (draggedItem) => moveItem(draggedItem, day, time),
+      collect: (monitor) => ({
+        isOver: monitor.isOver(),
+      }),
+    }));
+  
+    return (
+      <div
+        ref={(node) => dropRef(node)}
+        className={cn(
+          'h-20 border border-gray-200 p-1',
+          items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
+          isOver && 'bg-gray-100'
+        )}
+      >
+        <div className="flex flex-col gap-1.5 h-full">
+          {items.map((item, index) => (
+            <DraggableCell key={`${item.teacher}-${item.subject}-${index}`} item={item} />
+          ))}
+        </div>
       </div>
     );
   };
 
   return (
-    <main className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Horario General</h1>
-        <button
-          onClick={handleGenerateSchedule}
-          className="w-full bg-red-700 text-white px-4 py-2 rounded transition-colors"
-        >
-        Generar Horario
-      </button>
-      </div>
+    <DndProvider backend={HTML5Backend}>
+      <main className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Horario General</h1>
+          <button
+            onClick={handleGenerateSchedule}
+            className="w-full bg-red-700 text-white px-4 py-2 rounded transition-colors hover:bg-red-800"
+          >
+            Generar Horario
+          </button>
+        </div>
 
-      <div className="overflow-x-auto">
-        <div className="min-w-[800px]">
-          <div className="grid grid-cols-[100px_repeat(5,1fr)]">
-            <div className="h-10" />
-            {days.map((day) => (
-              <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
-                {day}
-              </div>
-            ))}
-
-            {timeSlots.map((time) => (
-              <React.Fragment key={time}>
-                <div className="h-20 flex items-center justify-end pr-2 text-sm text-muted-foreground">
-                  {time}
+        <div className="overflow-x-auto">
+          <div className="min-w-[800px]">
+            <div className="grid grid-cols-[100px_repeat(5,1fr)]">
+              <div className="h-10" />
+              {days.map((day) => (
+                <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
+                  {day}
                 </div>
-                {days.map((day) => (
-                  <Cell key={`${day}-${time}`} day={day} time={time} />
-                ))}
-              </React.Fragment>
-            ))}
+              ))}
+
+              {timeSlots.map((time) => (
+                <React.Fragment key={time}>
+                  <div className="h-20 flex items-center justify-end pr-2 text-sm text-muted-foreground">
+                    {time}
+                  </div>
+                  {days.map((day) => (
+                    <Cell key={`${day}-${time}`} day={day} time={time} />
+                  ))}
+                </React.Fragment>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </DndProvider>
   );
 }

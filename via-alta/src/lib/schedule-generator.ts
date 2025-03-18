@@ -18,9 +18,11 @@ export interface ScheduleItem {
   
     // Resources
     const teachers = [
-      { name: 'Profesor A', subject: 'Matemáticas', availability: ['Lunes', 'Miércoles'] },
-      { name: 'Profesor B', subject: 'Inglés', availability: ['Martes', 'Jueves'] },
-      { name: 'Profesor C', subject: 'Ciencias', availability: ['Lunes', 'Jueves'] },
+        { name: 'Profesor A', subject: 'Matemáticas', availability: ['Lunes', 'Miércoles', 'Viernes'] },
+        { name: 'Profesor B', subject: 'Inglés', availability: ['Martes', 'Jueves', 'Viernes'] },
+        { name: 'Profesor C', subject: 'Ciencias', availability: ['Lunes', 'Jueves', 'Viernes'] },
+        { name: 'Profesor D', subject: 'Historia', availability: ['Martes', 'Miércoles', 'Viernes'] },
+        { name: 'Profesor E', subject: 'Arte', availability: ['Lunes', 'Viernes'] },
     ];
   
     const classrooms = [
