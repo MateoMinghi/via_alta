@@ -4,9 +4,11 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { generateSchedule, ScheduleItem } from '../../../../lib/schedule-generator';
 import { cn } from '@/lib/utils';
+import { IndividualSubject } from '@/components/IndividualSubject';
 
 export default function Page() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<ScheduleItem | null>(null);
 
   async function handleGenerateSchedule() {
     const result = await generateSchedule();
@@ -85,7 +87,7 @@ export default function Page() {
     });
   };
 
-  const DraggableCell = ({ item }: { item: ScheduleItem }) => {
+  const DraggableCell = ({ item, heightClass }: { item: ScheduleItem; heightClass: string }) => {
     const [{ isDragging }, dragRef] = useDrag<ScheduleItem, void, { isDragging: boolean }>(() => ({
       type: 'scheduleItem',
       item: item,
@@ -96,16 +98,27 @@ export default function Page() {
   
     return (
       <div
-        ref={(node) => dragRef(node)}
+        ref={(node) => {
+          if (typeof dragRef === 'function') {
+            dragRef(node);
+          }
+        }}
         className={cn(
-          'p-1.5 text-xs cursor-move rounded-md border border-gray-200 bg-white shadow-sm',
-          'hover:shadow-md transition-shadow',
-          isDragging && 'opacity-50'
+          'p-1 text-xs cursor-pointer rounded-md border border-gray-200 bg-white shadow-sm',
+          'hover:shadow-md transition-shadow flex',
+          isDragging && 'opacity-50',
+          heightClass
         )}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedSubject(item);
+        }}
       >
-        <div className="font-medium text-red-700">{item.subject}</div>
-        <div className="text-gray-600 text-[10px]">{item.teacher}</div>
-        <div className="text-gray-500 text-[10px]">{item.classroom}</div>
+        <div className="flex-1 flex flex-col justify-between overflow-hidden">
+          <div className="font-medium text-red-700 truncate">{item.subject}</div>
+          <div className="text-[10px] text-gray-600 truncate">{item.teacher}</div>
+          <div className="text-[10px] text-gray-500 truncate">{item.classroom}</div>
+        </div>
       </div>
     );
   };
@@ -120,19 +133,36 @@ export default function Page() {
         isOver: monitor.isOver(),
       }),
     }));
+
+    // Calculate width class based on number of items
+    const getWidthClass = (total: number, index: number) => {
+      switch(total) {
+        case 1: return 'w-full';
+        case 2: return 'w-[calc(50%-2px)]';
+        case 3: return 'w-[calc(33.333%-2px)]';
+        default: return 'w-[calc(25%-2px)]';
+      }
+    };
   
     return (
       <div
-        ref={(node) => dropRef(node)}
+        ref={(node) => {
+          if (typeof dropRef === 'function') {
+            dropRef(node);
+          }
+        }}
         className={cn(
           'h-20 border border-gray-200 p-1',
           items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
           isOver && 'bg-gray-100'
-        )}
-      >
-        <div className="flex flex-col gap-1.5 h-full">
+        )}>
+        <div className="flex flex-row gap-0.5 h-full">
           {items.map((item, index) => (
-            <DraggableCell key={`${item.teacher}-${item.subject}-${index}`} item={item} />
+            <DraggableCell 
+              key={`${item.teacher}-${item.subject}-${index}`} 
+              item={item}
+              heightClass={getWidthClass(items.length, index)}
+            />
           ))}
         </div>
       </div>
@@ -175,6 +205,11 @@ export default function Page() {
             </div>
           </div>
         </div>
+        <IndividualSubject 
+          subject={selectedSubject}
+          isOpen={!!selectedSubject}
+          onClose={() => setSelectedSubject(null)}
+        />
       </main>
     </DndProvider>
   );
