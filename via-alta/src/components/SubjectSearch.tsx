@@ -11,6 +11,7 @@ interface Subject {
     salon: string;
     professor: string;
     credits: number;
+    semester: number; // Added semester property
     hours: { day: string; time: string }[];
 }
   interface SubjectsSearchProps {
@@ -89,6 +90,8 @@ export default function SubjectSearch({ subjects, onSubjectSelect }: SubjectsSea
                           •
                           {' '}
                           {subject.professor}
+                          {' '}
+                          • Semestre: {subject.semester}
                         </p>
                       </div>
                     </div>

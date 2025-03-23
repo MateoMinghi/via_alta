@@ -13,6 +13,7 @@ interface Subject {
   salon: string
   professor: string
   credits: number
+  semester: number // Added semester property
   hours: { day: string; time: string }[]
 }
 
@@ -79,10 +80,10 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   };
 
   return (
-    <div className="w-full pb-8 flex justify-between flex-col sm:flex-row">
-      <div className="hidden lg:block overflow-x-auto text-xs">
+    <div className="w-full pb-8 flex justify-between flex-col sm:flex-row gap-4">
+      <div className="hidden lg:block overflow-x-auto text-xs w-3/4">
         <p className="text-2xl font-bold">Vista de Horario</p>
-        <div className="min-w-[500px]">
+        <div className="min-w-[700px] w-full">
           <div className="grid grid-cols-[50px_repeat(5,1fr)] gap-1 mb-1">
             <div className="h-10" />
             {daysOfWeek.map((day) => (
@@ -158,7 +159,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         </div>
       </div>
 
-      <div className="w-full pl-8">
+      <div className="w-1/4 pl-4">
         <p className="text-2xl font-bold">Lista de Materias</p>
         <SubjectList subjects={subjects} />
         {selectedSubjects.length > 0 && (
@@ -167,9 +168,9 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
             <div className="space-y-2">
               {selectedSubjects.map((subject) => (
                 <Card key={subject.id} className="p-3 flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{subject.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                  <div className="overflow-hidden">
+                    <p className="font-medium truncate">{subject.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">
                       {subject.professor}
                       {' '}
                       •
@@ -182,7 +183,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
                     variant="ghost"
                     size="icon"
                     onClick={() => removeSelectedSubject(subject.id)}
-                    className="h-8 w-8 text-red-500"
+                    className="h-8 w-8 text-red-500 flex-shrink-0"
                   >
                     <X className="h-4 w-4" />
                   </Button>
