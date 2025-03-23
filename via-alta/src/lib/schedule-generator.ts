@@ -6,6 +6,7 @@ export interface ScheduleItem {
     time: string;
     endTime: string;
     classroom: string;
+    semester: number;
   }
   
 export async function generateSchedule(): Promise<ScheduleItem[]> {
@@ -19,11 +20,11 @@ export async function generateSchedule(): Promise<ScheduleItem[]> {
     
     // Resources
   const teachers = [
-      { name: 'Profesor A', subject: 'Matemáticas', availability: ['Lunes', 'Miércoles', 'Viernes'] },
-      { name: 'Profesor B', subject: 'Inglés', availability: ['Martes', 'Jueves', 'Viernes'] },
-      { name: 'Profesor C', subject: 'Ciencias', availability: ['Lunes', 'Jueves', 'Viernes'] },
-      { name: 'Profesor D', subject: 'Historia', availability: ['Martes', 'Miércoles', 'Viernes'] },
-      { name: 'Profesor E', subject: 'Arte', availability: ['Lunes', 'Viernes'] },
+      { name: 'Profesor A', subject: 'Matemáticas', availability: ['Lunes', 'Miércoles', 'Viernes'], semester: 1 },
+      { name: 'Profesor B', subject: 'Inglés', availability: ['Martes', 'Jueves', 'Viernes'], semester: 2 },
+      { name: 'Profesor C', subject: 'Ciencias', availability: ['Lunes', 'Jueves', 'Viernes'], semester: 3 },
+      { name: 'Profesor D', subject: 'Historia', availability: ['Martes', 'Miércoles', 'Viernes'], semester: 4 },
+      { name: 'Profesor E', subject: 'Arte', availability: ['Lunes', 'Viernes'], semester: 1 },
   ];
     
   const classrooms = [
@@ -78,9 +79,10 @@ export async function generateSchedule(): Promise<ScheduleItem[]> {
               subject: teacher.subject,
               day,
               time: timeSlot,
-              endTime: addOneHour(timeSlot), // classes last 1 hour
+              endTime: addOneHour(timeSlot),
               classroom: classroom.name,
-            });
+              semester: teacher.semester
+          });
     
             bookings.teachers.get(teacher.name)?.add(`${day}-${timeSlot}`);
             bookings.classrooms.get(classroom.name)?.add(`${day}-${timeSlot}`);

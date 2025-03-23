@@ -1,6 +1,6 @@
 "use client";
 // Importaciones necesarias para el componente
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { generateSchedule, ScheduleItem } from '../../../../lib/schedule-generator';
@@ -11,19 +11,73 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+
+// Constantes para localStorage
+const SCHEDULE_STORAGE_KEY = 'via-alta-schedule';
+const LAST_SAVED_KEY = 'via-alta-schedule-last-saved';
 
 export default function Page() {
   // Estado para almacenar el horario y la materia seleccionada
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<ScheduleItem | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [newClass, setNewClass] = useState({
     teacher: '',
     subject: '',
     day: 'Lunes',
     time: '07:00',
     classroom: '',
+    semester: 1, // Add default semester
   });
+
+  // Cargar el horario guardado cuando el componente se monta
+  useEffect(() => {
+    loadScheduleFromStorage();
+  }, []);
+
+  // Removing the automatic save that was here
+
+  /**
+   * Carga el horario desde localStorage
+   */
+  const loadScheduleFromStorage = () => {
+    try {
+      const savedSchedule = localStorage.getItem(SCHEDULE_STORAGE_KEY);
+      const savedTimestamp = localStorage.getItem(LAST_SAVED_KEY);
+      
+      if (savedSchedule) {
+        const parsedSchedule = JSON.parse(savedSchedule) as ScheduleItem[];
+        setSchedule(parsedSchedule);
+        
+        if (savedTimestamp) {
+          setLastSaved(new Date(savedTimestamp).toLocaleString());
+        }
+        
+        toast.success('Horario cargado correctamente');
+      }
+    } catch (error) {
+      console.error('Error al cargar el horario:', error);
+      toast.error('No se pudo cargar el horario guardado');
+    }
+  };
+
+  /**
+   * Guarda el horario en localStorage
+   */
+  const saveScheduleToStorage = () => {
+    try {
+      const now = new Date();
+      localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(schedule));
+      localStorage.setItem(LAST_SAVED_KEY, now.toISOString());
+      setLastSaved(now.toLocaleString());
+      toast.success('Horario guardado correctamente');
+    } catch (error) {
+      console.error('Error al guardar el horario:', error);
+      toast.error('No se pudo guardar el horario');
+    }
+  };
 
   /**
    * Genera un nuevo horario utilizando el generador de horarios
@@ -32,6 +86,7 @@ export default function Page() {
   async function handleGenerateSchedule() {
     const result = await generateSchedule();
     setSchedule(result);
+    toast.success('Horario generado correctamente');
   }
 
   // Definición de días y horarios disponibles
@@ -241,20 +296,34 @@ export default function Page() {
       <main className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Horario General</h1>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => setIsAddDialogOpen(true)}
-              variant="outline"
-              className="bg-red-700 text-white hover:bg-red-800"
-            >
-              Agregar Clase
-            </Button>
-            <Button
-              onClick={handleGenerateSchedule}
-              className="bg-red-700 text-white hover:bg-red-800"
-            >
-              Generar Horario
-            </Button>
+          <div className="flex items-center gap-4">
+            {lastSaved && (
+              <div className="text-sm text-muted-foreground">
+                Último guardado: {lastSaved}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                onClick={saveScheduleToStorage}
+                variant="outline"
+                className="border-red-700 text-red-700 hover:bg-red-50"
+              >
+                Guardar Horario
+              </Button>
+              <Button
+                onClick={() => setIsAddDialogOpen(true)}
+                variant="outline"
+                className="bg-red-700 text-white hover:bg-red-800"
+              >
+                Agregar Clase
+              </Button>
+              <Button
+                onClick={handleGenerateSchedule}
+                className="bg-red-700 text-white hover:bg-red-800"
+              >
+                Generar Horario
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -285,6 +354,34 @@ export default function Page() {
           subject={selectedSubject}
           isOpen={!!selectedSubject}
           onClose={() => setSelectedSubject(null)}
+          onUpdate={(updatedSubject, originalSubject) => {
+            setSchedule(prev => {
+              const newSchedule = [...prev];
+              const index = newSchedule.findIndex(item => 
+                item.teacher === originalSubject.teacher && 
+                item.subject === originalSubject.subject && 
+                item.day === originalSubject.day && 
+                item.time === originalSubject.time
+              );
+              
+              if (index !== -1) {
+                newSchedule[index] = updatedSubject;
+              }
+              
+              return newSchedule;
+            });
+            setSelectedSubject(null);
+          }}
+          onDelete={(subjectToDelete) => {
+            setSchedule(prev => 
+              prev.filter(item => 
+                !(item.teacher === subjectToDelete.teacher && 
+                  item.subject === subjectToDelete.subject && 
+                  item.day === subjectToDelete.day && 
+                  item.time === subjectToDelete.time)
+              )
+            );
+          }}
         />
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -346,6 +443,19 @@ export default function Page() {
                   className="col-span-3"
                 />
               </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="semester" className="text-right">Semestre</Label>
+                <Select value={newClass.semester.toString()} onValueChange={(value) => setNewClass({ ...newClass, semester: parseInt(value) })}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1,2,3,4,5,6,7,8].map((sem) => (
+                      <SelectItem key={sem} value={sem.toString()}>{`Semestre ${sem}`}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -367,6 +477,7 @@ export default function Page() {
                   day: 'Lunes',
                   time: '07:00',
                   classroom: '',
+                  semester: 1,
                 });
               }}>
                 Agregar
