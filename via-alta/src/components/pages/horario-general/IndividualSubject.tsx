@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../ui/dialog"
 import { ScheduleItem } from "@/lib/schedule-generator"
 
 interface IndividualSubjectProps {
@@ -27,7 +27,7 @@ export function IndividualSubject({ subject, isOpen, onClose }: IndividualSubjec
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <div className="font-semibold">Hora:</div>
-            <div className="col-span-3">{subject.time}</div>
+            <div className="col-span-3">{subject.time} - {subject.endTime} </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <div className="font-semibold">Salón:</div>

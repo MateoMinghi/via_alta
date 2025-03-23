@@ -5,12 +5,25 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { generateSchedule, ScheduleItem } from '../../../../lib/schedule-generator';
 import { cn } from '@/lib/utils';
-import { IndividualSubject } from '@/components/IndividualSubject';
+import { IndividualSubject } from '@/components/pages/horario-general/IndividualSubject';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function Page() {
   // Estado para almacenar el horario y la materia seleccionada
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<ScheduleItem | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newClass, setNewClass] = useState({
+    teacher: '',
+    subject: '',
+    day: 'Lunes',
+    time: '07:00',
+    classroom: '',
+  });
 
   /**
    * Genera un nuevo horario utilizando el generador de horarios
@@ -228,12 +241,21 @@ export default function Page() {
       <main className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Horario General</h1>
-          <button
-            onClick={handleGenerateSchedule}
-            className="w-full bg-red-700 text-white px-4 py-2 rounded transition-colors hover:bg-red-800"
-          >
-            Generar Horario
-          </button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setIsAddDialogOpen(true)}
+              variant="outline"
+              className="bg-red-700 text-white hover:bg-red-800"
+            >
+              Agregar Clase
+            </Button>
+            <Button
+              onClick={handleGenerateSchedule}
+              className="bg-red-700 text-white hover:bg-red-800"
+            >
+              Generar Horario
+            </Button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -264,6 +286,94 @@ export default function Page() {
           isOpen={!!selectedSubject}
           onClose={() => setSelectedSubject(null)}
         />
+
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Agregar Nueva Clase</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="teacher" className="text-right">Profesor</Label>
+                <Input
+                  id="teacher"
+                  value={newClass.teacher}
+                  onChange={(e) => setNewClass({ ...newClass, teacher: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="subject" className="text-right">Materia</Label>
+                <Input
+                  id="subject"
+                  value={newClass.subject}
+                  onChange={(e) => setNewClass({ ...newClass, subject: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="day" className="text-right">Día</Label>
+                <Select value={newClass.day} onValueChange={(value) => setNewClass({ ...newClass, day: value })}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {days.map((day) => (
+                      <SelectItem key={day} value={day}>{day}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="time" className="text-right">Hora</Label>
+                <Select value={newClass.time} onValueChange={(value) => setNewClass({ ...newClass, time: value })}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeSlots.map((time) => (
+                      <SelectItem key={time} value={time}>{time}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="classroom" className="text-right">Salón</Label>
+                <Input
+                  id="classroom"
+                  value={newClass.classroom}
+                  onChange={(e) => setNewClass({ ...newClass, classroom: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={() => {
+                const endTime = new Date(`2000-01-01T${newClass.time}`);
+                endTime.setHours(endTime.getHours() + 1);
+                const endTimeStr = endTime.toTimeString().substring(0, 5);
+                
+                setSchedule([...schedule, {
+                  ...newClass,
+                  endTime: endTimeStr
+                }]);
+                setIsAddDialogOpen(false);
+                setNewClass({
+                  teacher: '',
+                  subject: '',
+                  day: 'Lunes',
+                  time: '07:00',
+                  classroom: '',
+                });
+              }}>
+                Agregar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </DndProvider>
   );
