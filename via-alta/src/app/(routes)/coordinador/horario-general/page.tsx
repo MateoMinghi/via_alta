@@ -23,14 +23,24 @@ export default function Page() {
 
   // Definición de días y horarios disponibles
   const days = useMemo(() => ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'], []);
-  const timeSlots = useMemo(() => [
-    '07:00', '08:00', '09:00', '10:00', '11:00',
-    '12:00', '13:00', '14:00', '15:00', '16:00'
-  ], []);
+  const timeSlots = useMemo(() => {
+    const slots = [];
+    for (let i = 7; i <= 16; i++) {
+      slots.push(`${String(i).padStart(2, '0')}:00`);
+      slots.push(`${String(i).padStart(2, '0')}:30`);
+    }
+    return slots;
+  }, []);
+
+  // Helper functions to work with half-hour increments
+  const timeToMinutes = (time: string): number => {
+    const [hour, minute] = time.split(':').map(Number);
+    return hour * 60 + minute;
+  };
 
   /**
-   * Crea una matriz bidimensional que representa el horario
-   * @returns {Object} Matriz con estructura [hora][día] conteniendo las materias
+   * Crea una matriz bidimensional que representa el horario.
+   * Solo se agrega la materia en la celda en que inicia.
    */
   const scheduleMatrix = useMemo(() => {
     const matrix: { [key: string]: { [key: string]: ScheduleItem[] } } = {};
@@ -41,17 +51,33 @@ export default function Page() {
         matrix[time][day] = [];
       });
     });
-  
+    
+    // Helper functions to work with half-hour increments
+    const timeToMinutes = (time: string): number => {
+      const [hour, minute] = time.split(':').map(Number);
+      return hour * 60 + minute;
+    };
+
+    const minutesToTime = (minutes: number): string => {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+    
     schedule.forEach(item => {
-      const time = item.time;
-      if (timeSlots.includes(time)) {
-        matrix[time][item.day].push(item);
+      const start = timeToMinutes(item.time);
+      const end = timeToMinutes(item.endTime);
+      // Iterate in 30-minute steps so that a 1-hour class spans two cells
+      for (let t = start; t < end; t += 30) {
+        const slot = minutesToTime(t);
+        if (timeSlots.includes(slot)) {
+          matrix[slot][item.day].push(item);
+        }
       }
     });
-  
+
     return matrix;
   }, [schedule, days, timeSlots]);
-
   /**
    * Mueve una materia de una posición a otra en el horario
    * @param {ScheduleItem} item - La materia a mover
@@ -115,6 +141,9 @@ export default function Page() {
       }),
     }));
   
+    // Calculate duration in half-hour slots
+    const durationSpan = Math.ceil((timeToMinutes(item.endTime) - timeToMinutes(item.time)) / 30);
+  
     return (
       <div
         ref={(node) => {
@@ -122,9 +151,12 @@ export default function Page() {
             dragRef(node);
           }
         }}
+        style={{ 
+          gridRow: `span ${durationSpan}`
+        }}
         className={cn(
           'p-1 text-xs cursor-pointer rounded-md border border-gray-200 bg-white shadow-sm',
-          'hover:shadow-md transition-shadow flex',
+          'hover:shadow-md transition-shadow flex justify-center items-center',
           isDragging && 'opacity-50',
           heightClass
         )}
@@ -133,10 +165,8 @@ export default function Page() {
           setSelectedSubject(item);
         }}
       >
-        <div className="flex-1 flex flex-col justify-between overflow-hidden">
-          <div className="font-medium text-red-700 truncate">{item.subject}</div>
-          <div className="text-[10px] text-gray-600 truncate">{item.teacher}</div>
-          <div className="text-[10px] text-gray-500 truncate">{item.classroom}</div>
+        <div className="truncate font-medium text-red-700">
+          {item.subject}
         </div>
       </div>
     );
@@ -175,7 +205,7 @@ export default function Page() {
           }
         }}
         className={cn(
-          'h-20 border border-gray-200 p-1',
+          'border border-gray-200 p-1 relative',
           items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
           isOver && 'bg-gray-100'
         )}>
@@ -208,7 +238,7 @@ export default function Page() {
 
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">
-            <div className="grid grid-cols-[100px_repeat(5,1fr)]">
+            <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
               <div className="h-10" />
               {days.map((day) => (
                 <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
@@ -218,7 +248,7 @@ export default function Page() {
 
               {timeSlots.map((time) => (
                 <React.Fragment key={time}>
-                  <div className="h-20 flex items-center justify-end pr-2 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-end pr-2 text-sm text-muted-foreground">
                     {time}
                   </div>
                   {days.map((day) => (
