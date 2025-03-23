@@ -1,3 +1,4 @@
+// Componente principal para la gestión del horario general
 "use client";
 // Importaciones necesarias para el componente
 import React, { useState, useMemo, useEffect } from 'react';
@@ -13,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
-// Constantes para localStorage
+// Claves para almacenamiento local
 const SCHEDULE_STORAGE_KEY = 'via-alta-schedule';
 const LAST_SAVED_KEY = 'via-alta-schedule-last-saved';
 
@@ -23,6 +24,7 @@ export default function Page() {
   const [selectedSubject, setSelectedSubject] = useState<ScheduleItem | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+  // Estado para nueva clase
   const [newClass, setNewClass] = useState({
     teacher: '',
     subject: '',
@@ -100,7 +102,7 @@ export default function Page() {
     return slots;
   }, []);
 
-  // Helper functions to work with half-hour increments
+  // Funciones auxiliares para trabajar con incrementos de media hora
   const timeToMinutes = (time: string): number => {
     const [hour, minute] = time.split(':').map(Number);
     return hour * 60 + minute;

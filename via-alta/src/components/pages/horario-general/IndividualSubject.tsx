@@ -1,3 +1,4 @@
+// Componente para mostrar y editar los detalles de una materia individual
 "use client";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../ui/dialog";
@@ -26,10 +27,10 @@ export function IndividualSubject({
   const [editedSubject, setEditedSubject] = useState<ScheduleItem | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Array of available days
+  // Arreglo de días disponibles
   const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
   
-  // Generate time slots (7:00 to 16:30 in half-hour increments)
+  // Genera horarios disponibles (7:00 a 16:30 en incrementos de media hora)
   const timeSlots = (() => {
     const slots = [];
     for (let i = 7; i <= 16; i++) {
@@ -39,7 +40,7 @@ export function IndividualSubject({
     return slots;
   })();
 
-  // Update the edited subject when the subject prop changes
+  // Actualiza la materia editada cuando cambia la materia seleccionada
   useEffect(() => {
     if (subject) {
       setEditedSubject({...subject});
@@ -54,7 +55,7 @@ export function IndividualSubject({
   const handleSave = () => {
     if (!editedSubject) return;
     
-    // Calculate end time (1 hour after start time)
+    // Calcula la hora de finalización (1 hora después del inicio)
     const calculateEndTime = (time: string): string => {
       const [hours, minutes] = time.split(':').map(Number);
       const date = new Date();
