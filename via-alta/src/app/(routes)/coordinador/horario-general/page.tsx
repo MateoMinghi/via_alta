@@ -248,7 +248,7 @@ export default function Page() {
 
               {timeSlots.map((time) => (
                 <React.Fragment key={time}>
-                  <div className="flex items-center justify-end pr-2 text-sm text-muted-foreground">
+                  <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
                     {time}
                   </div>
                   {days.map((day) => (
