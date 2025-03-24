@@ -212,8 +212,12 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
       });
     });
   
-    const allDisplaySubjects = subjects;
-
+    // Combine subjects and selectedSubjects (avoid duplicates)
+    const allDisplaySubjects = [
+      ...selectedSubjects,
+      ...subjects.filter(s => !selectedSubjects.some(ss => ss.id === s.id))
+    ];
+  
     allDisplaySubjects.forEach(subject => {
       if (!subject?.hours) return;
       subject.hours.forEach(hour => {
@@ -231,7 +235,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         }
       });
     });
-
+  
     return matrix;
   }, [subjects, selectedSubjects]);
 
