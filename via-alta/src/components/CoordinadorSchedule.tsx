@@ -12,22 +12,22 @@ import SubjectSearch from './SubjectSearch';
 import { toast } from 'sonner';
 
 interface Subject {
-  id: number
-  title: string
-  salon: string
-  professor: string
-  credits: number
-  semester: number
-  hours: { day: string; time: string }[]
+  id: number;
+  title: string;
+  salon: string;
+  professor: string;
+  credits: number;
+  semester: number;
+  hours: { day: string; time: string }[];
 }
 
 interface SubjectsProps {
-  subjects: Subject[]
+  subjects: Subject[];
 }
 
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 const timeSlots = [
-  '7:00', '7:30', '8:00', '8:30', '9:00', '9:30', '10:00', '10:30',
+  '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00',
   '14:30', '15:00', '15:30', '16:00'
 ];
@@ -44,6 +44,10 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
 
   useEffect(() => {
     setAllSubjects(subjects);
+  }, [subjects]);
+
+  useEffect(() => {
+    setSelectedSubjects(subjects);
   }, [subjects]);
 
   // Check for last saved timestamp
@@ -136,40 +140,67 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     setActiveDayIndex(newIndex);
   };
 
+  function normalizeDay(day: string): string {
+    switch (day.toLowerCase()) {
+      case 'monday':
+      case 'Lun':
+      case 'lun': 
+        return 'Lunes';
+      case 'tuesday':
+      case 'Mar':
+        return 'Martes';
+      case 'wednesday':
+      case 'Mié':
+        return 'Miércoles';
+      case 'thursday':
+      case 'Jue':
+        return 'Jueves';
+      case 'friday':
+      case 'Vie':
+        return 'Viernes';    
+      default:
+        return day;
+    }
+  }
+
+  function timeToMinutes(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  }
+  
+  function minutesToTime(minutes: number): string {
+    const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+    const mm = String(minutes % 60).padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
+
   // Create a matrix representation of the schedule
   const scheduleMatrix = useMemo(() => {
     const matrix: { [key: string]: { [key: string]: Subject[] } } = {};
-    
+  
     timeSlots.forEach(time => {
       matrix[time] = {};
       daysOfWeek.forEach(day => {
         matrix[time][day] = [];
       });
     });
-    
-    const allDisplaySubjects = [
-      ...subjects,
-      ...selectedSubjects.filter(selected => !subjects.some(s => s.id === selected.id)),
-    ];
+  
+    const allDisplaySubjects = subjects;
 
     allDisplaySubjects.forEach(subject => {
-      // Skip if subject or hours is undefined
-      if (!subject || !subject.hours) {
-        console.warn('Invalid subject found:', subject);
-        return;
-      }
-
+      if (!subject?.hours) return;
       subject.hours.forEach(hour => {
-        // Skip if hour is invalid
-        if (!hour || !hour.time || !hour.day) {
-          console.warn('Invalid hour found in subject:', subject.id, hour);
-          return;
-        }
-
-        const time = hour.time;
-        const day = hour.day;
-        if (matrix[time] && matrix[time][day]) {
-          matrix[time][day].push(subject);
+        if (!hour?.time || !hour.day) return;
+        const normalizedDay = normalizeDay(hour.day);
+        const endTime = addOneHour(hour.time);
+        const start = timeToMinutes(hour.time);
+        const end = timeToMinutes(endTime);
+  
+        for (let t = start; t < end; t += 30) {
+          const slot = minutesToTime(t);
+          if (matrix[slot]?.[normalizedDay]) {
+            matrix[slot][normalizedDay].push(subject);
+          }
         }
       });
     });
@@ -200,7 +231,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   };
 
   // Draggable cell component
-  const DraggableCell = ({ subject }: { subject: Subject }) => {
+  const DraggableCell = ({ subject, widthClass }: { subject: Subject; widthClass?: string }) => {
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'subject',
       item: subject,
@@ -219,7 +250,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         className={cn(
           'p-1 text-xs cursor-pointer rounded-md border border-gray-200 bg-white shadow-sm h-full',
           'hover:shadow-md transition-shadow flex justify-center items-center',
-          isDragging && 'opacity-50'
+          isDragging && 'opacity-50',
+          widthClass
         )}
         onClick={() => setSelectedSubject(subject)}
       >
@@ -243,6 +275,16 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
       }),
     }));
 
+    // Calculate width class based on number of items in the cell
+    const getWidthClass = (total: number, index: number) => {
+      switch(total) {
+        case 1: return 'w-full';
+        case 2: return 'w-[calc(50%-2px)]';
+        case 3: return 'w-[calc(33.333%-2px)]';
+        default: return 'w-[calc(25%-2px)]';
+      }
+    };
+
     return (
       <div
         ref={(node) => {
@@ -256,11 +298,12 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
           isOver && 'bg-gray-100'
         )}
       >
-        <div className="flex flex-col gap-0.5 h-full">
+        <div className="flex flex-row gap-0.5 h-full">
           {items.map((item, index) => (
             <DraggableCell 
               key={`${item.professor}-${item.title}-${index}`} 
               subject={item}
+              widthClass={getWidthClass(items.length, index)}
             />
           ))}
         </div>
