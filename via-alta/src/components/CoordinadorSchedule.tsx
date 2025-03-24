@@ -32,20 +32,7 @@ const timeSlots = [
   '14:30', '15:00', '15:30', '16:00'
 ];
 
-// Convert times to minutes for calculations
-const timeToMinutes = (time: string): number => {
-  const [hour, minute] = time.split(':').map(Number);
-  return hour * 60 + minute;
-};
-
-const minutesToTime = (minutes: number): string => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-};
-
-// Storage keys for schedule persistence
-const SCHEDULE_STORAGE_KEY = 'via-alta-schedule';
+const GENERAL_SCHEDULE_KEY = 'via-alta-schedule';
 const LAST_SAVED_KEY = 'via-alta-schedule-last-saved';
 
 export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
@@ -56,38 +43,55 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
   useEffect(() => {
-    loadScheduleFromStorage();
-  }, []);
-
-  useEffect(() => {
     setAllSubjects(subjects);
   }, [subjects]);
 
-  const loadScheduleFromStorage = () => {
+  // Check for last saved timestamp
+  useEffect(() => {
     try {
-      const savedSchedule = localStorage.getItem(SCHEDULE_STORAGE_KEY);
       const savedTimestamp = localStorage.getItem(LAST_SAVED_KEY);
-      
-      if (savedSchedule) {
-        const parsedSchedule = JSON.parse(savedSchedule) as Subject[];
-        setSelectedSubjects(parsedSchedule);
-        
-        if (savedTimestamp) {
-          setLastSaved(new Date(savedTimestamp).toLocaleString());
-        }
-        
-        toast.success('Horario cargado correctamente');
+      if (savedTimestamp) {
+        setLastSaved(new Date(savedTimestamp).toLocaleString());
       }
     } catch (error) {
-      console.error('Error al cargar el horario:', error);
-      toast.error('No se pudo cargar el horario guardado');
+      console.error('Error al cargar el timestamp:', error);
     }
-  };
+  }, []);
 
   const saveScheduleToStorage = () => {
     try {
       const now = new Date();
-      localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(selectedSubjects));
+      
+      // Convert Subject format back to general schedule format for storage
+      const scheduleItems = [...subjects, ...selectedSubjects.filter(
+        selected => !subjects.some(s => s.id === selected.id)
+      )].map(subject => {
+        return subject.hours.map(hour => ({
+          teacher: subject.professor,
+          subject: subject.title,
+          classroom: subject.salon,
+          semester: subject.semester,
+          day: hour.day,
+          time: hour.time,
+          endTime: addOneHour(hour.time),
+          credits: subject.credits || 0
+        }));
+      }).flat();
+      
+      // Get existing schedule data
+      const existingDataStr = localStorage.getItem(GENERAL_SCHEDULE_KEY);
+      let existingData = existingDataStr ? JSON.parse(existingDataStr) : [];
+      
+      // Filter out items for current semester (to avoid duplicates)
+      const currentSemester = subjects.length > 0 ? subjects[0].semester : null;
+      if (currentSemester !== null) {
+        existingData = existingData.filter((item: any) => item.semester !== currentSemester);
+      }
+      
+      // Combine with new data
+      const combinedData = [...existingData, ...scheduleItems];
+      
+      localStorage.setItem(GENERAL_SCHEDULE_KEY, JSON.stringify(combinedData));
       localStorage.setItem(LAST_SAVED_KEY, now.toISOString());
       setLastSaved(now.toLocaleString());
       toast.success('Horario guardado correctamente');
@@ -95,6 +99,15 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
       console.error('Error al guardar el horario:', error);
       toast.error('No se pudo guardar el horario');
     }
+  };
+
+  // Helper function to add one hour to a time string
+  const addOneHour = (time: string): string => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    date.setHours(date.getHours() + 1);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
   const handleSubjectSelect = (subject: Subject) => {
@@ -110,7 +123,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   const findSubject = (day: string, time: string) => {
     const allDisplaySubjects = [
       ...subjects,
-      ...selectedSubjects.filter((selected) => !subjects.some((s) => s.id === selected.id)),
+      ...selectedSubjects.filter(selected => !subjects.some(s => s.id === selected.id)),
     ];
 
     return allDisplaySubjects.find((subject) => subject.hours.some(
@@ -136,7 +149,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     
     const allDisplaySubjects = [
       ...subjects,
-      ...selectedSubjects.filter((selected) => !subjects.some((s) => s.id === selected.id)),
+      ...selectedSubjects.filter(selected => !subjects.some(s => s.id === selected.id)),
     ];
 
     allDisplaySubjects.forEach(subject => {
@@ -182,6 +195,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
       return s;
     });
     setSelectedSubjects(updatedSubjects);
+    
+    toast.success(`Moved ${subject.title} to ${toDay} at ${toTime}`);
   };
 
   // Draggable cell component
@@ -222,7 +237,6 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
       accept: 'subject',
       drop: (item: Subject) => {
         moveSubject(item, day, time);
-        toast.success(`Moved ${item.title} to ${day} at ${time}`);
       },
       collect: (monitor) => ({
         isOver: monitor.isOver(),
@@ -256,7 +270,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="w-full pb-8 flex justify-between flex-col sm:flex-row gap-4">
+      <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
         <div className="overflow-x-auto flex-1">
           <div className="flex items-center justify-between mb-4">
             <p className="text-2xl font-bold">Vista de Horario</p>
@@ -298,31 +312,36 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
           </div>
         </div>
 
-        <div className="w-1/4 pl-4">
+        <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
           <p className="text-2xl font-bold">Lista de Materias</p>
           <SubjectList subjects={subjects} />
           {selectedSubjects.length > 0 && (
             <div className="mt-4 mb-4">
               <p className="text-lg font-semibold mb-2">Materias Seleccionadas</p>
               <div className="space-y-2">
-              {selectedSubjects.map((subject, index) => (
-                  <Card key={`${subject.id}-${index}`} className="p-3 flex justify-between items-center">
-                      <div className="overflow-hidden">
-                          <p className="font-medium truncate">{subject.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                              {subject.professor} • {subject.credits} créditos
-                          </p>
-                      </div>
-                      <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeSelectedSubject(subject.id)}
-                          className="h-8 w-8 text-red-500 flex-shrink-0"
-                      >
-                          <X className="h-4 w-4" />
-                      </Button>
+                {selectedSubjects.map((subject) => (
+                  <Card key={subject.id} className="p-3 flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">{subject.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {subject.professor}
+                        {' '}
+                        •
+                        {subject.credits}
+                        {' '}
+                        créditos
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSelectedSubject(subject.id)}
+                      className="h-8 w-8 text-red-500"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </Card>
-              ))}
+                ))}
               </div>
             </div>
           )}

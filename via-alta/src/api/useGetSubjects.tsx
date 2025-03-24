@@ -6,142 +6,68 @@ type Subject = {
     professor: string;
     credits: number;
     salon: string;
-    semester: number; // Add semester property
+    semester: number;
     hours: { day: string; time: string }[];
 };
 
-const subjects: Subject[] = [
-    {
-        id: 129,
-        title: 'Matemáticas',
-        professor: 'Dr. John Doe',
-        credits: 3,
-        salon: 'A101',
-        semester: 1, // First semester subject
-        hours: [
-            { day: 'Lunes', time: '10:00' },
-            { day: 'Lunes', time: '11:00' },
-            { day: 'Miércoles', time: '10:00' },
-        ],
-    },
-    {
-        id: 202,
-        title: 'Historia',
-        professor: 'Dr. Jane Doe',
-        credits: 9,
-        salon: 'B202',
-        semester: 1, // First semester subject
-        hours: [
-            { day: 'Martes', time: '14:00' },
-            { day: 'Jueves', time: '14:00' },
-            { day: 'Viernes', time: '10:00' },
-        ],
-    },
-    {
-        id: 401,
-        title: 'Literatura',
-        professor: 'Dr. Emily Bronte',
-        credits: 4,
-        salon: 'C303',
-        semester: 2, // Second semester subject
-        hours: [
-            { day: 'Lunes', time: '08:00' },
-            { day: 'Miércoles', time: '08:00' },
-        ],
-    },
-    {
-        id: 502,
-        title: 'Física',
-        professor: 'Dr. Albert Einstein',
-        credits: 5,
-        salon: 'D404',
-        semester: 2, // Second semester subject
-        hours: [
-            { day: 'Martes', time: '10:00' },
-            { day: 'Jueves', time: '10:00' },
-            { day: 'Viernes', time: '08:00' },
-        ],
-    },
-    {
-        id: 603,
-        title: 'Química',
-        professor: 'Dr. Marie Curie',
-        credits: 4,
-        salon: 'E505',
-        semester: 3, // Third semester subject
-        hours: [
-            { day: 'Lunes', time: '14:00' },
-            { day: 'Miércoles', time: '14:00' },
-        ],
-    },
-    {
-        id: 704,
-        title: 'Filosofía',
-        professor: 'Dr. Sócrates',
-        credits: 3,
-        salon: 'F606',
-        semester: 3, // Third semester subject
-        hours: [
-            { day: 'Martes', time: '08:00' },
-            { day: 'Jueves', time: '08:00' },
-        ],
-    },
-    {
-        id: 805,
-        title: 'Arte',
-        professor: 'Dr. Leonardo da Vinci',
-        credits: 2,
-        salon: 'G707',
-        semester: 4, // Fourth semester subject
-        hours: [
-            { day: 'Viernes', time: '16:00' },
-        ],
-    },
-    {
-        id: 906,
-        title: 'Ciencias de la Computación',
-        professor: 'Dr. Alan Turing',
-        credits: 6,
-        salon: 'H808',
-        semester: 4, // Fourth semester subject
-        hours: [
-            { day: 'Lunes', time: '18:00' },
-            { day: 'Miércoles', time: '18:00' },
-            { day: 'Viernes', time: '12:00' },
-        ],
-    },
-    {
-        id: 9346,
-        title: 'Coordinación de eventos de moda',
-        professor: 'Dr. Alan Turing',
-        credits: 6,
-        salon: 'I909',
-        semester: 5, // Fifth semester subject
-        hours: [
-            { day: 'Lunes', time: '8:00' },
-            { day: 'Miércoles', time: '8:00' },
-            { day: 'Viernes', time: '8:00' },
-        ],
-    },
-];
+const GENERAL_SCHEDULE_KEY = 'via-alta-schedule';
 
 export function useGetSubjects() {
     const [result, setResult] = useState<Subject[] | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const [error, setError] = useState<string>('');
 
     useEffect(() => {
-        setLoading(true);
         try {
-            setTimeout(() => {
+            // Get data from general schedule storage
+            const savedSchedule = localStorage.getItem(GENERAL_SCHEDULE_KEY);
+            if (savedSchedule) {
+                const generalSchedule = JSON.parse(savedSchedule);
+                
+                // Create a map to group classes by their unique identifiers
+                const subjectMap = new Map();
+                
+                generalSchedule.forEach((item: any) => {
+                    // Create a unique key for each subject
+                    const key = `${item.subject}-${item.teacher}-${item.semester}`;
+                    
+                    if (!subjectMap.has(key)) {
+                        // Create new subject entry
+                        subjectMap.set(key, {
+                            id: Math.random(), // Generate temporary id
+                            title: item.subject,
+                            professor: item.teacher,
+                            credits: item.credits || 0,
+                            salon: item.classroom,
+                            semester: item.semester,
+                            hours: [{
+                                day: item.day,
+                                time: item.time
+                            }]
+                        });
+                    } else {
+                        // Add new hour to existing subject
+                        const subject = subjectMap.get(key);
+                        subject.hours.push({
+                            day: item.day,
+                            time: item.time
+                        });
+                    }
+                });
+                
+                // Convert map to array
+                const subjects: Subject[] = Array.from(subjectMap.values());
                 setResult(subjects);
-                setLoading(false);
-            }, 1000);
-        } catch (error: any) {
-            setError(error.message);
+            } else {
+                setResult([]);
+            }
+            setLoading(false);
+        } catch (err: any) {
+            console.error('Error loading subjects:', err);
+            setError(err?.message || 'An error occurred');
             setLoading(false);
         }
     }, []);
 
-    return { loading, result, error };
+    return { result, loading, error };
 }
