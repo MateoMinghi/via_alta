@@ -3,7 +3,7 @@
 import React from 'react';
 import { Button } from '../ui/button';
 import StudentSchedule from '../EstudianteSchedule';
-import { useGetSubjects } from '@/api/useGetSubjects';
+import { useGetSubjects } from '@/api/getSubjects';
 import { ResponseType } from "@/types/response";
 
 export default function Estudiante() {

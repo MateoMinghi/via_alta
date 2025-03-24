@@ -5,7 +5,7 @@ import { Save } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { Button } from '../ui/button';
 import CoordinadorSchedule from '../CoordinadorSchedule';
-import { useGetSubjects } from '@/api/useGetSubjects';
+import { useGetSubjects } from '@/api/getSubjects';
 import { ResponseType } from "@/types/response";
 import { toast } from 'sonner';
 

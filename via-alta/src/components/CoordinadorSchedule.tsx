@@ -12,6 +12,8 @@ import SubjectSearch from './SubjectSearch';
 import { toast } from 'sonner';
 import { IndividualSubject } from '@/components/pages/horario-general/IndividualSubject';
 
+// Define la interfaz para una materia
+// Una materia incluye id, título, salón, profesor, créditos, semestre y horarios
 interface Subject {
   id: number;
   title: string;
@@ -22,10 +24,13 @@ interface Subject {
   hours: { day: string; time: string }[];
 }
 
+// Define las propiedades que recibe el componente CoordinadorSchedule
+// Recibe un arreglo de materias (subjects)
 interface SubjectsProps {
   subjects: Subject[];
 }
 
+// Constantes para los días de la semana y los intervalos de tiempo
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 const timeSlots = [
   '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
@@ -33,16 +38,21 @@ const timeSlots = [
   '14:30', '15:00', '15:30', '16:00'
 ];
 
+// Claves para el almacenamiento local del horario general y la última vez que se guardó
 const GENERAL_SCHEDULE_KEY = 'via-alta-schedule';
 const LAST_SAVED_KEY = 'via-alta-schedule-last-saved';
 
+// Componente principal para gestionar el horario del coordinador
+// Recibe las materias como parámetro y permite visualizarlas, seleccionarlas y moverlas
 export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
+  // Estados para manejar el día activo, todas las materias, materias seleccionadas, materia seleccionada y última vez guardada
   const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [allSubjects, setAllSubjects] = useState<Subject[]>(subjects);
   const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
+  // Efecto para inicializar las materias al montar el componente
   useEffect(() => {
     setAllSubjects(subjects);
   }, [subjects]);
@@ -51,7 +61,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     setSelectedSubjects(subjects);
   }, [subjects]);
 
-  // Check for last saved timestamp
+  // Efecto para cargar el timestamp de la última vez que se guardó el horario
   useEffect(() => {
     try {
       const savedTimestamp = localStorage.getItem(LAST_SAVED_KEY);
@@ -63,6 +73,9 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     }
   }, []);
 
+  // Función para guardar el horario en el almacenamiento local
+  // Convierte el formato de las materias al formato general y lo almacena
+  // También actualiza el timestamp de la última vez guardada
   const saveScheduleToStorage = () => {
     try {
       const now = new Date();
@@ -106,7 +119,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     }
   };
 
-  // Helper function to add one hour to a time string
+  // Función auxiliar para sumar una hora a un string de tiempo
+  // Recibe un string de tiempo en formato HH:mm y retorna el tiempo incrementado en una hora
   const addOneHour = (time: string): string => {
     const [hours, minutes] = time.split(':').map(Number);
     const date = new Date();
@@ -115,16 +129,22 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
+  // Función para manejar la selección de una materia
+  // Agrega la materia seleccionada al estado de materias seleccionadas si no está ya incluida
   const handleSubjectSelect = (subject: Subject) => {
     if (!selectedSubjects.some((s) => s.id === subject.id)) {
       setSelectedSubjects([...selectedSubjects, subject]);
     }
   };
 
+  // Función para eliminar una materia seleccionada
+  // Filtra la materia por su id y actualiza el estado
   const removeSelectedSubject = (subjectId: number) => {
     setSelectedSubjects(selectedSubjects.filter((s) => s.id !== subjectId));
   };
 
+  // Función para encontrar una materia en un día y hora específicos
+  // Busca en todas las materias y materias seleccionadas
   const findSubject = (day: string, time: string) => {
     const allDisplaySubjects = [
       ...subjects,
@@ -136,11 +156,15 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     ));
   };
 
+  // Función para navegar entre los días de la semana
+  // Cambia el índice del día activo
   const navigateDay = (direction: number) => {
     const newIndex = (activeDayIndex + direction + daysOfWeek.length) % daysOfWeek.length;
     setActiveDayIndex(newIndex);
   };
 
+  // Función para normalizar los nombres de los días
+  // Convierte nombres en inglés o abreviados al formato completo en español
   function normalizeDay(day: string): string {
     switch (day.toLowerCase()) {
       case 'monday':
@@ -164,6 +188,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     }
   }
 
+  // Funciones auxiliares para convertir tiempo a minutos y viceversa
   function timeToMinutes(time: string): number {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
@@ -175,7 +200,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     return `${hh}:${mm}`;
   }
 
-  // Create a matrix representation of the schedule
+  // Crea una representación matricial del horario
+  // Agrupa las materias por día y hora en una estructura de matriz
   const scheduleMatrix = useMemo(() => {
     const matrix: { [key: string]: { [key: string]: Subject[] } } = {};
   
@@ -209,6 +235,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     return matrix;
   }, [subjects, selectedSubjects]);
 
+  // Función para mover una materia a un nuevo día y hora
+  // Actualiza el estado de las materias seleccionadas y muestra un mensaje de éxito
   const moveSubject = (subject: Subject, toDay: string, toTime: string) => {
     const updatedSubjects = selectedSubjects.map(s => {
       if (s.id === subject.id) {
@@ -231,7 +259,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     toast.success(`Moved ${subject.title} to ${toDay} at ${toTime}`);
   };
 
-  // Draggable cell component
+  // Componente para celdas arrastrables
+  // Permite arrastrar materias dentro del horario
   const DraggableCell = ({ subject, widthClass }: { subject: Subject; widthClass?: string }) => {
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'subject',
@@ -263,7 +292,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     );
   };
 
-  // Droppable cell component
+  // Componente para celdas dropeables
+  // Permite soltar materias en un día y hora específicos
   const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time][day];
     const [{ isOver }, dropRef] = useDrop(() => ({
@@ -313,6 +343,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   };
 
   return (
+    // Renderiza el horario, lista de materias y funcionalidades de arrastrar y soltar
+    // Incluye botones para guardar el horario y mostrar la última vez guardada
     <DndProvider backend={HTML5Backend}>
       <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
         <div className="overflow-x-auto flex-1">
