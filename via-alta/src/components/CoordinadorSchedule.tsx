@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import SubjectList from './SubjectList';
 import SubjectSearch from './SubjectSearch';
 import { toast } from 'sonner';
+import { IndividualSubject } from '@/components/pages/horario-general/IndividualSubject';
 
 interface Subject {
   id: number;
@@ -392,6 +393,27 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
           <SubjectSearch subjects={allSubjects} onSubjectSelect={handleSubjectSelect} />
         </div>
       </div>
+
+      {/* Render the IndividualSubject dialog when a subject on the grid is clicked */}
+      {selectedSubject && (
+        <IndividualSubject
+          subject={selectedSubject}
+          isOpen={!!selectedSubject}
+          onClose={() => setSelectedSubject(null)}
+          onUpdate={(updatedSubject, originalSubject) => {
+            setSelectedSubjects(prev =>
+              prev.map(s => s.id === originalSubject.id ? updatedSubject : s)
+            );
+            setSelectedSubject(null);
+          }}
+          onDelete={(subjectToDelete) => {
+            setSelectedSubjects(prev =>
+              prev.filter(s => s.id !== subjectToDelete.id)
+            );
+            setSelectedSubject(null);
+          }}
+        />
+      )}
     </DndProvider>
   );
 }
