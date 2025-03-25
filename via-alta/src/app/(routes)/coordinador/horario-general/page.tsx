@@ -95,7 +95,7 @@ export default function Page() {
   const days = useMemo(() => ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'], []);
   const timeSlots = useMemo(() => {
     const slots = [];
-    for (let i = 7; i <= 16; i++) {
+    for (let i = 7; i <= 16; i++) {  
       slots.push(`${String(i).padStart(2, '0')}:00`);
       slots.push(`${String(i).padStart(2, '0')}:30`);
     }
@@ -106,6 +106,12 @@ export default function Page() {
   const timeToMinutes = (time: string): number => {
     const [hour, minute] = time.split(':').map(Number);
     return hour * 60 + minute;
+  };
+
+  const minutesToTime = (minutes: number): string => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
   /**
@@ -174,11 +180,22 @@ export default function Page() {
       // If no item found, do nothing
       if (movingIndex === -1) return prev;
   
-      // Update the found item with the new day and time
+      // Calculate the duration of the class in minutes
+      const duration = timeToMinutes(item.endTime) - timeToMinutes(item.time);
+      
+      // Calculate the new end time based on the destination time + original duration
+      const toTimeMinutes = timeToMinutes(toTime);
+      const newEndTimeMinutes = toTimeMinutes + duration;
+      
+      // Convert back to string format HH:MM
+      const newEndTime = minutesToTime(newEndTimeMinutes);
+  
+      // Update the found item with the new day, time and end time
       newSchedule[movingIndex] = {
         ...newSchedule[movingIndex],
         day: toDay,
-        time: toTime
+        time: toTime,
+        endTime: newEndTime
       };
   
       return newSchedule;
