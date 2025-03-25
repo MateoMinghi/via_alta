@@ -201,6 +201,18 @@ export default function Page() {
     });
   };
 
+  // ESTO SE VA A TENER QUE CAMBIAR CUANDO TENGAMOS LAS MATERIAS DE LA API
+  const getSubjectColor = (subject: ScheduleItem): string => {
+    const subjectColors: { [key: string]: string } = {
+        'Matemáticas': 'text-blue-500',
+        'Inglés': 'text-green-500',
+        'Ciencias': 'text-yellow-500',
+        'Historia': 'text-purple-500',
+        'Arte': 'text-pink-500',
+    };
+    return subjectColors[subject.subject] || 'text-red-700';
+};
+
   // Componente para una celda que se puede arrastrar
   const DraggableCell = ({ item, heightClass }: { item: ScheduleItem; heightClass: string }) => {
     const [{ isDragging }, dragRef] = useDrag<ScheduleItem, void, { isDragging: boolean }>(() => ({
@@ -210,10 +222,9 @@ export default function Page() {
         isDragging: monitor.isDragging(),
       }),
     }));
-  
-    // Calculate duration in half-hour slots
+
     const durationSpan = Math.ceil((timeToMinutes(item.endTime) - timeToMinutes(item.time)) / 30);
-  
+
     return (
       <div
         ref={(node) => {
@@ -235,12 +246,12 @@ export default function Page() {
           setSelectedSubject(item);
         }}
       >
-        <div className="truncate font-medium text-red-700">
+        <div className={cn('truncate font-medium', getSubjectColor(item))}>
           {item.subject}
         </div>
       </div>
     );
-  };
+};
   
   /**
    * Componente que representa una celda del horario

@@ -263,6 +263,17 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     toast.success(`Moved ${subject.title} to ${toDay} at ${toTime}`);
   };
 
+  const getSubjectColor = (subjectTitle: string): string => {
+    const subjectColors: { [key: string]: string } = {
+        'Matemáticas': 'text-blue-500',
+        'Inglés': 'text-green-500',
+        'Ciencias': 'text-yellow-500',
+        'Historia': 'text-purple-500',
+        'Arte': 'text-pink-500',
+    };
+    return subjectColors[subjectTitle] || 'text-red-700'; // default color
+};
+
   // Componente para celdas arrastrables
   // Permite arrastrar materias dentro del horario
   const DraggableCell = ({ subject, widthClass }: { subject: Subject; widthClass?: string }) => {
@@ -289,12 +300,12 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         )}
         onClick={() => setSelectedSubject(subject)}
       >
-        <div className="truncate font-medium text-red-700">
+        <div className={cn('truncate font-medium', getSubjectColor(subject.title))}>
           {subject.title}
         </div>
       </div>
     );
-  };
+};
 
   // Componente para celdas dropeables
   // Permite soltar materias en un día y hora específicos
