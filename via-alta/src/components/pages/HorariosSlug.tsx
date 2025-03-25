@@ -25,11 +25,11 @@ export default function HorariosSlug() {
         <Button variant="outline" className="w-full bg-red-700 text-white">
           Limpiar
         </Button>
+      </div>
         <Button className="w-full">
           <Save />
           Guardar
         </Button>
-      </div>
     </div>
   );
 }
