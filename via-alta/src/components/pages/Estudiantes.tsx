@@ -26,7 +26,7 @@ export default function Estudiantes() {
       </div>
       <div className="my-4">
         <Link href='coordinador\turnos\'>
-        <button className="bg-via bg-green-800 text-white font-bold py-2 px-4 rounded-lg">Generar Turnos de Inscripción</button>
+        <button className="bg-green-800 text-white font-bold py-2 px-4 rounded-lg">Generar Turnos de Inscripción</button>
         </Link>
       </div>
       <div>
