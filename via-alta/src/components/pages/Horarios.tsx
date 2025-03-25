@@ -1,11 +1,15 @@
 'use client';
 
+//importaciones
+
 import React from 'react';
 import SemesterGrid from '../SemesterGrid';
 import StudentSearch from '../StudentSearch';
 import { useGetStudents } from '@/api/useGetStudents';
 import { ResponseType } from "@/types/response";
 
+
+//interfaces
 interface Student {
   id: string;
   name: string;
@@ -18,6 +22,7 @@ interface Semester {
   numberStudents: number;
 }
 
+//componente
 export default function HorariosSlug() {
   const { result, loading }: ResponseType = useGetStudents();
 
@@ -28,6 +33,7 @@ export default function HorariosSlug() {
     }, {})
   ).map(([id, numberStudents]) => ({ id, numberStudents: numberStudents as number })) : [];
 
+  //retorno
   return (
     <div className="text-center">
       {loading && <p>cargando...</p>}
@@ -35,8 +41,12 @@ export default function HorariosSlug() {
         <>
           <p className="font-bold text-2xl">Horarios de Alumnos Irregulares:</p>
           <StudentSearch students={result} />
+
           <p className="font-bold text-2xl">Horarios Generales:</p>
           <SemesterGrid semesters={semesters} />
+
+
+
         </>
       )}
     </div>
