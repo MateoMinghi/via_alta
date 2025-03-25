@@ -30,6 +30,12 @@ interface SubjectsProps {
   subjects: Subject[];
 }
 
+interface DraggableCellProps {
+  subject: Subject;
+  occurrence: { day: string; time: string };
+  widthClass?: string;
+}
+
 // Constantes para los días de la semana y los intervalos de tiempo
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 const timeSlots = [
@@ -241,26 +247,29 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
 
   // Función para mover una materia a un nuevo día y hora
   // Actualiza el estado de las materias seleccionadas y muestra un mensaje de éxito
-  const moveSubject = (subject: Subject, toDay: string, toTime: string) => {
+  const moveSubject = (
+    dragItem: { subject: Subject; occurrence: { day: string; time: string } },
+    toDay: string,
+    toTime: string
+  ) => {
+    const { subject, occurrence } = dragItem;
     const updatedSubjects = selectedSubjects.map(s => {
       if (s.id === subject.id) {
-        // Update the hours array of the subject
         return {
           ...s,
-          hours: s.hours.map(hour => {
-            // Update the matching hour to the new day and time
-            if (hour.day === subject.hours[0].day && hour.time === subject.hours[0].time) {
-              return { day: toDay, time: toTime };
-            }
-            return hour;
-          })
+          hours: s.hours.map(hour =>
+            // update only the hour that matches the occurrence from the drag item
+            (hour.day.toLowerCase() === occurrence.day.toLowerCase() && hour.time === occurrence.time)
+              ? { day: toDay, time: toTime }
+              : hour
+          )
         };
       }
       return s;
     });
     setSelectedSubjects(updatedSubjects);
     
-    toast.success(`Moved ${subject.title} to ${toDay} at ${toTime}`);
+    toast.success(`Moved ${subject.title} from ${occurrence.day} ${occurrence.time} to ${toDay} at ${toTime}`);
   };
 
   const getSubjectColor = (subjectTitle: string): string => {
@@ -276,10 +285,11 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
 
   // Componente para celdas arrastrables
   // Permite arrastrar materias dentro del horario
-  const DraggableCell = ({ subject, widthClass }: { subject: Subject; widthClass?: string }) => {
+  const DraggableCell = ({ subject, occurrence, widthClass }: DraggableCellProps) => {
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'subject',
-      item: subject,
+      // send both the subject and the occurrence details for this cell
+      item: { subject, occurrence },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
@@ -304,8 +314,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
           {subject.title}
         </div>
       </div>
-    );
-};
+    );  
+  };
 
   // Componente para celdas dropeables
   // Permite soltar materias en un día y hora específicos
@@ -313,8 +323,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     const items = scheduleMatrix[time][day];
     const [{ isOver }, dropRef] = useDrop(() => ({
       accept: 'subject',
-      drop: (item: Subject) => {
-        moveSubject(item, day, time);
+      drop: (dragItem: { subject: Subject; occurrence: { day: string; time: string } }) => {
+        moveSubject(dragItem, day, time);
       },
       collect: (monitor) => ({
         isOver: monitor.isOver(),
@@ -330,7 +340,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         default: return 'w-[calc(25%-2px)]';
       }
     };
-
+  
     return (
       <div
         ref={(node) => {
@@ -347,8 +357,9 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         <div className="flex flex-row gap-0.5 h-full">
           {items.map((item, index) => (
             <DraggableCell 
-              key={`${item.professor}-${item.title}-${index}`} 
+              key={`${item.professor}-${item.title}-${index}`}
               subject={item}
+              occurrence={{ day, time }} // pass the cell's day/time as the occurrence
               widthClass={getWidthClass(items.length, index)}
             />
           ))}
