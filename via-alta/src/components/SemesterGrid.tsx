@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -26,6 +27,11 @@ export default function SemesterGrid({ semesters }: SemesterGridProps) {
 
   return (
     <>
+      <Link href="/coordinador/horario-general">
+        <Button variant="botonGrande" className=" bg-green-800 text-white mt-8">
+          Generar Horarios
+        </Button>
+      </Link>
       {semesters.map((semester) => (
         <Card key={semester.id} className="flex flex-col items-center my-8">
           <CardHeader className="flex flex-row justify-between w-full">

@@ -19,6 +19,7 @@ const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
         // New nav variant for the active/inactive states
         nav: 'text-foreground hover:bg-accent hover:text-accent-foreground',
+        botonGrande: 'text-[120%] hover:none w-auto px-0',
       },
       size: {
         default: 'h-10 px-4 py-2',
@@ -36,6 +37,7 @@ const buttonVariants = cva(
       size: 'default',
       isActive: false,
     },
+    
   },
 );
 

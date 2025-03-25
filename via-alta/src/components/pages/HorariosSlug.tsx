@@ -96,6 +96,7 @@ export default function HorariosSlug() {
       <p className="text-3xl font-bold mb-4">
         Horario del Semestre {semesterNum}
       </p>
+<<<<<<< HEAD
       {filteredSubjects.length > 0 ? (
         <CoordinadorSchedule subjects={filteredSubjects} />
       ) : (
@@ -108,8 +109,20 @@ export default function HorariosSlug() {
           onClick={handleClearView}
         >
           Limpiar Vista
+=======
+      {loading && <p>cargando...</p>}
+      {result !== null &&
+   (   <CoordinadorSchedule subjects={result} />)}
+      <div className="flex justify-between mt-8 gap-4 text-white">
+        <Button variant="outline" className="w-full bg-red-700 text-white">
+          Limpiar
         </Button>
       </div>
+        <Button className="w-full">
+          <Save />
+          Guardar
+>>>>>>> turnos
+        </Button>
     </div>
   );
 }
