@@ -155,47 +155,31 @@ export default function Page() {
    * @param {string} toTime - Hora destino
    * @returns {void}
    */
-  const moveItem = (item: ScheduleItem, toDay: string, toTime: string) => {
+  const moveItem = (
+    dragItem: { item: ScheduleItem; occurrence: { day: string; time: string } },
+    toDay: string,
+    toTime: string
+  ) => {
+    const { item, occurrence } = dragItem;
     setSchedule(prev => {
       const newSchedule = [...prev];
-      
-      // Find the item being moved
-      const movingItemIndex = newSchedule.findIndex(scheduleItem => 
-        scheduleItem.teacher === item.teacher && 
-        scheduleItem.subject === item.subject && 
-        scheduleItem.day === item.day && 
-        scheduleItem.time === item.time
+      // Find the schedule item that exactly started at the dragged occurrence
+      const movingIndex = newSchedule.findIndex(scheduleItem =>
+        scheduleItem.teacher === item.teacher &&
+        scheduleItem.subject === item.subject &&
+        scheduleItem.day === occurrence.day &&
+        scheduleItem.time === occurrence.time
       );
   
-      // Find any existing item in the target cell
-      const targetItemIndex = newSchedule.findIndex(scheduleItem =>
-        scheduleItem.day === toDay &&
-        scheduleItem.time === toTime
-      );
+      // If no item found, do nothing
+      if (movingIndex === -1) return prev;
   
-      if (movingItemIndex === -1) return prev;
-  
-      if (targetItemIndex === -1) {
-        // If target cell is empty, update the item's position
-        newSchedule[movingItemIndex] = {
-          ...item,
-          day: toDay,
-          time: toTime
-        };
-      } else {
-        // If target cell has an item, swap their positions
-        const targetItem = newSchedule[targetItemIndex];
-        newSchedule[targetItemIndex] = {
-          ...item,
-          day: toDay,
-          time: toTime
-        };
-        newSchedule[movingItemIndex] = {
-          ...targetItem,
-          day: item.day,
-          time: item.time
-        };
-      }
+      // Update the found item with the new day and time
+      newSchedule[movingIndex] = {
+        ...newSchedule[movingIndex],
+        day: toDay,
+        time: toTime
+      };
   
       return newSchedule;
     });
@@ -214,29 +198,21 @@ export default function Page() {
 };
 
   // Componente para una celda que se puede arrastrar
-  const DraggableCell = ({ item, heightClass }: { item: ScheduleItem; heightClass: string }) => {
-    const [{ isDragging }, dragRef] = useDrag<ScheduleItem, void, { isDragging: boolean }>(() => ({
+  const DraggableCell = ({ item, heightClass, occurrence }: 
+    { item: ScheduleItem; heightClass: string; occurrence: { day: string; time: string } }) => {
+    const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'scheduleItem',
-      item: item,
+      item: { item, occurrence },
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
     }));
-
-    const durationSpan = Math.ceil((timeToMinutes(item.endTime) - timeToMinutes(item.time)) / 30);
-
+  
     return (
       <div
-        ref={(node) => {
-          if (typeof dragRef === 'function') {
-            dragRef(node);
-          }
-        }}
-        style={{ 
-          gridRow: `span ${durationSpan}`
-        }}
+        ref={(node) => { if (typeof dragRef === 'function') dragRef(node); }}
         className={cn(
-          'p-1 text-xs cursor-pointer rounded-md border border-gray-200 bg-white shadow-sm',
+          'p-1 text-xs cursor-pointer rounded-md border border-gray-200 bg-white shadow-sm h-full',
           'hover:shadow-md transition-shadow flex justify-center items-center',
           isDragging && 'opacity-50',
           heightClass
@@ -251,24 +227,26 @@ export default function Page() {
         </div>
       </div>
     );
-};
+  };
   
   /**
    * Componente que representa una celda del horario
    * Permite soltar elementos arrastrables y gestiona la visualización de materias
    */
+  // Inside the Cell component, replace the items.map with a filter on the starting time:
   const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time][day];
-  
-    const [{ isOver }, dropRef] = useDrop<ScheduleItem, void, { isOver: boolean }>(() => ({
+    
+    const [{ isOver }, dropRef] = useDrop(() => ({
       accept: 'scheduleItem',
-      drop: (draggedItem) => moveItem(draggedItem, day, time),
+      drop: (dragItem: { item: ScheduleItem; occurrence: { day: string; time: string } }) => {
+        moveItem(dragItem, day, time);
+      },
       collect: (monitor) => ({
         isOver: monitor.isOver(),
       }),
     }));
-
-    // Calculate width class based on number of items
+  
     const getWidthClass = (total: number, index: number) => {
       switch(total) {
         case 1: return 'w-full';
@@ -280,21 +258,20 @@ export default function Page() {
   
     return (
       <div
-        ref={(node) => {
-          if (typeof dropRef === 'function') {
-            dropRef(node);
-          }
-        }}
+        ref={(node) => { if (typeof dropRef === 'function') dropRef(node); }}
         className={cn(
-          'border border-gray-200 p-1 relative',
+          'border border-gray-200 p-1 relative h-full',
           items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
           isOver && 'bg-gray-100'
-        )}>
+        )}
+      >
         <div className="flex flex-row gap-0.5 h-full">
+          {/* Remove the .filter() and render all items in this cell */}
           {items.map((item, index) => (
             <DraggableCell 
               key={`${item.teacher}-${item.subject}-${index}`} 
               item={item}
+              occurrence={{ day, time }}
               heightClass={getWidthClass(items.length, index)}
             />
           ))}
