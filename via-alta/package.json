@@ -11,7 +11,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:schedule": "jest schedule-generator",
-    "test:horario-semestre": "jest horario-semestre.integration HorariosSlug CoordinadorSchedule"
+    "test:horario-semestre": "jest horario-semestre.integration HorariosSlug CoordinadorSchedule",
+    "test:confirmacion": "jest estudiante-confirmacion useConfirmSchedule.integration confirmacion-page"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",
