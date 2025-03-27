@@ -28,12 +28,34 @@ interface Teacher {
   subject: string;
   availability: DayAvailability[];
   semester: number;
+  credits: number;
+  hoursProfessor: number | null;
+  hoursIndependent: number | null;
+  facilities: string | null;
 }
 
 // Define classroom structure
 interface Classroom {
   name: string;
   availability: string[];
+}
+
+// Define course structure to match the JSON format
+interface Course {
+  id: number;
+  name: string;
+  sep_id: string;
+  credits: string;
+  sep_credits: string;
+  hours_professor: number | null;
+  hours_independent: number | null;
+  facilities: string | null;
+  plans_courses: {
+    id: number;
+    plan_id: number;
+    course_id: number;
+    semester: number;
+  }[];
 }
 
 export async function generateSchedule(): Promise<ScheduleItem[]> {
@@ -44,66 +66,124 @@ export async function generateSchedule(): Promise<ScheduleItem[]> {
     const start = `${hour.toString().padStart(2, '0')}:00`;
     timeSlots.push(start);
   }
+  
+  // Carga los cursos desde el JSON
+  const coursesData = {
+    "data": [
+      {"id":308,"name":"Teoría para accesorios","sep_id":"1V4EGJ","credits":"5.0","sep_credits":"5.0","hours_professor":32,"hours_independent":48,"facilities":"L, T","plans_courses":[{"id":206,"plan_id":7,"course_id":308,"semester":2}]},
+      {"id":309,"name":"Taller de diseño","sep_id":"I49GIT","credits":"7.0","sep_credits":"7.0","hours_professor":45,"hours_independent":31,"facilities":"L","plans_courses":[{"id":207,"plan_id":7,"course_id":309,"semester":3}]},
+      {"id":310,"name":"Técnicas para prendas básicas","sep_id":"SSGLJQ","credits":"6.0","sep_credits":"6.0","hours_professor":35,"hours_independent":40,"facilities":"A, L","plans_courses":[{"id":208,"plan_id":7,"course_id":310,"semester":4}]},
+      {"id":311,"name":"Confección para prendas básicas","sep_id":"R6WICO","credits":"7.0","sep_credits":"7.0","hours_professor":44,"hours_independent":40,"facilities":"L, T","plans_courses":[{"id":209,"plan_id":7,"course_id":311,"semester":5}]},
+      {"id":312,"name":"Técnicas de prendas femeninas","sep_id":"R1464D","credits":"6.0","sep_credits":"6.0","hours_professor":46,"hours_independent":42,"facilities":"A, T","plans_courses":[{"id":210,"plan_id":7,"course_id":312,"semester":6}]},
+      {"id":313,"name":"Taller para prendas infantiles","sep_id":"SP8VAV","credits":"8.0","sep_credits":"8.0","hours_professor":35,"hours_independent":46,"facilities":"A, L","plans_courses":[{"id":211,"plan_id":7,"course_id":313,"semester":7}]},
+      {"id":314,"name":"Patronaje de prendas masculinas","sep_id":"6VZQOD","credits":"6.0","sep_credits":"6.0","hours_professor":47,"hours_independent":37,"facilities":"L, T","plans_courses":[{"id":212,"plan_id":7,"course_id":314,"semester":8}]},
+      {"id":315,"name":"Teoría para joyería","sep_id":"MWX2CR","credits":"9.0","sep_credits":"9.0","hours_professor":37,"hours_independent":37,"facilities":"T","plans_courses":[{"id":213,"plan_id":7,"course_id":315,"semester":1}]},
+      {"id":316,"name":"Patronaje de color","sep_id":"SIXRC9","credits":"8.0","sep_credits":"8.0","hours_professor":35,"hours_independent":46,"facilities":"T","plans_courses":[{"id":214,"plan_id":7,"course_id":316,"semester":2}]},
+      {"id":317,"name":"Confección de prendas infantiles","sep_id":"IB20IE","credits":"5.0","sep_credits":"5.0","hours_professor":31,"hours_independent":48,"facilities":"A, T","plans_courses":[{"id":215,"plan_id":7,"course_id":317,"semester":3}]},
+      {"id":318,"name":"Diseño de textiles","sep_id":"UXR2AB","credits":"9.0","sep_credits":"9.0","hours_professor":35,"hours_independent":48,"facilities":"T","plans_courses":[{"id":216,"plan_id":7,"course_id":318,"semester":4}]},
+      {"id":319,"name":"Herramientas para lencería","sep_id":"1JDACX","credits":"5.0","sep_credits":"5.0","hours_professor":36,"hours_independent":36,"facilities":"L","plans_courses":[{"id":217,"plan_id":7,"course_id":319,"semester":5}]},
+      {"id":320,"name":"Confección de prendas masculinas","sep_id":"N37B4X","credits":"6.0","sep_credits":"6.0","hours_professor":30,"hours_independent":38,"facilities":"A, L","plans_courses":[{"id":218,"plan_id":7,"course_id":320,"semester":6}]}
+    ]
+  };
+  
+  // Crear profesores basados en los cursos
+  const teachers: Teacher[] = coursesData.data.map((course: Course) => {
+    // Generar disponibilidad aleatoria para cada profesor/curso
+    const availability: DayAvailability[] = generateRandomAvailability(days);
+    const semester = course.plans_courses[0]?.semester || 1;
     
-  // Recursos disponibles para generar el horario con franjas de tiempo detalladas
-  const teachers: Teacher[] = [
-    { 
-      name: 'Profesor A', 
-      subject: 'Matemáticas', 
-      availability: [
-        { day: 'Lunes', timeFrames: [{ start: '07:00', end: '12:00' }] },
-        { day: 'Miércoles', timeFrames: [{ start: '08:00', end: '15:00' }] },
-        { day: 'Viernes', timeFrames: [{ start: '07:00', end: '11:00' }] }
-      ], 
-      semester: 1 
-    },
-    { 
-      name: 'Profesor B', 
-      subject: 'Inglés', 
-      availability: [
-        { day: 'Martes', timeFrames: [{ start: '07:00', end: '10:00' }, { start: '12:00', end: '15:00' }] },
-        { day: 'Jueves', timeFrames: [{ start: '09:00', end: '14:00' }] },
-        { day: 'Viernes', timeFrames: [{ start: '10:00', end: '13:00' }] }
-      ], 
-      semester: 2 
-    },
-    { 
-      name: 'Profesor C', 
-      subject: 'Ciencias', 
-      availability: [
-        { day: 'Lunes', timeFrames: [{ start: '08:00', end: '13:00' }] },
-        { day: 'Jueves', timeFrames: [{ start: '07:00', end: '12:00' }] },
-        { day: 'Viernes', timeFrames: [{ start: '11:00', end: '15:00' }] }
-      ], 
-      semester: 3 
-    },
-    { 
-      name: 'Profesor D', 
-      subject: 'Historia', 
-      availability: [
-        { day: 'Martes', timeFrames: [{ start: '10:00', end: '15:00' }] },
-        { day: 'Miércoles', timeFrames: [{ start: '07:00', end: '11:00' }] },
-        { day: 'Viernes', timeFrames: [{ start: '12:00', end: '15:00' }] }
-      ], 
-      semester: 4 
-    },
-    { 
-      name: 'Profesor E', 
-      subject: 'Arte', 
-      availability: [
-        { day: 'Lunes', timeFrames: [{ start: '11:00', end: '15:00' }] },
-        { day: 'Viernes', timeFrames: [{ start: '08:00', end: '12:00' }] }
-      ], 
-      semester: 1 
-    },
-  ];
+    return {
+      name: `Profesor ${course.id}`, // Generar un nombre basado en el ID del curso
+      subject: course.name,
+      availability,
+      semester,
+      credits: parseFloat(course.credits),
+      hoursProfessor: course.hours_professor,
+      hoursIndependent: course.hours_independent,
+      facilities: course.facilities
+    };
+  });
+  
+  // Función para generar disponibilidad aleatoria
+  function generateRandomAvailability(days: string[]): DayAvailability[] {
+    // Seleccionar un número aleatorio de días (entre 2 y 4)
+    const numDays = Math.floor(Math.random() * 3) + 2;
+    const shuffledDays = shuffleArray([...days]);
+    const selectedDays = shuffledDays.slice(0, numDays);
     
-  const classrooms: Classroom[] = [
-    { name: 'Aula 101', availability: days },
-    { name: 'Aula 102', availability: ['Lunes', 'Miércoles', 'Viernes'] },
-    { name: 'Aula 103', availability: ['Martes', 'Jueves'] },
-  ];
+    return selectedDays.map(day => {
+      // Generar 1 o 2 franjas de tiempo para cada día
+      const numTimeFrames = Math.random() > 0.6 ? 2 : 1;
+      const timeFrames: TimeFrame[] = [];
+      
+      if (numTimeFrames === 1) {
+        // Una franja larga
+        const startHour = Math.floor(Math.random() * 5) + 7; // Entre 7 y 11
+        const duration = Math.floor(Math.random() * 4) + 3; // Entre 3 y 6 horas
+        const endHour = Math.min(startHour + duration, 15);
+        
+        timeFrames.push({
+          start: `${startHour.toString().padStart(2, '0')}:00`,
+          end: `${endHour.toString().padStart(2, '0')}:00`
+        });
+      } else {
+        // Dos franjas separadas
+        const firstStartHour = Math.floor(Math.random() * 3) + 7; // Entre 7 y 9
+        const firstEndHour = firstStartHour + Math.floor(Math.random() * 2) + 2; // Entre 2 y 3 horas después
+        
+        const secondStartHour = firstEndHour + 1; // Al menos 1 hora después
+        const secondEndHour = Math.min(secondStartHour + Math.floor(Math.random() * 2) + 2, 15); // Entre 2 y 3 horas
+        
+        timeFrames.push({
+          start: `${firstStartHour.toString().padStart(2, '0')}:00`,
+          end: `${firstEndHour.toString().padStart(2, '0')}:00`
+        });
+        
+        if (secondStartHour < 15) {
+          timeFrames.push({
+            start: `${secondStartHour.toString().padStart(2, '0')}:00`,
+            end: `${secondEndHour.toString().padStart(2, '0')}:00`
+          });
+        }
+      }
+      
+      return { day, timeFrames };
+    });
+  }
     
+  // Generar aulas basadas en los requisitos de instalaciones de los cursos
+  const uniqueFacilities = new Set<string>();
+  coursesData.data.forEach(course => {
+    if (course.facilities) {
+      course.facilities.split(',').map(f => f.trim()).forEach(f => uniqueFacilities.add(f));
+    }
+  });
+  
+  // Asegurarnos de tener al menos aulas básicas
+  uniqueFacilities.add('Aula');
+  
+  // Crear aulas basadas en los tipos de instalaciones requeridas
+  const classrooms: Classroom[] = [];
+  uniqueFacilities.forEach((facility, index) => {
+    classrooms.push({
+      name: `${facility} ${101 + index}`,
+      availability: days
+    });
+    
+    // Agregar algunas aulas con disponibilidad limitada
+    if (index % 2 === 0) {
+      classrooms.push({
+        name: `${facility} ${201 + index}`,
+        availability: ['Lunes', 'Miércoles', 'Viernes']
+      });
+    } else {
+      classrooms.push({
+        name: `${facility} ${301 + index}`,
+        availability: ['Martes', 'Jueves']
+      });
+    }
+  });
+  
   const schedule: ScheduleItem[] = [];
   
   // Sistema de registro de ocupación para profesores y aulas
@@ -148,6 +228,17 @@ export async function generateSchedule(): Promise<ScheduleItem[]> {
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
   };
+  
+  // Función para verificar si un aula es compatible con los requisitos de instalaciones
+  const isClassroomCompatible = (classroom: Classroom, teacherFacilities: string | null): boolean => {
+    if (!teacherFacilities) return true;
+    
+    const requiredFacilities = teacherFacilities.split(',').map(f => f.trim());
+    // Verificar si el nombre del aula contiene alguna de las instalaciones requeridas
+    return requiredFacilities.some(facility => 
+      classroom.name.includes(facility) || classroom.name.includes('Aula')
+    );
+  };
     
   // Generación del horario
   days.forEach(day => {
@@ -169,6 +260,7 @@ export async function generateSchedule(): Promise<ScheduleItem[]> {
         })
       );
     
+      // Filtrar aulas disponibles y compatibles con los requisitos de los cursos
       const availableClassrooms = shuffleArray(
         classrooms.filter(classroom =>
           classroom.availability.includes(day) &&
@@ -176,23 +268,31 @@ export async function generateSchedule(): Promise<ScheduleItem[]> {
         )
       );
     
-      // Asigna profesores a aulas disponibles
+      // Asignar profesores a aulas disponibles, considerando los requisitos de instalaciones
       availableTeachers.forEach(teacher => {
-        const classroom = availableClassrooms.shift();
-        if (classroom) {
+        // Buscar un aula compatible con los requisitos de instalaciones del curso
+        const compatibleClassroom = availableClassrooms.find(classroom => 
+          isClassroomCompatible(classroom, teacher.facilities)
+        );
+        
+        if (compatibleClassroom) {
+          // Eliminar el aula de las disponibles
+          const index = availableClassrooms.indexOf(compatibleClassroom);
+          availableClassrooms.splice(index, 1);
+          
           schedule.push({
             teacher: teacher.name,
             subject: teacher.subject,
             day,
             time: timeSlot,
             endTime: addOneHour(timeSlot),
-            classroom: classroom.name,
+            classroom: compatibleClassroom.name,
             semester: teacher.semester
           });
     
           // Registra la ocupación del profesor y el aula
           bookings.teachers.get(teacher.name)?.add(`${day}-${timeSlot}`);
-          bookings.classrooms.get(classroom.name)?.add(`${day}-${timeSlot}`);
+          bookings.classrooms.get(compatibleClassroom.name)?.add(`${day}-${timeSlot}`);
         }
       });
     });
