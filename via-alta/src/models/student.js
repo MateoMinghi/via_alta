@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const pool = require('../config/database.js');
 
 class Student {
   static async create(student) {

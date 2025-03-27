@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const pool = require('../config/database.js');
 
 class Cycle {
   static async create(cycle) {
@@ -7,7 +7,7 @@ class Cycle {
       cycle.IdCiclo,
       cycle.Nombre,
       cycle.FechaInicio,
-      cycle.FechaFin
+      cycle.FechaFin,
     ]);
     return result.rows[0];
   }
@@ -30,7 +30,7 @@ class Cycle {
       cycle.Nombre,
       cycle.FechaInicio,
       cycle.FechaFin,
-      id
+      id,
     ]);
     return result.rows[0];
   }

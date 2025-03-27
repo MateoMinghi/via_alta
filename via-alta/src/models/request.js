@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const pool = require('../config/database.js');
 
 class Request {
   static async create(request) {
@@ -8,7 +8,7 @@ class Request {
       request.Fecha,
       request.Estado,
       request.Descripcion,
-      request.IdAlumno
+      request.IdAlumno,
     ]);
     return result.rows[0];
   }
@@ -31,7 +31,7 @@ class Request {
       request.Fecha,
       request.Descripcion,
       request.Estado,
-      id
+      id,
     ]);
     return result.rows[0];
   }

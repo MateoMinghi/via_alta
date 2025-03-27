@@ -2,19 +2,19 @@ import dotenv from 'dotenv';
 
 dotenv.config(); // Variables de entorno
 
-const User = require('./user');
-const Coordinator = require('./coordinator');
-const Student = require('./student');
-const Request = require('./request');
-const Subject = require('./subject');
-const Group = require('./group');
-const Schedule = require('./schedule');
-const Professor = require('./professor');
-const Availability = require('./availability');
-const Classroom = require('./classroom');
-const Cycle = require('./cycle');
-const Prerequisite = require('./prerequisite');
-const Enrollment = require('./enrollment');
+const User = require('./user.js');
+const Coordinator = require('./coordinator.js');
+const Student = require('./student.js');
+const Request = require('./request.js');
+const Subject = require('./subject.js');
+const Group = require('./group.js');
+const Schedule = require('./schedule.js');
+const Professor = require('./professor.js');
+const Availability = require('./availability.js');
+const Classroom = require('./classroom.js');
+const Cycle = require('./cycle.js');
+const Prerequisite = require('./prerequisite.js');
+const Enrollment = require('./enrollment.js');
 
 const models = {
   User,
@@ -29,7 +29,7 @@ const models = {
   Classroom,
   Cycle,
   Prerequisite,
-  Enrollment
+  Enrollment,
 };
 
 export default models;
