@@ -6,7 +6,7 @@ module.exports = {
   },
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
   transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest'
+    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { configFile: './babel.config.test.json' }]
   },
   setupFilesAfterEnv: ['./jest.setup.js'],
   testPathIgnorePatterns: ['/node_modules/'],
