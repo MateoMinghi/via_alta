@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const pool = require('../config/database.js');
 
 class Group {
   static async create(group) {
@@ -8,10 +8,10 @@ class Group {
     `;
     const result = await pool.query(query, [
       group.IdGrupo,
-      group.IdMateria, 
-      group.IdProfesor, 
-      group.IdSalon, 
-      group.IdCiclo
+      group.IdMateria,
+      group.IdProfesor,
+      group.IdSalon,
+      group.IdCiclo,
     ]);
     return result.rows[0];
   }
@@ -39,7 +39,7 @@ class Group {
       group.IdProfesor,
       group.IdSalon,
       group.IdCiclo,
-      id
+      id,
     ]);
     return result.rows[0];
   }

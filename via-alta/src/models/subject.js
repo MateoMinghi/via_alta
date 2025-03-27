@@ -1,13 +1,13 @@
-const pool = require('../config/database');
+const pool = require('../config/database.js');
 
 class Subject {
   static async create(subject) {
     const query = 'INSERT INTO Materia (IdMateria, Nombre, HorasClase, Requisitos) VALUES ($1, $2, $3, $4) RETURNING *';
     const result = await pool.query(query, [
       subject.IdMateria,
-      subject.Nombre, 
-      subject.HorasClase, 
-      subject.Requisitos
+      subject.Nombre,
+      subject.HorasClase,
+      subject.Requisitos,
     ]);
     return result.rows[0];
   }
@@ -32,10 +32,10 @@ class Subject {
       RETURNING *
     `;
     const result = await pool.query(query, [
-      subject.Nombre, 
-      subject.HorasClase, 
-      subject.Requisitos, 
-      id
+      subject.Nombre,
+      subject.HorasClase,
+      subject.Requisitos,
+      id,
     ]);
     return result.rows[0];
   }

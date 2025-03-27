@@ -1,12 +1,12 @@
-const pool = require('../config/database');
+const pool = require('../config/database.js');
 
 class Enrollment {
   static async create(enrollment) {
     const query = 'INSERT INTO Inscribe (IdInscripcion, IdAlumno, IdGrupo) VALUES ($1, $2, $3) RETURNING *';
     const result = await pool.query(query, [
       enrollment.IdInscripcion,
-      enrollment.IdAlumno, 
-      enrollment.IdGrupo
+      enrollment.IdAlumno,
+      enrollment.IdGrupo,
     ]);
     return result.rows[0];
   }
