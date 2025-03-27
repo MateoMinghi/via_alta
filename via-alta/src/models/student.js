@@ -55,6 +55,13 @@ class Student {
     const result = await pool.query(query, [id]);
     return result.rows;
   }
+
+  // Método específico para confirmar horario
+  static async confirmSchedule(id) {
+    const query = 'UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1 RETURNING *';
+    const result = await pool.query(query, [id]);
+    return result.rows[0];
+  }
 }
 
 module.exports = Student;
