@@ -213,15 +213,19 @@ export default function Page() {
 
   // ESTO SE VA A TENER QUE CAMBIAR CUANDO TENGAMOS LAS MATERIAS DE LA API
   const getSubjectColor = (subject: ScheduleItem): string => {
-    const subjectColors: { [key: string]: string } = {
-        'Matemáticas': 'text-blue-500',
-        'Inglés': 'text-green-500',
-        'Ciencias': 'text-yellow-500',
-        'Historia': 'text-purple-500',
-        'Arte': 'text-pink-500',
+    // Color by semester instead of subject name
+    const semesterColors: { [key: number]: string } = {
+      1: 'text-blue-600',
+      2: 'text-green-600',
+      3: 'text-purple-600',
+      4: 'text-amber-600',
+      5: 'text-rose-600',
+      6: 'text-cyan-600',
+      7: 'text-indigo-600',
+      8: 'text-emerald-600'
     };
-    return subjectColors[subject.subject] || 'text-red-700';
-};
+    return semesterColors[subject.semester] || 'text-gray-600';
+  };
 
   // Componente para una celda que se puede arrastrar
   const DraggableCell = ({ item, heightClass, occurrence }: 
@@ -233,13 +237,25 @@ export default function Page() {
         isDragging: monitor.isDragging(),
       }),
     }));
-  
+
+    // Function to abbreviate subject name
+    const getAbbreviatedName = (subject: string) => {
+      const words = subject.split(' ');
+      if (words.length === 1) {
+        // If one word, take first 3 letters
+        return subject.slice(0, 3).toUpperCase();
+      } else {
+        // If multiple words, take first letter of each word
+        return words.map(word => word[0].toUpperCase()).join('');
+      }
+    };
+
     return (
       <div
         ref={(node) => { if (typeof dragRef === 'function') dragRef(node); }}
         className={cn(
           'p-1 text-xs cursor-pointer rounded-md border border-gray-200 bg-white shadow-sm h-full',
-          'hover:shadow-md transition-shadow flex justify-center items-center',
+          'hover:shadow-md transition-shadow flex flex-col justify-center items-center gap-0.5',
           isDragging && 'opacity-50',
           heightClass
         )}
@@ -247,19 +263,17 @@ export default function Page() {
           e.stopPropagation();
           setSelectedSubject(item);
         }}
+        data-tooltip={`${item.subject}\nProfesor: ${item.teacher}\nSalón: ${item.classroom}`}
       >
-        <div className={cn('truncate font-medium', getSubjectColor(item))}>
-          {item.subject}
+        <div className={cn('font-medium text-center', getSubjectColor(item))}>
+          {getAbbreviatedName(item.subject)}
         </div>
+        <div className="text-[10px] text-gray-500">S{item.semester}</div>
       </div>
     );
   };
-  
-  /**
-   * Componente que representa una celda del horario
-   * Permite soltar elementos arrastrables y gestiona la visualización de materias
-   */
-  // Inside the Cell component, replace the items.map with a filter on the starting time:
+
+  // Componente para celdas que se pueden soltar
   const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time][day];
     
@@ -272,7 +286,8 @@ export default function Page() {
         isOver: monitor.isOver(),
       }),
     }));
-  
+
+    // Calculate width class based on number of items in the cell
     const getWidthClass = (total: number, index: number) => {
       switch(total) {
         case 1: return 'w-full';
@@ -292,7 +307,6 @@ export default function Page() {
         )}
       >
         <div className="flex flex-row gap-0.5 h-full">
-          {/* Remove the .filter() and render all items in this cell */}
           {items.map((item, index) => (
             <DraggableCell 
               key={`${item.teacher}-${item.subject}-${index}`} 
@@ -367,6 +381,7 @@ export default function Page() {
             </div>
           </div>
         </div>
+        
         <IndividualSubject 
           subject={selectedSubject}
           isOpen={!!selectedSubject}
@@ -398,6 +413,7 @@ export default function Page() {
                   item.time === subjectToDelete.time)
               )
             );
+            setSelectedSubject(null);
           }}
         />
 
