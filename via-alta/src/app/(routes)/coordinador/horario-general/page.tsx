@@ -19,6 +19,8 @@ const SCHEDULE_STORAGE_KEY = 'via-alta-schedule';
 const LAST_SAVED_KEY = 'via-alta-schedule-last-saved';
 
 export default function Page() {
+  // Add loading state
+  const [isLoading, setIsLoading] = useState(false);
   // Estado para almacenar el horario y la materia seleccionada
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<ScheduleItem | null>(null);
@@ -83,12 +85,19 @@ export default function Page() {
 
   /**
    * Genera un nuevo horario utilizando el generador de horarios
-   * @returns {Promise<void>}
    */
   async function handleGenerateSchedule() {
-    const result = await generateSchedule();
-    setSchedule(result);
-    toast.success('Horario generado correctamente');
+    try {
+      setIsLoading(true);
+      const result = await generateSchedule();
+      setSchedule(result);
+      toast.success('Horario generado correctamente');
+    } catch (error) {
+      console.error('Error al generar el horario:', error);
+      toast.error('Error al generar el horario');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   // Definición de días y horarios disponibles
@@ -327,8 +336,9 @@ export default function Page() {
               <Button
                 onClick={handleGenerateSchedule}
                 className="bg-red-700 text-white hover:bg-red-800"
+                disabled={isLoading}
               >
-                Generar Horario
+                {isLoading ? 'Generando...' : 'Generar Horario'}
               </Button>
             </div>
           </div>
