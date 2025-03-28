@@ -1,136 +1,43 @@
 import { useState, useEffect } from "react";
 
-type Student = {
+export type Student = {
     id: string;
     name: string;
+    first_name: string;
+    first_surname: string;
+    second_surname: string;
+    ivd_id: string;
     semestre: string;
     status: string;
     comentario: string;
     isIrregular: boolean;
 };
 
-const students: Student[] = [
-    {
-        id: '00001',
-        name: 'Renata López',
-        semestre: '3',
-        status: 'requiere-cambios',
-        comentario: 'Necesita completar documentación pendiente para inscripción.',
-        isIrregular: false,
-      },
-      {
-        id: '00002',
-        name: 'Alejandro Martínez',
-        semestre: '2',
-        status: 'inscrito',
-        comentario: 'Inscripción completa. Sin observaciones.',
-        isIrregular: false,
-      },
-      {
-        id: '00003',
-        name: 'Diana Pérez',
-        semestre: '4',
-        status: 'inscrito',
-        comentario: 'Inscripción exitosa. Buen rendimiento académico.',
-        isIrregular: false,
-      },
-      {
-        id: '00004',
-        name: 'Emiliano García',
-        semestre: '1',
-        status: 'inscrito',
-        comentario: 'Primer semestre. Todos los documentos en regla.',
-        isIrregular: false,
-      },
-      {
-        id: '00005',
-        name: 'Fernando Torres',
-        semestre: '5',
-        status: 'requiere-cambios',
-        comentario: 'Pendiente pago de matrícula para completar inscripción.',
-        isIrregular: false,
-      },
-      {
-        id: '00006',
-        name: 'Gabriela Sánchez',
-        semestre: '2',
-        status: 'inscrito',
-        comentario: 'Inscripción completa. Excelente desempeño.',
-        isIrregular: false,
-      },
-      {
-        id: '00007',
-        name: 'Sofia Ramírez',
-        semestre: '3',
-        status: 'requiere-cambios',
-        comentario: 'Falta certificado médico para actividades deportivas.',
-        isIrregular: false,
-      },
-      {
-        id: '00008',
-        name: 'Diana Gómez',
-        semestre: '6',
-        status: 'no-inscrito',
-        comentario: 'No ha iniciado proceso de inscripción para este semestre.',
-        isIrregular: false,
-      },
-      {
-        id: '00009',
-        name: 'Lucia Fernández',
-        semestre: '4',
-        status: 'inscrito',
-        comentario: 'Inscripción completa. Participante en programa de intercambio.',
-        isIrregular: false,
-      },
-      {
-        id: '00010',
-        name: 'Fernanda Ruiz',
-        semestre: '1',
-        status: 'no-inscrito',
-        comentario: 'Documentación incompleta. No ha pagado matrícula.',
-        isIrregular: false,
-      },
-      {
-        id: '00011',
-        name: 'Héctor Mendoza',
-        semestre: '5',
-        status: 'no-inscrito',
-        comentario: 'Baja temporal solicitada por el estudiante.',
-        isIrregular: false,
-      },
-      {
-        id: '00012',
-        name: 'Alejandro Ortiz',
-        semestre: '2',
-        status: 'requiere-cambios',
-        comentario: 'Pendiente validación de materias previas.',
-        isIrregular: false,
-      },
-      {
-        id: '00013',
-        name: 'Carlos Vega',
-        semestre: 'N/A',
-        status: 'no-inscrito',
-        comentario: 'Estudiante con materias de diferentes semestres.',
-        isIrregular: true,
-      },
-      {
-        id: '00014',
-        name: 'María Jiménez',
-        semestre: 'N/A',
-        status: 'requiere-cambios',
-        comentario: 'Reincorporación después de baja temporal.',
-        isIrregular: true,
-      },
-      {
-        id: '00015',
-        name: 'José Morales',
-        semestre: 'N/A',
-        status: 'inscrito',
-        comentario: 'Cursando materias de diferentes semestres por reprobación.',
-        isIrregular: true,
-      },
-];
+// API configuration
+const API_BASE_URL = 'https://ivd-qa-0dc175b0ba43.herokuapp.com';
+const CLIENT_ID = 'enrollments_app';
+const CLIENT_SECRET = 'VgwMa3qPS85rrtDHt72mhKejQfTQnNth';
+
+// Function to get authentication token
+async function getAuthToken(): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/m2m/authenticate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+    }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to authenticate');
+  }
+  
+  const data = await response.json();
+  return data.token;
+}
 
 export function useGetStudents() {
     const [result, setResult] = useState<Student[] | null>(null);
@@ -139,16 +46,96 @@ export function useGetStudents() {
 
     useEffect(() => {
         setLoading(true);
-        try {
-            setTimeout(() => {
-                setResult(students);
+        
+        const fetchStudents = async () => {
+            try {
+                // Get auth token first
+                const token = await getAuthToken();
+                
+                // Use the token for the students API call
+                const response = await fetch(`${API_BASE_URL}/v1/users/all?type=Users::Student`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch students');
+                }
+                
+                const data = await response.json();
+                
+                // Log the first student to see the actual structure
+                if (Array.isArray(data) && data.length > 0) {
+                    console.log('Complete first student data:', JSON.stringify(data[0], null, 2));
+                }
+                
+                // Transform the API data to match our expected Student type
+                const studentsArray = Array.isArray(data) ? data : 
+                                     (data.data && Array.isArray(data.data) ? data.data : []);
+                
+                const formattedStudents = studentsArray.map((student: any) => {
+                    // For debugging - log all available name fields for the first few students
+                    if (studentsArray.indexOf(student) < 3) {
+                        console.log(`Student ${student.id} name fields:`, {
+                            name: student.name,
+                            first_name: student.first_name,
+                            last_name: student.last_name,
+                            surname: student.surname,
+                            maternal_surname: student.maternal_surname,
+                            paternal_surname: student.paternal_surname,
+                            data: student
+                        });
+                    }
+                    
+                    // Use all possible field combinations to ensure we get both parts
+                    const firstName = student.first_name || student.name || '';
+                    const lastName = student.last_name || student.surname || 
+                                    student.paternal_surname || student.first_surname || '';
+                    
+                    return {
+                        id: student.id?.toString() || '',
+                        // Store separate name components
+                        name: student.name || '',
+                        first_name: firstName,
+                        first_surname: lastName,
+                        second_surname: student.second_surname || student.maternal_surname || '',
+                        // Store combined name for display
+                        ivd_id: student.ivd_id || student.student_id || '',
+                        semestre: student.semester?.toString() || 'N/A',
+                        status: student.status || 'no-inscrito',
+                        comentario: student.comment || '',
+                        isIrregular: student.irregular || false,
+                    };
+                });
+                
+                setResult(formattedStudents);
+            } catch (error: any) {
+                setError(error.message);
+                console.error("Error fetching students:", error);
+            } finally {
                 setLoading(false);
-            }, 1000);
-        } catch (error: any) {
-            setError(error.message);
-            setLoading(false);
-        }
+            }
+        };
+
+        fetchStudents();
     }, []);
 
     return { loading, result, error };
+}
+
+// Group students by semester
+export function groupStudentsBySemester(students: Student[] | null) {
+    if (!students) return {};
+    
+    return students.reduce((acc: Record<string, Student[]>, student) => {
+        const semester = student.semestre;
+        
+        if (!acc[semester]) {
+            acc[semester] = [];
+        }
+        
+        acc[semester].push(student);
+        return acc;
+    }, {});
 }

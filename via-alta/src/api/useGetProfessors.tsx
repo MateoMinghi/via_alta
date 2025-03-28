@@ -1,25 +1,36 @@
 import { useState, useEffect } from "react";
 
-type Professor = {
+export type Professor = {
     id: number;
     name: string;
     department: string;
 };
 
-const professors: Professor[] = [
-    { id: 1, name: 'Dr. Juan Pérez', department: 'Matemáticas' },
-    { id: 2, name: 'Dra. Ana Gómez', department: 'Física' },
-    { id: 3, name: 'Dr. Carlos Ruiz', department: 'Química' },
-    { id: 4, name: 'Dra. Laura Fernández', department: 'Biología' },
-    { id: 5, name: 'Dr. Miguel Torres', department: 'Ingeniería' },
-    { id: 6, name: 'Dra. Sofía Martínez', department: 'Historia' },
-    { id: 7, name: 'Dr. Pedro Sánchez', department: 'Literatura' },
-    { id: 8, name: 'Dra. Elena López', department: 'Filosofía' },
-    { id: 9, name: 'Dr. Javier García', department: 'Economía' },
-    { id: 10, name: 'Dra. Marta Rodríguez', department: 'Psicología' },
-    { id: 11, name: 'Dr. Andrés Hernández', department: 'Sociología' },
-    { id: 12, name: 'Dra. Patricia Jiménez', department: 'Antropología' },
-];
+// API configuration
+const API_BASE_URL = 'https://ivd-qa-0dc175b0ba43.herokuapp.com';
+const CLIENT_ID = 'payments_app';
+const CLIENT_SECRET = 'a_client_secret';
+
+// Function to get authentication token
+async function getAuthToken(): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/m2m/authenticate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+    }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to authenticate');
+  }
+  
+  const data = await response.json();
+  return data.token;
+}
 
 export function useGetProfessors() {
     const [result, setResult] = useState<Professor[] | null>(null);
@@ -28,15 +39,42 @@ export function useGetProfessors() {
 
     useEffect(() => {
         setLoading(true);
-        try {
-            setTimeout(() => {
-                setResult(professors);
+        
+        const fetchProfessors = async () => {
+            try {
+                // Get auth token first
+                const token = await getAuthToken();
+                
+                // Use the token for the professors API call
+                const response = await fetch(`${API_BASE_URL}/v1/users/all?type=Users::Professor`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch professors');
+                }
+                
+                const data = await response.json();
+                
+                // Transform the API data to match our expected Professor type
+                const formattedProfessors = data.map((professor: any) => ({
+                    id: professor.id || 0,
+                    name: `${professor.title || ''} ${professor.first_name || ''} ${professor.last_name || ''}`.trim(),
+                    department: professor.department || 'General',
+                }));
+                
+                setResult(formattedProfessors);
+            } catch (error: any) {
+                setError(error.message);
+                console.error("Error fetching professors:", error);
+            } finally {
                 setLoading(false);
-            }, 1000);
-        } catch (error: any) {
-            setError(error.message);
-            setLoading(false);
-        }
+            }
+        };
+
+        fetchProfessors();
     }, []);
 
     return { loading, result, error };
