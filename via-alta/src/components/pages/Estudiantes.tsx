@@ -15,11 +15,16 @@ export default function Estudiantes() {
   const [activeView, setActiveView] = useState<'all' | 'semester'>('all');
   const router = useRouter();
   
-  // Group students by semester
-  const studentsBySemester = groupStudentsBySemester(result);
+  // Filter to only show active students based on the "active" status flag
+  const activeStudents = result 
+    ? result.filter((student: Student) => student.status === 'active')
+    : null;
+  
+  // Group active students by semester
+  const studentsBySemester = groupStudentsBySemester(activeStudents);
   
   // Get semesters sorted with "N/A" at the end
-  const semesters = result 
+  const semesters = activeStudents 
     ? Object.keys(studentsBySemester).sort((a, b) => {
         if (a === 'N/A') return 1;
         if (b === 'N/A') return -1;
@@ -27,8 +32,8 @@ export default function Estudiantes() {
       })
     : [];
 
-  const pendingChangesCount = result 
-    ? result.filter((student: Student) => student.status === 'requiere-cambios').length
+  const pendingChangesCount = activeStudents 
+    ? activeStudents.filter((student: Student) => student.status === 'requiere-cambios').length
     : 0;
 
   const handleViewSchedule = (studentId: string) => {
@@ -37,12 +42,16 @@ export default function Estudiantes() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
       case 'inscrito':
         return 'bg-green-100 text-green-800';
       case 'requiere-cambios':
         return 'bg-yellow-100 text-yellow-800';
       case 'no-inscrito':
         return 'bg-red-100 text-red-800';
+      case 'inactive':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -68,22 +77,22 @@ export default function Estudiantes() {
   return (
     <div>
       <div>
-        <p className="font-bold text-xl text-via">ESTUDIANTES</p>
+        <p className="font-bold text-xl text-via">ESTUDIANTES ACTIVOS</p>
         <div className="p-4 bg-white rounded-lg">
-          <p>En esta sección, el coordinador puede gestionar los estudiantes, ver su horario, revisar quién solicitó cambios, buscar alumnos, entre otras funciones. Por favor, utiliza las herramientas disponibles para mantener la información actualizada y precisa. Si tienes alguna duda, contacta al soporte técnico.</p>
+          <p>En esta sección, el coordinador puede gestionar los estudiantes activos, ver su horario, revisar quién solicitó cambios, buscar alumnos, entre otras funciones. Solo se muestran estudiantes con estatus "active". Si tienes alguna duda, contacta al soporte técnico.</p>
         </div>
       </div>
       
       {loading && <p className="py-4">Cargando estudiantes...</p>}
       
-      {result !== null && (
+      {activeStudents !== null && (
         <>
           <div className="my-4">
             <SolicitudesBanner numberOfChanges={pendingChangesCount} />
           </div>
           
           <div className="mb-6">
-            <p className="font-bold text-xl text-via mb-2">VISTA DE ESTUDIANTES</p>
+            <p className="font-bold text-xl text-via mb-2">VISTA DE ESTUDIANTES ACTIVOS</p>
             <div className="bg-white p-4 rounded-lg">
               <Tabs defaultValue="all" value={activeView} onValueChange={(value) => setActiveView(value as 'all' | 'semester')}>
                 <TabsList className="mb-4">
@@ -93,13 +102,13 @@ export default function Estudiantes() {
                 
                 <TabsContent value="all">
                   <div>
-                    <p className="font-bold text-xl text-via mb-2">ESTATUS DE ALUMNOS</p>
-                    <StatusTable students={result} />
+                    <p className="font-bold text-xl text-via mb-2">ESTATUS DE ALUMNOS ACTIVOS</p>
+                    <StatusTable students={activeStudents} />
                   </div>
                 </TabsContent>
                 
                 <TabsContent value="semester">
-                  <p className="font-bold text-xl text-via mb-4">ESTUDIANTES POR SEMESTRE</p>
+                  <p className="font-bold text-xl text-via mb-4">ESTUDIANTES ACTIVOS POR SEMESTRE</p>
                   <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {semesters.map((semester) => (
                       <Card key={semester}>
@@ -124,7 +133,7 @@ export default function Estudiantes() {
                                       <span 
                                         className={`px-2 py-1 text-xs rounded ${getStatusColor(student.status)}`}
                                       >
-                                        {student.status.replace('-', ' ')}
+                                        {student.status === 'active' ? 'Activo' : student.status.replace('-', ' ')}
                                       </span>
                                     </div>
                                     <div className="flex justify-between items-center text-sm text-gray-500">
