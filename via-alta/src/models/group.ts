@@ -1,7 +1,25 @@
-const pool = require('../config/database.js');
+import pool from "../config/database";
+
+interface GroupData {
+  IdGrupo: string;
+  IdMateria: string;
+  IdProfesor: string;
+  IdSalon: string;
+  IdCiclo: string;
+}
+
+interface GroupWithDetails extends GroupData {
+  subject_name: string;
+  professor_name: string;
+}
+
+interface GroupWithEnrollment extends GroupData {
+  IdAlumno?: string;
+  // Add other enrollment fields as needed
+}
 
 class Group {
-  static async create(group) {
+  static async create(group: GroupData) {
     const query = `
       INSERT INTO Grupo (IdGrupo, IdMateria, IdProfesor, IdSalon, IdCiclo) 
       VALUES ($1, $2, $3, $4, $5) RETURNING *
@@ -13,10 +31,10 @@ class Group {
       group.IdSalon,
       group.IdCiclo,
     ]);
-    return result.rows[0];
+    return result.rows[0] as GroupData;
   }
 
-  static async findById(id) {
+  static async findById(id: string) {
     const query = `
       SELECT g.*, m.Nombre as subject_name, p.Nombre as professor_name
       FROM Grupo g
@@ -25,10 +43,10 @@ class Group {
       WHERE g.IdGrupo = $1
     `;
     const result = await pool.query(query, [id]);
-    return result.rows[0];
+    return result.rows[0] as GroupWithDetails;
   }
 
-  static async update(id, group) {
+  static async update(id: string, group: GroupData) {
     const query = `
       UPDATE Grupo 
       SET IdMateria = $1, IdProfesor = $2, IdSalon = $3, IdCiclo = $4
@@ -41,16 +59,16 @@ class Group {
       group.IdCiclo,
       id,
     ]);
-    return result.rows[0];
+    return result.rows[0] as GroupData;
   }
 
-  static async delete(id) {
-    const query = 'DELETE FROM Grupo WHERE IdGrupo = $1 RETURNING *';
+  static async delete(id: string) {
+    const query = "DELETE FROM Grupo WHERE IdGrupo = $1 RETURNING *";
     const result = await pool.query(query, [id]);
-    return result.rows[0];
+    return result.rows[0] as GroupData;
   }
 
-  static async findWithEnrollments(id) {
+  static async findWithEnrollments(id: string) {
     const query = `
       SELECT g.*, i.*, a.IdAlumno
       FROM Grupo g
@@ -59,8 +77,8 @@ class Group {
       WHERE g.IdGrupo = $1
     `;
     const result = await pool.query(query, [id]);
-    return result.rows;
+    return result.rows as GroupWithEnrollment[];
   }
 }
 
-module.exports = Group;
+export default Group;
