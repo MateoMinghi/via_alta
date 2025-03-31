@@ -97,7 +97,7 @@ export default function Login() {
               <Button
                 variant="default"
                 onClick={() => {
-                  window.location.href = '/coordinador/';
+                  window.location.href = '/dashboard/';
                 }}
               >
                 INICIAR SESION COMO COORDINADOR

@@ -40,10 +40,10 @@ export default function Header() {
       </div>
       
       <div className="flex flex-row text-lg justify-around gap-4">
-        <Button variant="nav" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('ESTUDIANTES', '/coordinador/')} isActive={activeButton === 'ESTUDIANTES'}>ESTUDIANTES</Button>
-        <Button variant="nav" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('PROFESORES', '/coordinador/profesores')} isActive={activeButton === 'PROFESORES'}>PROFESORES</Button>
-        <Button variant="ghost" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('HORARIOS', '/coordinador/horarios')} isActive={activeButton === 'HORARIOS'}>HORARIOS</Button>
-        <Button variant="ghost" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('SALONES', '/coordinador/salones')} isActive={activeButton === 'SALONES'}>SALONES</Button>
+        <Button variant="nav" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('ESTUDIANTES', '/dashboard/')} isActive={activeButton === 'ESTUDIANTES'}>ESTUDIANTES</Button>
+        <Button variant="nav" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('PROFESORES', '/dashboard/profesores')} isActive={activeButton === 'PROFESORES'}>PROFESORES</Button>
+        <Button variant="ghost" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('HORARIOS', '/dashboard/horarios')} isActive={activeButton === 'HORARIOS'}>HORARIOS</Button>
+        <Button variant="ghost" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('SALONES', '/dashboard/salones')} isActive={activeButton === 'SALONES'}>SALONES</Button>
       </div>
      
       <div>
