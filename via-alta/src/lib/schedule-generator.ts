@@ -145,7 +145,18 @@ export async function generateSchedule(): Promise<ScheduleItem[]> {
   const teachers: Teacher[] = coursesData.map((course: ApiCourse) => {
     // Generar disponibilidad aleatoria para cada profesor/curso
     const availability: DayAvailability[] = generateRandomAvailability(days);
-    const semester = course.plans_courses[0]?.semester || 1;
+    
+    // Ensure semester is within the valid range (1-8)
+    let semester = course.plans_courses[0]?.semester || 1;
+    
+    // Cap semester to maximum allowed value of 8
+    if (semester > 8) {
+      semester = 8;
+    }
+    // Ensure minimum value is 1
+    if (semester < 1) {
+      semester = 1;
+    }
     
     return {
       name: `Profesor ${course.id}`, // Generar un nombre basado en el ID del curso

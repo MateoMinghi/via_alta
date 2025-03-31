@@ -1,10 +1,12 @@
 // Componente principal para la gestión del horario general
 "use client";
+
 // Importaciones necesarias para el componente
 import React, { useState, useMemo, useEffect } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { generateSchedule, ScheduleItem } from '../../../../../../lib/schedule-generator';
+import Schedule, { GeneralScheduleItem } from '@/lib/models/schedule';
 import { cn } from '@/lib/utils';
 import { IndividualSubject } from '@/components/pages/horario-general/IndividualSubject';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -14,16 +16,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
-// Claves para almacenamiento local
-const SCHEDULE_STORAGE_KEY = 'via-alta-schedule';
-const LAST_SAVED_KEY = 'via-alta-schedule-last-saved';
-
 export default function Page() {
-  // Add loading state
   const [isLoading, setIsLoading] = useState(false);
-  // Estado para almacenar el horario y la materia seleccionada
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<ScheduleItem | null>(null);
+  const [schedule, setSchedule] = useState<GeneralScheduleItem[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<GeneralScheduleItem | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   // Estado para nueva clase
@@ -36,50 +32,56 @@ export default function Page() {
     semester: 1, // Add default semester
   });
 
-  // Cargar el horario guardado cuando el componente se monta
+  // Load schedule from database when component mounts
   useEffect(() => {
-    loadScheduleFromStorage();
+    loadScheduleFromDatabase();
   }, []);
 
-  // Removing the automatic save that was here
-
-  /**
-   * Carga el horario desde localStorage
-   */
-  const loadScheduleFromStorage = () => {
+  const loadScheduleFromDatabase = async () => {
     try {
-      const savedSchedule = localStorage.getItem(SCHEDULE_STORAGE_KEY);
-      const savedTimestamp = localStorage.getItem(LAST_SAVED_KEY);
+      setIsLoading(true);
+      const response = await fetch('/api/schedule');
+      const result = await response.json();
       
-      if (savedSchedule) {
-        const parsedSchedule = JSON.parse(savedSchedule) as ScheduleItem[];
-        setSchedule(parsedSchedule);
-        
-        if (savedTimestamp) {
-          setLastSaved(new Date(savedTimestamp).toLocaleString());
-        }
-        
-        toast.success('Horario cargado correctamente');
+      if (!result.success) {
+        throw new Error(result.error);
       }
+      
+      setSchedule(result.data);
+      setLastSaved(new Date().toLocaleString());
+      toast.success('Horario cargado correctamente');
     } catch (error) {
       console.error('Error al cargar el horario:', error);
-      toast.error('No se pudo cargar el horario guardado');
+      toast.error('No se pudo cargar el horario');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  /**
-   * Guarda el horario en localStorage
-   */
-  const saveScheduleToStorage = () => {
+  const saveScheduleToDatabase = async () => {
     try {
-      const now = new Date();
-      localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(schedule));
-      localStorage.setItem(LAST_SAVED_KEY, now.toISOString());
-      setLastSaved(now.toLocaleString());
+      setIsLoading(true);
+      const response = await fetch('/api/schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ schedule }),
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      setLastSaved(new Date().toLocaleString());
       toast.success('Horario guardado correctamente');
     } catch (error) {
       console.error('Error al guardar el horario:', error);
       toast.error('No se pudo guardar el horario');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -334,11 +336,12 @@ export default function Page() {
             )}
             <div className="flex gap-2">
               <Button
-                onClick={saveScheduleToStorage}
+                onClick={saveScheduleToDatabase}
                 variant="outline"
                 className="border-red-700 text-red-700 hover:bg-red-50"
+                disabled={isLoading}
               >
-                Guardar Horario
+                {isLoading ? 'Guardando...' : 'Guardar Horario'}
               </Button>
               <Button
                 onClick={() => setIsAddDialogOpen(true)}

@@ -16,6 +16,16 @@ interface ScheduleWithGroup extends ScheduleData {
   // Add other group fields as needed
 }
 
+interface GeneralScheduleItem {
+  teacher: string;
+  subject: string;
+  day: string;
+  time: string;
+  endTime: string;
+  classroom: string;
+  semester: number;
+}
+
 class Schedule {
   static async create(schedule: ScheduleData) {
     const query =
@@ -60,6 +70,60 @@ class Schedule {
     const result = await pool.query(query, [id]);
     return result.rows[0] as ScheduleData;
   }
+
+  static async saveGeneralSchedule(scheduleItems: GeneralScheduleItem[]) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // First clear existing general schedule
+      await client.query('DELETE FROM HorarioGeneral');
+      
+      // Insert all new schedule items
+      const insertQuery = `
+        INSERT INTO HorarioGeneral 
+        (profesor, materia, dia, hora_inicio, hora_fin, salon, semestre)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `;
+      
+      for (const item of scheduleItems) {
+        await client.query(insertQuery, [
+          item.teacher,
+          item.subject,
+          item.day,
+          item.time,
+          item.endTime,
+          item.classroom,
+          item.semester
+        ]);
+      }
+      
+      await client.query('COMMIT');
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async getGeneralSchedule(): Promise<GeneralScheduleItem[]> {
+    const query = `
+      SELECT profesor as teacher, 
+             materia as subject,
+             dia as day,
+             hora_inicio as time,
+             hora_fin as "endTime",
+             salon as classroom,
+             semestre as semester
+      FROM HorarioGeneral
+      ORDER BY dia, hora_inicio
+    `;
+    const result = await pool.query(query);
+    return result.rows;
+  }
 }
 
 export default Schedule;
+export type { ScheduleData, ScheduleWithGroup, GeneralScheduleItem };

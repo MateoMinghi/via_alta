@@ -98,13 +98,17 @@ CREATE TABLE Solicitud (
     FOREIGN KEY (IdAlumno) REFERENCES Alumno(IdAlumno)
 );
 
-CREATE TABLE Horario (
-    idHorario INTEGER PRIMARY KEY, 
-    idAlumno VARCHAR(10) NOT NULL, 
-    idGrupo INTEGER NOT NULL,      
-    fecha DATE NOT NULL,           
-    FOREIGN KEY (idAlumno) REFERENCES Alumno(idAlumno),
-    FOREIGN KEY (idGrupo) REFERENCES Grupo(idGrupo)
+CREATE TABLE HorarioGeneral (
+    IdHorarioGeneral SERIAL PRIMARY KEY,
+    profesor VARCHAR(100) NOT NULL,
+    materia VARCHAR(100) NOT NULL,
+    dia VARCHAR(10) NOT NULL,
+    hora_inicio TIME NOT NULL,
+    hora_fin TIME NOT NULL,
+    salon VARCHAR(50) NOT NULL,
+    semestre INTEGER NOT NULL,
+    CONSTRAINT chk_dia CHECK (dia IN ('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes')),
+    CONSTRAINT chk_semestre CHECK (semestre BETWEEN 1 AND 8)
 );
 
 -- INSERCIÓN DE DATOS DE CLASIFICACIÓN (mínimo 10 registros)
@@ -471,6 +475,16 @@ INSERT INTO Solicitud (IdSolicitud, Fecha, Estado, Descripcion, IdAlumno) VALUES
 (448, '2025-02-21', 'Pendiente', 'Solicitud de acceso a concurso de diseño', 'ALU100034'),
 (449, '2025-02-22', 'Aprobada', 'Solicitud de duplicado de credencial', 'ALU100035'),
 (450, '2025-02-23', 'Pendiente', 'Solicitud de revisión de carga académica', 'ALU100036');
+
+-- Tabla Horario para horarios individuales de estudiantes
+CREATE TABLE Horario (
+    idHorario SERIAL PRIMARY KEY,
+    idAlumno VARCHAR(10) NOT NULL,
+    idGrupo INTEGER NOT NULL,
+    fecha DATE NOT NULL,
+    FOREIGN KEY (idAlumno) REFERENCES Alumno(IdAlumno),
+    FOREIGN KEY (idGrupo) REFERENCES Grupo(IdGrupo)
+);
 
 INSERT INTO Horario (idHorario, idAlumno, idGrupo, fecha) VALUES
 (1, 'ALU100027', 1001, '2025-03-01'),
