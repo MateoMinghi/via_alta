@@ -1,4 +1,4 @@
-import pool from "../config/database";
+import pool from "../../config/database";
 
 interface ScheduleData {
   idHorario?: string; // Optional as it might be auto-generated

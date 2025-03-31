@@ -1,11 +1,11 @@
 import pool from "../config/database";
-import User from "../models/user";
-import Student from "../models/student";
-import Professor from "../models/professor";
-import Subject from "../models/subject";
-import Classroom from "../models/classroom";
-import Cycle from "../models/cycle";
-import Group from "../models/group";
+import User from "../lib/models/user";
+import Student from "../lib/models/student";
+import Professor from "../lib/models/professor";
+import Subject from "../lib/models/subject";
+import Classroom from "../lib/models/classroom";
+import Cycle from "../lib/models/cycle";
+import Group from "../lib/models/group";
 
 async function runDatabaseTests() {
   try {

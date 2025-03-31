@@ -1,4 +1,4 @@
-import pool from "../config/database";
+import pool from "../../config/database";
 
 interface PrerequisiteData {
   IdMateria: string;
