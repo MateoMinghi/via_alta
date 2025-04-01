@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { generateSchedule, ScheduleItem } from '../../../../../../lib/schedule-generator';
+import { generateSchedule, ScheduleItem } from '../../../../../../lib/utils/schedule-generator';
 import Schedule, { GeneralScheduleItem } from '@/lib/models/schedule';
 import { cn } from '@/lib/utils';
 import { IndividualSubject } from '@/components/pages/horario-general/IndividualSubject';

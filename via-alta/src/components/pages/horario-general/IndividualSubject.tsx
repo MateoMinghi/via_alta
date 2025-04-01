@@ -6,7 +6,7 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Input } from "../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
-import { ScheduleItem } from "@/lib/schedule-generator";
+import { ScheduleItem } from "@/lib/utils/schedule-generator";
 import { toast } from "sonner";
 
 interface IndividualSubjectProps {
