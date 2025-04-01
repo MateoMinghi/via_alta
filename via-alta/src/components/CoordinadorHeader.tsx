@@ -1,30 +1,31 @@
 'use client';
 
 import React, { useState } from 'react';
-
-import { Calendar } from 'lucide-react';
+import { Calendar, User } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from './ui/button';
+import LogoutButton from './LogoutButton';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Header() {
   const [semester, setSemester] = useState('2025-1');
   const [activeButton, setActiveButton] = useState('ESTUDIANTES');
-
   const router = useRouter();
-
+  const { user } = useAuth();
+  
   const handleNavClick = (buttonName: string, path: string) => {
     setActiveButton(buttonName);
     router.push(path);
   };
-
+  
   return (
     <div className="bg-black text-white m-4 rounded-lg flex flex-row justify-between items-center p-4">
-      <Image src="/logo.svg" alt="logo" width={50} height={50} className="cursor-pointer" onClick={() => router.push('/')} />
-
+      <Image src="/logo.svg" alt="logo" width={50} height={50} className="cursor-pointer" onClick={() => router.push('/dashboard')} />
+      
       <div className="flex items-center gap-2 mx-8">
         <Calendar className="h-5 w-5" />
         <Select value={semester} onValueChange={setSemester}>
@@ -45,9 +46,17 @@ export default function Header() {
         <Button variant="ghost" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('HORARIOS', '/dashboard/horarios')} isActive={activeButton === 'HORARIOS'}>HORARIOS</Button>
         <Button variant="ghost" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('SALONES', '/dashboard/salones')} isActive={activeButton === 'SALONES'}>SALONES</Button>
       </div>
-     
-      <div>
-        <Button variant="nav" className="cursor-pointer h-full mx-8" onClick={() => router.push('/')} isActive={false}>CERRAR SESIÓN</Button>
+      
+      <div className="flex items-center gap-4">
+        {user && (
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            <span className="text-sm font-medium hidden md:inline">
+              {user.name} {user.first_surname}
+            </span>
+          </div>
+        )}
+        <LogoutButton variant="ghost" />
       </div>
     </div>
   );
