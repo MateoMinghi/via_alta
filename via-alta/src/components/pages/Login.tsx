@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,19 +26,19 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   username: z.string().min(6, {
-    message: 'Tu matrícula debe tener al menos 6 caracteres.',
+    message: 'Tu Matricula debe tener al menos 6 caracteres.',
   }),
-  password: z.string().min(4, {
-    message: 'Tu contraseña debe tener al menos 4 caracteres.',
-  }),
+  password: z.string().optional(),
 });
 
 export default function Login() {
   const [showPassword, setShowPassword] = React.useState(false);
   const { login, isLoading, error } = useAuth();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,7 +50,7 @@ export default function Login() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await login(values.username, values.password);
+      await login(values.username, values.password || '');
     } catch (err) {
       console.error('Login error:', err);
     }
@@ -76,12 +76,12 @@ export default function Login() {
                 name="username"
                 render={({ field }) => (
                   <FormItem className="w-full">
-                    <FormLabel>ID de usuario</FormLabel>
+                    <FormLabel>Matricula</FormLabel>
                     <FormControl>
                       <Input placeholder="100128" {...field} />
                     </FormControl>
                     <FormDescription className="text-xs">
-                      Ingresa tu ID de usuario (ivd_id)
+                      Ingresa tu Matricula
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -132,7 +132,7 @@ export default function Login() {
             className="text-blue-500"
             variant="link"
             onClick={() => {
-              window.location.href = '/reset_password';
+              router.push('/reset_password');
             }}
           >
             ¿Olvidaste tu contraseña?

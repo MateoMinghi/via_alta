@@ -1,62 +1,130 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import LocalUser from '@/lib/models/local-user';
+import { authenticatedRequest } from '@/lib/m2mAuth';
+
+interface ViaDisenioUser {
+  id: number;
+  uid: string;
+  ivd_id: number;
+  name: string;
+  first_surname: string;
+  second_surname: string;
+  email: string;
+  email_personal?: string;
+  status: string;
+  type: string;
+  semester?: number;
+  role: {
+    id: number;
+    name: string;
+    description: string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+interface ViaDisenioResponse {
+  data: ViaDisenioUser;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { ivdId } = await request.json();
+    const { ivdId, password } = await request.json();
     
     if (!ivdId) {
       return NextResponse.json({ error: 'ivdId is required' }, { status: 400 });
     }
 
-    // Fetch user data from Via Diseño API
-    const response = await fetch(`https://ivd-qa-0dc175b0ba43.herokuapp.com/v1/users/find_one?ivd_id=${ivdId}`);
+    // Check if user has set a password in our system
+    const localUser = await LocalUser.findByIvdId(ivdId);
+    const isFirstTimeUser = !localUser;
     
-    if (!response.ok) {
-      return NextResponse.json({ error: 'Failed to authenticate with Via Diseño API' }, { status: response.status });
-    }
-    
-    const data = await response.json();
-    
-    if (!data.data) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    // If user has set a password, verify it
+    if (localUser) {
+      const passwordValid = password ? await LocalUser.verifyPassword(ivdId, password) : false;
+      
+      if (!passwordValid) {
+        return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 });
+      }
+    } else if (!localUser && password) {
+      // If we have no local user but they provided a password, it's incorrect
+      return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 });
     }
 
-    // Prepare user data with sensitive information removed
-    const userData = {
-      id: data.data.id,
-      uid: data.data.uid,
-      ivd_id: data.data.ivd_id,
-      name: data.data.name,
-      first_surname: data.data.first_surname,
-      second_surname: data.data.second_surname,
-      email: data.data.email,
-      status: data.data.status,
-      type: data.data.type,
-      role: data.data.role
-    };
+    // Fetch user data from Via Diseño API using M2M authentication
+    try {
+      // Use the authenticatedRequest utility to make secure API calls
+      const userData = await authenticatedRequest<ViaDisenioResponse>(
+        `/v1/users/find_one?ivd_id=${ivdId}`
+      );
+      
+      if (!userData.data) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+
+      // For first-time users without a password, return first_time_login flag
+      if (isFirstTimeUser) {
+        return NextResponse.json({
+          first_time_login: true,
+          user: {
+            ivd_id: userData.data.ivd_id,
+            email: userData.data.email,
+            name: `${userData.data.name} ${userData.data.first_surname}`,
+          }
+        });
+      }
+
+      // Prepare user data with sensitive information removed
+      const userInfo = {
+        id: userData.data.id,
+        uid: userData.data.uid,
+        ivd_id: userData.data.ivd_id,
+        name: userData.data.name,
+        first_surname: userData.data.first_surname,
+        second_surname: userData.data.second_surname,
+        email: userData.data.email,
+        status: userData.data.status,
+        type: userData.data.type,
+        role: userData.data.role,
+        has_password: !!localUser
+      };
+      
+      // Create a response object
+      const response = NextResponse.json({ user: userInfo });
+      
+      // Set the cookie in the response object
+      response.cookies.set({
+        name: 'user',
+        value: JSON.stringify(userInfo),
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+      });
+      
+      // Return the response with the cookie
+      return response;
+      
+    } catch (apiError) {
+      console.error('Error fetching user from Via Diseño API:', apiError);
+      return NextResponse.json({ 
+        error: 'Failed to authenticate with Via Diseño API' 
+      }, { status: 500 });
+    }
     
-    // Set the cookie with the user data
-    cookies().set({
-      name: 'user',
-      value: JSON.stringify(userData),
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: '/',
-    });
-    
-    // Return user data in response
-    return NextResponse.json({ user: userData });
   } catch (error) {
     console.error('Authentication error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function DELETE() {
-  // Clear the auth cookie
-  cookies().delete('user');
+export async function DELETE(request: NextRequest) {
+  // Create a response object
+  const response = NextResponse.json({ success: true });
   
-  return NextResponse.json({ success: true });
+  // Clear the auth cookie using the response object
+  response.cookies.delete('user');
+  
+  return response;
 }

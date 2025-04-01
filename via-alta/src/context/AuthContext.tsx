@@ -26,6 +26,7 @@ export interface User {
   type: string;
   semester?: number | null;
   role: UserRole;
+  has_password?: boolean;
 }
 
 interface AuthContextType {
@@ -73,15 +74,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ivdId }),
+        body: JSON.stringify({ 
+          ivdId, 
+          password: password ? password : undefined 
+        }),
       });
       
+      const data = await response.json();
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to authenticate');
+        throw new Error(data.error || 'Failed to authenticate');
       }
       
-      const { user: userData } = await response.json();
+      // Handle first-time login
+      if (data.first_time_login) {
+        // Redirect to password setup page with user data
+        const params = new URLSearchParams({
+          ivd_id: data.user.ivd_id.toString(),
+          name: data.user.name
+        });
+        
+        router.push(`/setup_password?${params.toString()}`);
+        setIsLoading(false);
+        return;
+      }
+      
+      const { user: userData } = data;
       
       if (!userData) {
         throw new Error('User not found');

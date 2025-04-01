@@ -2,24 +2,26 @@
 
 import React from 'react';
 import { LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonProps } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 
-interface LogoutButtonProps {
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  className?: string;
-}
+interface LogoutButtonProps extends ButtonProps {}
 
-export default function LogoutButton({ variant = 'ghost', className }: LogoutButtonProps) {
+export default function LogoutButton({ 
+  className, 
+  variant = "default",
+  ...props 
+}: LogoutButtonProps) {
   const { logout } = useAuth();
 
   return (
-    <Button 
-      variant={variant} 
+    <Button
+      onClick={logout}
+      variant={variant}
       className={className}
-      onClick={() => logout()}
+      {...props}
     >
-      <LogOut className="mr-2 h-4 w-4" />
+      <LogOut className="h-4 w-4 mr-2" /> 
       Cerrar sesión
     </Button>
   );

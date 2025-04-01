@@ -12,7 +12,8 @@
     "test:watch": "jest --watch",
     "test:schedule": "jest schedule-generator",
     "test:horario-semestre": "jest horario-semestre.integration HorariosSlug CoordinadorSchedule",
-    "test:confirmacion": "jest estudiante-confirmacion useConfirmSchedule.integration confirmacion-page"
+    "test:confirmacion": "jest estudiante-confirmacion useConfirmSchedule.integration confirmacion-page",
+    "db:init": "ts-node src/lib/db-init.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",
@@ -23,6 +24,7 @@
     "@radix-ui/react-separator": "^1.1.2",
     "@radix-ui/react-slot": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.3",
+    "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
@@ -49,6 +51,7 @@
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/jest": "^29.5.14",
     "@types/js-cookie": "^3.0.6",
     "@types/node": "^20.17.28",
