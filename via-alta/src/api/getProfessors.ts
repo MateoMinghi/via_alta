@@ -2,11 +2,11 @@ export type Professor = {
     id: number;
     name: string;
     department: string;
+    classes?: string;
 };
 
 // API configuration
 const API_BASE_URL = 'https://ivd-qa-0dc175b0ba43.herokuapp.com';
-// Using the new credentials that were working in the hook example
 const CLIENT_ID = 'enrollments_app';
 const CLIENT_SECRET = 'VgwMa3qPS85rrtDHt72mhKejQfTQnNth';
 
@@ -54,8 +54,6 @@ export async function getProfessors(): Promise<{ loading: boolean; result: Profe
         const data = await response.json();
         
         // More flexible handling of API response format
-        // This tries to extract an array of professors from various possible structures
-        // Including the empty object case we've been seeing
         const professorsData = Array.isArray(data) 
             ? data 
             : data.data || data.professors || data.results || [];
@@ -67,7 +65,24 @@ export async function getProfessors(): Promise<{ loading: boolean; result: Profe
             department: professor.department || 'General',
         }));
 
-        result = formattedProfessors;
+        // After getting professors from external API, sync with our database
+        try {
+            const dbResponse = await fetch('/api/professors');
+            const dbData = await dbResponse.json();
+            if (dbData.success) {
+                // Merge data from external API with database data
+                result = formattedProfessors.map((prof: Professor) => {
+                    const dbProf = dbData.data.find((p: any) => p.IdProfesor === prof.id.toString());
+                    return {
+                        ...prof,
+                        classes: dbProf?.Clases || ''
+                    };
+                });
+            }
+        } catch (dbError) {
+            console.error("Error fetching from local database:", dbError);
+            result = formattedProfessors;
+        }
         
         // Add helpful logging
         console.log(`Found ${formattedProfessors.length} professors`);
@@ -81,10 +96,72 @@ export async function getProfessors(): Promise<{ loading: boolean; result: Profe
     } catch (caughtError: any) {
         error = caughtError.message;
         console.error("Error fetching professors:", caughtError);
-        result = []; // Set to empty array on error
+        
+        // Try to fetch from local database as fallback
+        try {
+            const dbResponse = await fetch('/api/professors');
+            const dbData = await dbResponse.json();
+            if (dbData.success) {
+                result = dbData.data.map((prof: any) => ({
+                    id: parseInt(prof.IdProfesor),
+                    name: prof.Nombre,
+                    department: 'General',
+                    classes: prof.Clases || ''
+                }));
+                if (result && result.length > 0) {
+                    error = ""; // Clear error if we got data from database
+                }
+            }
+        } catch (dbError) {
+            console.error("Error fetching from local database:", dbError);
+            result = [];
+        }
     } finally {
         loading = false;
     }
 
     return { loading, result, error };
+}
+
+export async function updateProfessorClasses(
+    professorId: number, 
+    classes: string
+): Promise<boolean> {
+    try {
+        const response = await fetch('/api/professors', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                professorId,
+                classes
+            }),
+        });
+
+        const data = await response.json();
+        return data.success;
+    } catch (error) {
+        console.error("Error updating professor classes:", error);
+        return false;
+    }
+}
+
+export async function getProfessorsFromDatabase(): Promise<Professor[]> {
+    try {
+        const response = await fetch('/api/professors');
+        const data = await response.json();
+        if (data.success) {
+            return data.data.map((prof: any) => ({
+                id: parseInt(prof.IdProfesor),
+                name: prof.Nombre,
+                department: 'General',
+                classes: prof.Clases || ''
+            }));
+        }
+        throw new Error(data.error || 'Error fetching professors from database');
+    } catch (error) {
+        console.error("Error getting professors from database:", error);
+        return [];
+    }
 }

@@ -2,16 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Save, X, RefreshCw } from 'lucide-react';
+import { Save, X, RefreshCw, BookOpen } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import ProfessorGrid from '../ProfessorGrid';
 import ProfessorSearch from '../ProfessorSearch';
-import { getProfessors } from '@/api/getProfessors';
+import ProfessorClasses from '../ProfessorClasses';
+import { getProfessors, getProfessorsFromDatabase } from '@/api/getProfessors';
+import { saveAvailabilityToDatabase, getAvailabilityFromDatabase } from '@/lib/utils/availability-utils';
 
 export type Professor = {
     id: number;
     name: string;
     department: string;
+    classes?: string;
 };
 
 export default function Profesor() {
@@ -20,17 +23,8 @@ export default function Profesor() {
     const [error, setError] = useState("");
     const [selectedSlots, setSelectedSlots] = useState<Record<string, boolean>>({});
     const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
-
-    // State to store availability in memory
-    const [availabilityData, setAvailabilityData] = useState<Record<number, Record<string, boolean>>>({});
-
-    // Load availability data from localStorage on component mount
-    useEffect(() => {
-        const storedAvailability = localStorage.getItem('availabilityData');
-        if (storedAvailability) {
-            setAvailabilityData(JSON.parse(storedAvailability));
-        }
-    }, []);
+    const [isSaving, setIsSaving] = useState(false);
+    const [showClassesEditor, setShowClassesEditor] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -40,6 +34,16 @@ export default function Profesor() {
             setProfessors(result);
             if (error) {
                 setError(error);
+                
+                // Try to use database as fallback if API fails
+                if (result && result.length === 0) {
+                    console.log("Attempting to fetch professors from database as fallback");
+                    const dbProfessors = await getProfessorsFromDatabase();
+                    if (dbProfessors && dbProfessors.length > 0) {
+                        setProfessors(dbProfessors);
+                        setError(""); // Clear error if we got professors from the database
+                    }
+                }
             }
         } catch (err: any) {
             setError(err.message || "An unexpected error occurred");
@@ -53,36 +57,50 @@ export default function Profesor() {
         fetchData();
     }, []);
 
-    const handleProfessorSelect = (professor: Professor) => {
-        console.log("Selected professor details:", professor); // Log all attributes of the selected professor
+    const handleProfessorSelect = async (professor: Professor) => {
+        console.log("Selected professor details:", professor);
         setSelectedProfessor(professor);
-        // Load existing availability for the selected professor, if any
-        setSelectedSlots(availabilityData[professor.id] || {});
+        setSelectedSlots({}); // Clear slots while loading
+        setShowClassesEditor(false); // Hide classes editor when selecting new professor
+        
+        try {
+            // Fetch availability from database
+            const availability = await getAvailabilityFromDatabase(professor.id);
+            setSelectedSlots(availability);
+        } catch (err) {
+            console.error("Error fetching professor availability:", err);
+        }
     };
 
     const removeSelectedProfessor = () => {
         setSelectedProfessor(null);
         setSelectedSlots({});
+        setShowClassesEditor(false);
     };
 
-    const handleSaveAvailability = () => {
+    const handleSaveAvailability = async () => {
         if (!selectedProfessor) {
             alert("Please select a professor.");
             return;
         }
 
-        // Save the availability in memory and localStorage
-        const updatedAvailability = {
-            ...availabilityData,
-            [selectedProfessor.id]: selectedSlots,
-        };
-        setAvailabilityData(updatedAvailability);
+        setIsSaving(true);
+        
+        try {
+            // Save availability to database
+            await saveAvailabilityToDatabase(selectedProfessor.id, selectedSlots);
+            alert('Se guardó la disponibilidad del profesor en la base de datos!');
+        } catch (err) {
+            console.error("Error saving availability:", err);
+            alert('Error al guardar la disponibilidad. Por favor intente nuevamente.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
-        // Save to localStorage
-        localStorage.setItem('availabilityData', JSON.stringify(updatedAvailability));
-        alert('Se guardó la disponibilidad del profesor!');
-        console.log('Availability data:', updatedAvailability);
-
+    const handleClassesEditComplete = () => {
+        setShowClassesEditor(false);
+        fetchData(); // Refresh professor data to get updated classes
     };
 
     return (
@@ -135,16 +153,30 @@ export default function Profesor() {
                                         <p className="font-medium">{selectedProfessor.name}</p>
                                         <p className="text-xs text-muted-foreground">
                                             {selectedProfessor.id} • {selectedProfessor.department} dpmto
+                                            {selectedProfessor.classes && (
+                                                <span> • Materias: {selectedProfessor.classes.split(',').length}</span>
+                                            )}
                                         </p>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={removeSelectedProfessor}
-                                        className="h-8 w-8 text-red-500"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => setShowClassesEditor(true)}
+                                            className="h-8 w-8 text-blue-500"
+                                            title="Editar materias"
+                                        >
+                                            <BookOpen className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={removeSelectedProfessor}
+                                            className="h-8 w-8 text-red-500"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </Card>
                             </div>
                         ) : (
@@ -155,7 +187,17 @@ export default function Profesor() {
                         )}
                     </div>
 
-                    {selectedProfessor !== null && (
+                    {selectedProfessor !== null && showClassesEditor && (
+                        <div className="py-4">
+                            <ProfessorClasses 
+                                professor={selectedProfessor} 
+                                onSave={handleClassesEditComplete} 
+                                onCancel={() => setShowClassesEditor(false)}
+                            />
+                        </div>
+                    )}
+
+                    {selectedProfessor !== null && !showClassesEditor && (
                         <>
                             <div className="pt-4">
                                 <ProfessorGrid selectedSlots={selectedSlots} setSelectedSlots={setSelectedSlots} />
@@ -172,9 +214,14 @@ export default function Profesor() {
                                 <Button 
                                     className="w-full flex items-center gap-2" 
                                     onClick={handleSaveAvailability}
+                                    disabled={isSaving}
                                 >
-                                    <Save className="h-4 w-4" />
-                                    Guardar
+                                    {isSaving ? (
+                                        <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                                    ) : (
+                                        <Save className="h-4 w-4" />
+                                    )}
+                                    {isSaving ? 'Guardando...' : 'Guardar'}
                                 </Button>
                             </div>
                         </>

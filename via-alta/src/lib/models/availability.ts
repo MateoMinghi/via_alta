@@ -1,11 +1,11 @@
 import pool from "../../config/database";
 
 interface AvailabilityData {
-  IdDisponibilidad: string;
+  IdDisponibilidad: number;
   IdProfesor: string;
   Dia: string;
-  HoraInicio: string; // or Date if that's how it's stored
-  HoraFin: string; // or Date if that's how it's stored
+  HoraInicio: string;
+  HoraFin: string;
 }
 
 class Availability {
@@ -22,7 +22,7 @@ class Availability {
     return result.rows[0] as AvailabilityData;
   }
 
-  static async findById(id: string) {
+  static async findById(id: number) {
     const query = "SELECT * FROM Disponibilidad WHERE IdDisponibilidad = $1";
     const result = await pool.query(query, [id]);
     return result.rows[0] as AvailabilityData;
@@ -34,7 +34,7 @@ class Availability {
     return result.rows as AvailabilityData[];
   }
 
-  static async update(id: string, availability: Partial<AvailabilityData>) {
+  static async update(id: number, availability: Partial<AvailabilityData>) {
     const query = `
       UPDATE Disponibilidad 
       SET Dia = $1, HoraInicio = $2, HoraFin = $3 
@@ -49,7 +49,7 @@ class Availability {
     return result.rows[0] as AvailabilityData;
   }
 
-  static async delete(id: string) {
+  static async delete(id: number) {
     const query =
       "DELETE FROM Disponibilidad WHERE IdDisponibilidad = $1 RETURNING *";
     const result = await pool.query(query, [id]);
