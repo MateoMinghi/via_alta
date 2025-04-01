@@ -17,10 +17,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 
 export default function Page() {
+  // Estado para indicar si la página está cargando
   const [isLoading, setIsLoading] = useState(false);
+  // Estado para almacenar el horario general
   const [schedule, setSchedule] = useState<GeneralScheduleItem[]>([]);
+  // Estado para almacenar la materia seleccionada
   const [selectedSubject, setSelectedSubject] = useState<GeneralScheduleItem | null>(null);
+  // Estado para controlar el diálogo de agregar materia
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  // Estado para almacenar la última vez que se guardó el horario
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   // Estado para nueva clase
   const [newClass, setNewClass] = useState({
@@ -37,6 +42,7 @@ export default function Page() {
     loadScheduleFromDatabase();
   }, []);
 
+  // Función para cargar el horario desde la base de datos
   const loadScheduleFromDatabase = async () => {
     try {
       setIsLoading(true);
@@ -58,6 +64,7 @@ export default function Page() {
     }
   };
 
+  // Función para guardar el horario en la base de datos
   const saveScheduleToDatabase = async () => {
     try {
       setIsLoading(true);
