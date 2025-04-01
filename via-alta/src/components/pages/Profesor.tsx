@@ -154,9 +154,18 @@ export default function Profesor() {
                                         <p className="text-xs text-muted-foreground">
                                             {selectedProfessor.id} • {selectedProfessor.department} dpmto
                                             {selectedProfessor.classes && (
-                                                <span> • Materias: {selectedProfessor.classes.split(',').length}</span>
+                                                <span> • Materias: {
+                                                    /^\d+(,\d+)*$/.test(selectedProfessor.classes)
+                                                    ? selectedProfessor.classes.split(',').length  // Show count if numbers
+                                                    : selectedProfessor.classes.split(',').length   // Show count for names too
+                                                }</span>
                                             )}
                                         </p>
+                                        {selectedProfessor.classes && !(/^\d+(,\d+)*$/.test(selectedProfessor.classes)) && (
+                                            <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+                                                {selectedProfessor.classes}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Button

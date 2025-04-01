@@ -19,18 +19,21 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { professorId, classes } = body;
     
+    // Ensure classes is always stored as a string
+    const classesString = typeof classes === 'string' ? classes : String(classes);
+    
     const existingProfessor = await Professor.findById(professorId.toString());
     if (!existingProfessor) {
       // Create new professor if it doesn't exist
       await Professor.create({
         IdProfesor: professorId.toString(),
         Nombre: 'Unknown', // Default name if not provided
-        Clases: classes
+        Clases: classesString
       });
     } else {
       // Update existing professor's classes
       await Professor.update(professorId.toString(), {
-        Clases: classes
+        Clases: classesString
       });
     }
 

@@ -31,10 +31,22 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
 
         // Parse existing classes if professor has any
         if (professor?.classes) {
-          const classIds = professor.classes.split(',')
-            .map(id => parseInt(id.trim()))
-            .filter(id => !isNaN(id));
-          setSelectedSubjects(new Set(classIds));
+          // Handle both formats - IDs or names
+          if (/^\d+(,\d+)*$/.test(professor.classes)) {
+            // If it's a list of numbers (old format)
+            const classIds = professor.classes.split(',')
+              .map(id => parseInt(id.trim()))
+              .filter(id => !isNaN(id));
+            setSelectedSubjects(new Set(classIds));
+          } else {
+            // If it's a list of names (new format)
+            // Find the IDs that match the names
+            const classNames = professor.classes.split(',').map(name => name.trim());
+            const matchingIds = subjects
+              .filter(subject => classNames.includes(subject.name))
+              .map(subject => subject.id);
+            setSelectedSubjects(new Set(matchingIds));
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -43,15 +55,19 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
     };
 
     fetchData();
-  }, [professor]);
+  }, [professor, subjects.length]);
 
   const handleSave = async () => {
     if (!professor) return;
     
     setIsSaving(true);
     try {
-      const classesString = Array.from(selectedSubjects).join(',');
+      // Get the names of the selected subjects
+      const selectedSubjectNames = Array.from(selectedSubjects)
+        .map(id => subjects.find(subject => subject.id === id)?.name || '')
+        .filter(name => name !== '');
       
+      // Store the names instead of IDs
       const response = await fetch('/api/professors', {
         method: 'POST',
         headers: {
@@ -59,7 +75,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
         },
         body: JSON.stringify({
           professorId: professor.id,
-          classes: classesString
+          classes: selectedSubjectNames.join(',')
         }),
       });
 

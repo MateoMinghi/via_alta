@@ -125,9 +125,12 @@ export async function getProfessors(): Promise<{ loading: boolean; result: Profe
 
 export async function updateProfessorClasses(
     professorId: number, 
-    classes: string
+    classes: string | number[]
 ): Promise<boolean> {
     try {
+        // Convert classes to string if it's an array of numbers
+        const classesString = Array.isArray(classes) ? classes.join(',') : classes.toString();
+        
         const response = await fetch('/api/professors', {
             method: 'POST',
             headers: {
@@ -135,7 +138,7 @@ export async function updateProfessorClasses(
             },
             body: JSON.stringify({
                 professorId,
-                classes
+                classes: classesString
             }),
         });
 
