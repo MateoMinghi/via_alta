@@ -10,7 +10,7 @@ export type Subject = {
     credits: number;
     salon: string;
     semester: number;
-    hours: { day: string; time: string }[];
+    hours: { day: string; time: string }    [];
 };
 
 const GENERAL_SCHEDULE_KEY = 'via-alta-schedule'; // Clave para acceder al horario general en el almacenamiento local
