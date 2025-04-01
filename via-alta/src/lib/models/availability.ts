@@ -35,8 +35,7 @@ class Availability {
   }
 
   static async update(id: number, availability: Partial<AvailabilityData>) {
-    const query = `
-      UPDATE Disponibilidad 
+    const query = `UPDATE Disponibilidad 
       SET Dia = $1, HoraInicio = $2, HoraFin = $3 
       WHERE IdDisponibilidad = $4 RETURNING *
     `;
@@ -63,6 +62,17 @@ class Availability {
       return result.rows as AvailabilityData[];
     } catch (error) {
       console.error("Error fetching availability:", (error as Error).message);
+      throw error;
+    }
+  }
+
+  static async getMaxId(): Promise<number> {
+    try {
+      const query = "SELECT MAX(IdDisponibilidad) as max_id FROM Disponibilidad";
+      const result = await pool.query(query);
+      return (result.rows[0]?.max_id as number) || 0;
+    } catch (error) {
+      console.error("Error getting max ID:", (error as Error).message);
       throw error;
     }
   }
