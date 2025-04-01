@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Availability from "@/lib/models/availability";
 import Professor from "@/lib/models/professor";
+import { parseSlotKey } from "@/lib/utils/availability-utils";
 
 export async function POST(request: Request) {
   try {
@@ -23,15 +24,13 @@ export async function POST(request: Request) {
       .map(([slotKey, isAvailable], index) => {
         if (!isAvailable) return null;
 
-        const [day, time] = slotKey.split("-");
-        const hour = parseInt(time.split(":")[0]);
-        const endTime = `${hour + 1}:00`;
+        const { day, startTime, endTime } = parseSlotKey(slotKey);
 
         return {
-          IdDisponibilidad: maxId + index + 1, // Generate IDs starting after the current maximum
+          IdDisponibilidad: maxId + index + 1,
           IdProfesor: professorId,
           Dia: day,
-          HoraInicio: time,
+          HoraInicio: startTime,
           HoraFin: endTime
         };
       })
@@ -50,7 +49,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error saving availability:", error);
     return NextResponse.json(
       { success: false, error: "Error saving availability" },
       { status: 500 }

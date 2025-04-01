@@ -10,14 +10,25 @@ interface SlotDetails {
  * Parses a slot key (e.g., "Monday-08:00") into day and time components
  */
 export function parseSlotKey(slotKey: string): SlotDetails {
-  const [day, startHour] = slotKey.split("-");
-  const hour = parseInt(startHour.split(":")[0]);
-  const endHour = `${hour + 1}:00`;
+  const [day, startTime] = slotKey.split("-");
+  const [hours, minutes] = startTime.split(":").map(Number);
+  
+  // Calculate end time by adding 30 minutes
+  let endHours = hours;
+  let endMinutes = minutes + 30;
+  
+  // Handle minute overflow
+  if (endMinutes >= 60) {
+    endHours += 1;
+    endMinutes = 0;
+  }
+
+  const endTime = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 
   return {
     day,
-    startTime: startHour,
-    endTime: endHour
+    startTime,
+    endTime
   };
 }
 
