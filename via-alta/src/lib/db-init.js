@@ -10,32 +10,22 @@ const pool = new Pool({
 });
 
 /**
- * Function to initialize database tables required for the password management system
+ * Function to initialize database tables required for the system
  */
 async function initializeDatabase() {
   console.log('Initializing database tables...');
   
   try {
-    // Read migration SQL files
+    // Read the consolidated SQL file
     const migrationsDir = path.join(__dirname, 'migrations');
-    const usersMigration = fs.readFileSync(
-      path.join(migrationsDir, 'create_users_table.sql'),
+    const databaseCreationSQL = fs.readFileSync(
+      path.join(migrationsDir, 'database_creation.sql'),
       'utf8'
     );
     
-    const resetTokensMigration = fs.readFileSync(
-      path.join(migrationsDir, 'create_password_reset_table.sql'),
-      'utf8'
-    );
-    
-    // Execute migrations
-    await pool.query(usersMigration);
-    console.log('✅ Users table initialized');
-    
-    await pool.query(resetTokensMigration);
-    console.log('✅ Password reset tokens table initialized');
-    
-    console.log('Database initialization completed successfully');
+    // Execute the consolidated SQL
+    await pool.query(databaseCreationSQL);
+    console.log('✅ Database tables initialized successfully');
     
   } catch (error) {
     console.error('Error initializing database:', error);
