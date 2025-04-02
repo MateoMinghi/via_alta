@@ -18,16 +18,6 @@ interface ScheduleWithGroup extends ScheduleData {
   // Agrega otros campos del grupo según sea necesario
 }
 
-// Interfaz para representar un elemento del horario general
-interface GeneralScheduleItem {
-  teacher: string;
-  subject: string;
-  day: string;
-  time: string;
-  endTime: string;
-  classroom: string;
-  semester: number;
-}
 
 // Clase Schedule: Representa el modelo de la tabla Horario en la base de datos.
 // Define métodos para interactuar con los datos del horario.
@@ -80,62 +70,7 @@ class Schedule {
     const result = await pool.query(query, [id]);
     return result.rows[0] as ScheduleData;
   }
-
-  // Método para guardar el horario general
-  static async saveGeneralSchedule(scheduleItems: GeneralScheduleItem[]) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      
-      // Primero, elimina el horario general existente
-      await client.query('DELETE FROM HorarioGeneral');
-      
-      // Inserta todos los nuevos elementos del horario
-      const insertQuery = `
-        INSERT INTO HorarioGeneral 
-        (profesor, materia, dia, hora_inicio, hora_fin, salon, semestre)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `;
-      
-      for (const item of scheduleItems) {
-        await client.query(insertQuery, [
-          item.teacher,
-          item.subject,
-          item.day,
-          item.time,
-          item.endTime,
-          item.classroom,
-          item.semester
-        ]);
-      }
-      
-      await client.query('COMMIT');
-      return true;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  // Método para obtener el horario general
-  static async getGeneralSchedule(): Promise<GeneralScheduleItem[]> {
-    const query = `
-      SELECT profesor as teacher, 
-             materia as subject,
-             dia as day,
-             hora_inicio as time,
-             hora_fin as "endTime",
-             salon as classroom,
-             semestre as semester
-      FROM HorarioGeneral
-      ORDER BY dia, hora_inicio
-    `;
-    const result = await pool.query(query);
-    return result.rows;
-  }
 }
 
 export default Schedule;
-export type { ScheduleData, ScheduleWithGroup, GeneralScheduleItem };
+export type { ScheduleData, ScheduleWithGroup };

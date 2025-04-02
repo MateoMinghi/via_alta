@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import Schedule from '@/lib/models/schedule';
+import GeneralSchedule from '@/lib/models/general-schedule';
 
 // Este archivo define las rutas de la API para el horario.
 // Actúa como el controlador en la arquitectura MVC,
@@ -9,7 +9,7 @@ import Schedule from '@/lib/models/schedule';
 export async function GET() {
   try {
     // Llama al método del modelo para obtener el horario general
-    const schedule = await Schedule.getGeneralSchedule();
+    const schedule = await GeneralSchedule.getGeneralSchedule(1);
     // Retorna la respuesta con los datos del horario
     return NextResponse.json({ success: true, data: schedule });
   } catch (error) {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const { schedule } = body;
     
     // Llama al método del modelo para guardar el horario general
-    await Schedule.saveGeneralSchedule(schedule);
+    await GeneralSchedule.saveGeneralSchedule(schedule);
     // Retorna una respuesta de éxito
     return NextResponse.json({ success: true });
   } catch (error) {
