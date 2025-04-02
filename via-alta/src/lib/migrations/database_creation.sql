@@ -22,17 +22,17 @@ CREATE TABLE Salon (
 );
 
 -- Tablas base
-CREATE TABLE usuarios (
-    IdUsuario VARCHAR(10) PRIMARY KEY,
-    ivd_id TEXT UNIQUE NOT NULL,
-    Tipo VARCHAR(20) NOT NULL,
-    password TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- Create users table to store local authentication data
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  ivd_id TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create index for faster lookups
-CREATE INDEX IF NOT EXISTS idx_usuario_ivd_id ON usuarios(ivd_id);
+CREATE INDEX IF NOT EXISTS idx_users_ivd_id ON users(ivd_id);
 
 -- Create password_reset_tokens table if not exists
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -51,13 +51,13 @@ CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_ivd_id ON password_reset_to
 
 CREATE TABLE Coordinador (
     IdCoordinador VARCHAR(10) PRIMARY KEY,
-    FOREIGN KEY (IdCoordinador) REFERENCES usuarios(IdUsuario)
+    FOREIGN KEY (IdCoordinador) REFERENCES users(ivd_id)
 );
 
 CREATE TABLE Alumno (
     IdAlumno VARCHAR(10) PRIMARY KEY,
     Confirmacion BOOLEAN NOT NULL,
-    FOREIGN KEY (IdAlumno) REFERENCES usuarios(IdUsuario)
+    FOREIGN KEY (IdAlumno) REFERENCES users(ivd_id)
 );
 
 CREATE TABLE Profesor (
