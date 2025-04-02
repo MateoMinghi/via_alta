@@ -34,6 +34,15 @@ interface Degree {
   status: string;
 }
 
+// Interface for user role
+interface UserRole {
+  id: number;
+  name: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Extended schema with degrees for coordinators
 const passwordSchemaWithDegrees = z
   .object({
@@ -90,59 +99,19 @@ export default function SetupPassword() {
   const [isCoordinator, setIsCoordinator] = useState(false);
   const [degrees, setDegrees] = useState<Degree[]>([]);
   const [loadingDegrees, setLoadingDegrees] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [isCheckingUserType, setIsCheckingUserType] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   
   const ivdId = searchParams.get('ivd_id');
   const userName = searchParams.get('name');
   const userType = searchParams.get('type');
-
-  // Log all search parameters for debugging
-  useEffect(() => {
-    const params: Record<string, string> = {};
-    searchParams.forEach((value, key) => {
-      params[key] = value;
-    });
-    setDebugInfo(JSON.stringify(params));
-
-    // For testing purposes, you can force the coordinator role
-    // Remove this in production or when fixed
-    const forceCoordinator = true; // Set to true to force coordinator UI
-    
-    if (userType === 'coordinator' || forceCoordinator) {
-      setIsCoordinator(true);
-      fetchDegrees();
-    }
-  }, [userType, searchParams]);
+  const userRoleParam = searchParams.get('role');
 
   // Fetch degrees from API if the user is a coordinator
   const fetchDegrees = async () => {
     setLoadingDegrees(true);
     try {
-      // For testing, simulate a response from the API
-      // Comment this out and uncomment the fetch call for production use
-      /*
-      const mockDegrees = [
-        {
-          id: 8,
-          name: "Diseño y Arquitectura de Interiores",
-          status: "active"
-        },
-        {
-          id: 9,
-          name: "Ingenieria en Sistemas",
-          status: "active"
-        },
-        {
-          id: 7,
-          name: "Diseño de la Moda e Industria del Vestido",
-          status: "active"
-        }
-      ];
-      setDegrees(mockDegrees);
-      */
-      
       // Real API fetch
       const response = await fetch('/api/getDegrees');
       const data = await response.json();
@@ -169,6 +138,42 @@ export default function SetupPassword() {
       router.push('/');
     }
   }, [ivdId, router]);
+
+  // Check user type from API
+  useEffect(() => {
+    const checkUserType = async () => {
+      if (!ivdId) return;
+      
+      setIsCheckingUserType(true);
+      try {
+        // Call API to check user type
+        const response = await fetch(`/api/auth/check-user-type?ivd_id=${ivdId}`);
+        const data = await response.json();
+        
+        
+        // If user is identified as coordinator, show degree selector
+        if (data.userType === 'coordinator') {
+          setIsCoordinator(true);
+          fetchDegrees();
+        }
+      } catch (error) {
+        console.error('Error checking user type:', error);
+        
+        // FALLBACK: For now, always show the coordinator selector until API is implemented
+        setIsCoordinator(true);
+        fetchDegrees();
+      } finally {
+        setIsCheckingUserType(false);
+      }
+    };
+
+    const params: Record<string, string> = {};
+    searchParams.forEach((value, key) => {
+      params[key] = value;
+    });
+    
+    checkUserType();
+  }, [ivdId]);
 
   // Use different form schema based on user type
   const formSchema = isCoordinator ? passwordSchemaWithDegrees : passwordSchema;
@@ -265,6 +270,12 @@ export default function SetupPassword() {
             <p className="text-sm text-center text-gray-500">
               Bienvenido(a), {userName}
             </p>
+          )}
+          {isCheckingUserType && (
+            <div className="flex items-center justify-center mt-2">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <span className="text-sm text-gray-500">Verificando tipo de usuario...</span>
+            </div>
           )}
         </CardHeader>
         <CardContent className="w-full">
