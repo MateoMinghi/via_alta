@@ -1,0 +1,69 @@
+@startuml Login Process Flow
+title Via Alta - Login Flow
+
+actor User
+participant "Login\nComponent" as LoginComponent
+participant "AuthContext" as AuthContext
+participant "API Route\n/api/auth" as AuthAPI
+participant "LocalUser\nModel" as LocalUserModel
+participant "M2M Auth\nService" as M2MAuth
+participant "Via Diseño\nAPI" as ExternalAPI
+
+User -> LoginComponent: Enter credentials
+activate LoginComponent
+LoginComponent -> AuthContext: login(ivdId, password)
+activate AuthContext
+
+AuthContext ->> AuthAPI: POST /api/auth
+activate AuthAPI
+note right of AuthAPI: async operation
+
+AuthAPI ->> LocalUserModel: findByIvdId(ivdId)
+activate LocalUserModel
+LocalUserModel -->> AuthAPI: localUser (or null)
+deactivate LocalUserModel
+
+alt User has local password
+    AuthAPI ->> LocalUserModel: verifyPassword(ivdId, password)
+    activate LocalUserModel
+    LocalUserModel -->> AuthAPI: passwordValid (boolean)
+    deactivate LocalUserModel
+    
+    alt Invalid password
+        AuthAPI -->> AuthContext: 401 Unauthorized
+        AuthContext --> LoginComponent: Error: Credenciales incorrectas
+        LoginComponent --> User: Show error message
+    end
+end
+
+AuthAPI ->> M2MAuth: authenticatedRequest()
+activate M2MAuth
+
+M2MAuth ->> ExternalAPI: POST /m2m/authenticate
+activate ExternalAPI
+ExternalAPI -->> M2MAuth: token
+deactivate ExternalAPI
+
+M2MAuth ->> ExternalAPI: GET /v1/users/find_one?ivd_id={ivdId}
+activate ExternalAPI
+ExternalAPI -->> M2MAuth: userData
+deactivate ExternalAPI
+
+M2MAuth -->> AuthAPI: userData
+deactivate M2MAuth
+
+alt First-time user (no local user)
+    AuthAPI -->> AuthContext: first_time_login: true
+    AuthContext -> LoginComponent: Redirect to setup_password
+    LoginComponent --> User: Redirect to password setup
+else Existing user
+    AuthAPI -->> AuthContext: user data + set HTTP cookie
+    AuthContext -> LoginComponent: Store user + redirect based on role
+    LoginComponent --> User: Redirect to dashboard/estudiante
+end
+
+deactivate AuthAPI
+deactivate AuthContext
+deactivate LoginComponent
+
+@enduml
