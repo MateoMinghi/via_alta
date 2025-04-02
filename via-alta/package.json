@@ -13,7 +13,7 @@
     "test:schedule": "jest schedule-generator",
     "test:horario-semestre": "jest horario-semestre.integration HorariosSlug CoordinadorSchedule",
     "test:confirmacion": "jest estudiante-confirmacion useConfirmSchedule.integration confirmacion-page",
-    "db:init": "ts-node src/lib/db-init.ts"
+    "db:init": "node src/lib/db-init.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",

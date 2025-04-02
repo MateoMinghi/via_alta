@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS Profesor (
     Clases TEXT DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTSDisponibilidad (
+CREATE TABLE IF NOT EXISTS Disponibilidad (
     IdDisponibilidad INTEGER PRIMARY KEY,
     IdProfesor INTEGER,
     Dia VARCHAR(10) NOT NULL,
