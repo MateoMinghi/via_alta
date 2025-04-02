@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import LocalUser from '@/lib/models/local-user';
+import CoordinatorDegree from '@/lib/models/coordinator-degrees';
 import { authenticatedRequest } from '@/lib/m2mAuth';
 
 // Interface for the Via Diseño API response
@@ -10,6 +11,7 @@ interface ViaDisenioUser {
   email: string;
   email_personal?: string;
   name: string;
+  type: string;
   [key: string]: any;
 }
 
@@ -17,10 +19,16 @@ interface ViaDisenioResponse {
   data: ViaDisenioUser;
 }
 
+// Interface for degree selection
+interface SelectedDegree {
+  id: number;
+  name: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Parse request body
-    const { ivdId, email, password } = await request.json();
+    const { ivdId, email, password, selectedDegrees } = await request.json();
     
     if (!ivdId || !email || !password) {
       return NextResponse.json({ 
@@ -29,24 +37,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user exists in Via Diseño API using M2M authentication
+    let userData;
     try {
-      const userData = await authenticatedRequest<ViaDisenioResponse>(
+      const response = await authenticatedRequest<ViaDisenioResponse>(
         `/v1/users/find_one?ivd_id=${ivdId}`
       );
       
-      if (!userData.data) {
+      if (!response.data) {
         return NextResponse.json({ 
           error: 'Usuario no encontrado' 
         }, { status: 404 });
       }
       
+      userData = response.data;
+      
       // Verify email matches
-      const userEmail = userData.data.email;
-      const userEmailPersonal = userData.data.email_personal;
+      const userEmail = userData.email;
+      const userEmailPersonal = userData.email_personal;
       
       if (userEmail !== email && userEmailPersonal !== email) {
         return NextResponse.json({ 
           error: 'El correo electrónico proporcionado no coincide con los registros del usuario' 
+        }, { status: 400 });
+      }
+
+      // Check if the user is a coordinator and degrees were provided
+      const isCoordinator = userData.type === 'coordinator';
+      if (isCoordinator && (!selectedDegrees || !Array.isArray(selectedDegrees) || selectedDegrees.length === 0)) {
+        return NextResponse.json({ 
+          error: 'Los coordinadores deben seleccionar al menos una carrera' 
         }, { status: 400 });
       }
     } catch (error) {
@@ -73,6 +92,18 @@ export async function POST(request: NextRequest) {
       ivd_id: ivdId,
       password: hashedPassword
     });
+
+    // If the user is a coordinator and selected degrees, save them
+    if (userData.type === 'coordinator' && selectedDegrees && Array.isArray(selectedDegrees)) {
+      // Save the selected degrees for this coordinator
+      for (const degree of selectedDegrees) {
+        await CoordinatorDegree.create({
+          coordinator_id: ivdId,
+          degree_id: degree.id,
+          degree_name: degree.name
+        });
+      }
+    }
 
     // Return success
     return NextResponse.json({ 
