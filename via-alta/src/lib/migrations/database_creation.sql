@@ -49,11 +49,6 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_ivd_id ON password_reset_tokens(ivd_id);
 
-CREATE TABLE IF NOT EXISTS Coordinador (
-    IdCoordinador VARCHAR(10) PRIMARY KEY,
-    FOREIGN KEY (IdCoordinador) REFERENCES users(ivd_id)
-);
-
 CREATE TABLE IF NOT EXISTS Alumno (
     IdAlumno VARCHAR(10) PRIMARY KEY,
     Confirmacion BOOLEAN NOT NULL,

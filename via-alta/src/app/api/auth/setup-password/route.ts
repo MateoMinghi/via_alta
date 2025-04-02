@@ -12,6 +12,13 @@ interface ViaDisenioUser {
   email_personal?: string;
   name: string;
   type: string;
+  role?: {
+    id: number;
+    name: string;
+    description: string;
+    created_at: string;
+    updated_at: string;
+  };
   [key: string]: any;
 }
 
@@ -61,8 +68,9 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      // Check if the user is a coordinator and degrees were provided
-      const isCoordinator = userData.type === 'coordinator';
+      // Check if the user is a coordinator (admin role with id 24) and degrees were provided
+      const isCoordinator = userData.role?.id === 24 || userData.role?.name === 'admin';
+      
       if (isCoordinator && (!selectedDegrees || !Array.isArray(selectedDegrees) || selectedDegrees.length === 0)) {
         return NextResponse.json({ 
           error: 'Los coordinadores deben seleccionar al menos una carrera' 
@@ -93,15 +101,27 @@ export async function POST(request: NextRequest) {
       password: hashedPassword
     });
 
-    // If the user is a coordinator and selected degrees, save them
-    if (userData.type === 'coordinator' && selectedDegrees && Array.isArray(selectedDegrees)) {
-      // Save the selected degrees for this coordinator
-      for (const degree of selectedDegrees) {
-        await CoordinatorDegree.create({
-          coordinator_id: ivdId,
-          degree_id: degree.id,
-          degree_name: degree.name
-        });
+    // If the user is a coordinator (admin role with id 24) and selected degrees, save them
+    if ((userData.role?.id === 24 || userData.role?.name === 'admin') && selectedDegrees && Array.isArray(selectedDegrees)) {
+      try {
+        // Convert ivdId to string if it's not already
+        const coordinatorIdString = String(ivdId);
+        
+        // Delete any existing degrees for this coordinator (in case of update)
+        await CoordinatorDegree.deleteByCoordinatorId(coordinatorIdString);
+        
+        // Save the selected degrees for this coordinator
+        for (const degree of selectedDegrees) {  
+          await CoordinatorDegree.create({
+            coordinator_id: coordinatorIdString,
+            degree_id: degree.id,
+            degree_name: degree.name
+          });
+        }
+        
+        console.log(`Saved ${selectedDegrees.length} degrees for coordinator ${coordinatorIdString}`);
+      } catch (error) {
+        console.error('Error saving coordinator degrees:', error);
       }
     }
 
