@@ -8,14 +8,14 @@
 -- Crear tablas
 
 -- Tablas de clasificación
-CREATE TABLE Materia (
+CREATE TABLE IF NOT EXISTS Materia (
     IdMateria INTEGER PRIMARY KEY,
     Nombre VARCHAR(100) NOT NULL,
     HorasClase DECIMAL(3,1) NOT NULL,
     Requisitos TEXT
 );
 
-CREATE TABLE Salon (
+CREATE TABLE IF NOT EXISTS Salon (
     IdSalon INTEGER PRIMARY KEY,
     Cupo INTEGER NOT NULL,
     Tipo VARCHAR(50) NOT NULL
@@ -49,24 +49,24 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_ivd_id ON password_reset_tokens(ivd_id);
 
-CREATE TABLE Coordinador (
+CREATE TABLE IF NOT EXISTS Coordinador (
     IdCoordinador VARCHAR(10) PRIMARY KEY,
     FOREIGN KEY (IdCoordinador) REFERENCES users(ivd_id)
 );
 
-CREATE TABLE Alumno (
+CREATE TABLE IF NOT EXISTS Alumno (
     IdAlumno VARCHAR(10) PRIMARY KEY,
     Confirmacion BOOLEAN NOT NULL,
     FOREIGN KEY (IdAlumno) REFERENCES users(ivd_id)
 );
 
-CREATE TABLE Profesor (
+CREATE TABLE IF NOT EXISTS Profesor (
     IdProfesor INTEGER PRIMARY KEY,
     Nombre VARCHAR(100) NOT NULL,
     Clases TEXT DEFAULT ''
 );
 
-CREATE TABLE Disponibilidad (
+CREATE TABLE IF NOT EXISTSDisponibilidad (
     IdDisponibilidad INTEGER PRIMARY KEY,
     IdProfesor INTEGER,
     Dia VARCHAR(10) NOT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE Disponibilidad (
     FOREIGN KEY (IdProfesor) REFERENCES Profesor(IdProfesor)
 );
 
-CREATE TABLE Prerequisito (
+CREATE TABLE IF NOT EXISTS Prerequisito (
     IdMateria INTEGER,
     IdPrerequisito INTEGER,
     PRIMARY KEY (IdMateria, IdPrerequisito),
@@ -83,7 +83,7 @@ CREATE TABLE Prerequisito (
     FOREIGN KEY (IdPrerequisito) REFERENCES Materia(IdMateria)
 );
 
-CREATE TABLE Ciclo (
+CREATE TABLE IF NOT EXISTS Ciclo (
     IdCiclo INTEGER PRIMARY KEY,
     Nombre VARCHAR(50) NOT NULL,
     FechaInicio DATE NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE Ciclo (
 );
 
 -- Tablas transaccionales
-CREATE TABLE Grupo (
+CREATE TABLE IF NOT EXISTS Grupo (
     IdGrupo INTEGER PRIMARY KEY,
     IdMateria INTEGER,
     IdProfesor INTEGER,
@@ -103,7 +103,7 @@ CREATE TABLE Grupo (
     FOREIGN KEY (IdCiclo) REFERENCES Ciclo(IdCiclo)
 );
 
-CREATE TABLE Inscribe (
+CREATE TABLE IF NOT EXISTS Inscribe (
     IdInscripcion INTEGER PRIMARY KEY,
     IdAlumno VARCHAR(10),
     IdGrupo INTEGER,
@@ -111,7 +111,7 @@ CREATE TABLE Inscribe (
     FOREIGN KEY (IdGrupo) REFERENCES Grupo(IdGrupo)
 );
 
-CREATE TABLE Solicitud (
+CREATE TABLE IF NOT EXISTS Solicitud (
     IdSolicitud INTEGER PRIMARY KEY,
     Fecha DATE NOT NULL,
     Estado VARCHAR(20) NOT NULL,
@@ -120,7 +120,7 @@ CREATE TABLE Solicitud (
     FOREIGN KEY (IdAlumno) REFERENCES Alumno(IdAlumno)
 );
 
-CREATE TABLE HorarioGeneral (
+CREATE TABLE IF NOT EXISTS HorarioGeneral (
     IdHorarioGeneral INTEGER NOT NULL,
     NombreCarrera VARCHAR(100) NOT NULL,
     IdMateria INTEGER NOT NULL,
