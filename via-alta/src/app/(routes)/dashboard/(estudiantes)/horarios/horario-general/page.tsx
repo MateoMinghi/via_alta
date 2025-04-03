@@ -176,8 +176,19 @@ export default function Page() {
     });
     
     schedule.forEach(item => {
+      if (!item.HoraInicio || !item.HoraFin || !item.Dia) {
+        console.warn('Invalid schedule item:', item);
+        return;
+      }
+
       const start = timeToMinutes(item.HoraInicio);
       const end = timeToMinutes(item.HoraFin);
+      
+      if (start === 0 || end === 0) {
+        console.warn('Invalid time format in schedule item:', item);
+        return;
+      }
+
       // Iterate in 30-minute steps so that a 1-hour class spans two cells
       for (let t = start; t < end; t += 30) {
         const slot = minutesToTime(t);
