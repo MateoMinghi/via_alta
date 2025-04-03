@@ -9,7 +9,7 @@ import GeneralSchedule from '@/lib/models/general-schedule';
 export async function GET() {
   try {
     // Llama al método del modelo para obtener el horario general
-    const schedule = await GeneralSchedule.getGeneralSchedule(1);
+    const schedule = await GeneralSchedule.getGeneralSchedule();
     // Retorna la respuesta con los datos del horario
     return NextResponse.json({ success: true, data: schedule });
   } catch (error) {

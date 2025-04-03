@@ -85,6 +85,34 @@ interface Course {
   }[];
 }
 
+// Interfaces de la db para generacion del horario general
+interface DbTeacher {
+  IdProfesor: string;
+  Nombre: string;
+  Clases: string;
+}
+
+interface DbAvailability {
+  IdDisponibilidad: number;
+  IdProfesor: string;
+  Dia: string;
+  HoraInicio: string;
+  HoraFin: string;
+}
+
+interface DbClassroom {
+  IdSalon: string;
+  Cupo: number;
+  Tipo: string;
+}
+
+interface DbSubject {
+  IdMateria: string;
+  Nombre: string;
+  HorasClase: number;
+  Requisitos: string | null;
+}
+
 // API configuration
 const API_BASE_URL = 'https://ivd-qa-0dc175b0ba43.herokuapp.com';
 const CLIENT_ID = 'payments_app';
@@ -127,6 +155,185 @@ async function fetchCourses(): Promise<ApiCourse[]> {
 
   const data: ApiResponse<ApiCourse> = await response.json();
   return data.data;
+}
+
+// Funciones para obtener datos de la db
+async function fetchTeachersFromDb(): Promise<DbTeacher[]> {
+  try {
+    if (typeof window === 'undefined') {
+      const Professor = (await import('../models/professor')).default;
+      const professors = await Professor.findAll();
+      
+      return professors.map(professor => ({
+        IdProfesor: professor.IdProfesor,
+        Nombre: professor.Nombre,
+        Clases: professor.Clases || ''
+      }));
+    } else {
+      console.warn('Database operations are only available on the server side');
+      return [];
+    }
+  } catch (error) {
+    console.error('Error fetching teachers from database:', error);
+    throw new Error('Failed to fetch teachers from database');
+  }
+}
+
+async function fetchTeacherAvailabilityFromDb(professorId: string): Promise<DbAvailability[]> {
+  try {
+    if (typeof window === 'undefined') {
+
+      const Availability = (await import('../models/availability')).default;
+      const availabilities = await Availability.findByProfessor(professorId);
+      
+      return availabilities.map(availability => ({
+        IdDisponibilidad: availability.IdDisponibilidad,
+        IdProfesor: availability.IdProfesor,
+        Dia: availability.Dia,
+        HoraInicio: availability.HoraInicio,
+        HoraFin: availability.HoraFin
+      }));
+    } else {
+      console.warn('Database operations are only available on the server side');
+      return [];
+    }
+  } catch (error) {
+    console.error(`Error fetching availability for teacher ${professorId}:`, error);
+    throw new Error(`Failed to fetch availability for teacher ${professorId}`);
+  }
+}
+
+async function fetchClassroomsFromDb(): Promise<DbClassroom[]> {
+  try {
+    if (typeof window === 'undefined') {
+      const Classroom = (await import('../models/classroom')).default;
+      const classrooms = await Classroom.findAll();
+      
+      return classrooms.map(classroom => ({
+        IdSalon: classroom.IdSalon,
+        Cupo: classroom.Cupo,
+        Tipo: classroom.Tipo
+      }));
+    } else {
+      console.warn('Database operations are only available on the server side');
+      return [];
+    }
+  } catch (error) {
+    console.error('Error fetching classrooms from database:', error);
+    throw new Error('Failed to fetch classrooms from database');
+  }
+}
+
+async function fetchSubjectsFromDb(): Promise<DbSubject[]> {
+  try {
+    if (typeof window === 'undefined') {
+      const Subject = (await import('../models/subject')).default;
+      const subjects = await Subject.findAll();
+      
+      return subjects.map(subject => ({
+        IdMateria: subject.IdMateria,
+        Nombre: subject.Nombre,
+        HorasClase: subject.HorasClase,
+        Requisitos: subject.Requisitos
+      }));
+    } else {
+      console.warn('Database operations are only available on the server side');
+      return [];
+    }
+  } catch (error) {
+    console.error('Error fetching subjects from database:', error);
+    throw new Error('Failed to fetch subjects from database');
+  }
+}
+
+// Funcion para convertir los profesores de la db a el formato necesario para la generacion del horario
+async function convertDbTeachersToTeachers(dbTeachers: DbTeacher[]): Promise<Teacher[]> {
+  const teachers: Teacher[] = [];
+  
+  for (const dbTeacher of dbTeachers) {
+    // Obtener la disponibilidad del profesor
+    const availabilities = await fetchTeacherAvailabilityFromDb(dbTeacher.IdProfesor);
+    
+    // Convertir el formato de disponibilidad de la db a el formato necesario para la generacion del horario
+    const availability: DayAvailability[] = [];
+    
+    // Agrupar las disponibilidades por dia
+    const availabilitiesByDay = new Map<string, TimeFrame[]>();
+    
+    availabilities.forEach(avail => {
+      if (!availabilitiesByDay.has(avail.Dia)) {
+        availabilitiesByDay.set(avail.Dia, []);
+      }
+      
+      availabilitiesByDay.get(avail.Dia)?.push({
+        start: avail.HoraInicio,
+        end: avail.HoraFin
+      });
+    });
+    
+    // Convertir a el formato DayAvailability
+    availabilitiesByDay.forEach((timeFrames, day) => {
+      availability.push({
+        day,
+        timeFrames
+      });
+    });
+    
+    // Parsear las clases del profesor
+    const classes = dbTeacher.Clases ? JSON.parse(dbTeacher.Clases) : [];
+    
+    teachers.push({
+      name: dbTeacher.Nombre,
+      subject: '', // Este para cuando se asignen los cursos
+      availability,
+      semester: 0, // Este para  seteado cuando se asignen los cursos
+      credits: 0, // Este para seteado cuando se asignen los cursos
+      hoursProfessor: null,
+      hoursIndependent: null,
+      facilities: null
+    });
+  }
+  
+  return teachers;
+}
+
+// Funcion para convertir las aulas de la db a el formato necesario para la generacion del horario
+function convertDbClassroomsToClassrooms(dbClassrooms: DbClassroom[]): Classroom[] {
+  return dbClassrooms.map(dbClassroom => {
+    // Por defecto, todas las aulas están disponibles todos los días
+    // En una implementación real, esto debería obtenerse de una tabla de disponibilidad de aulas
+    const availableDays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+    
+    return {
+      name: dbClassroom.IdSalon,
+      availability: availableDays
+    };
+  });
+}
+
+// Funcion para asignar los cursos a los profesores
+function assignCoursesToTeachers(teachers: Teacher[], subjects: DbSubject[]): Teacher[] {
+  // Crear una copia de los profesores para evitar modificar el original
+  const updatedTeachers = [...teachers];
+  
+  // Asignar los cursos a los profesores basado en la información disponible
+  updatedTeachers.forEach(teacher => {
+    // En una implementación real, esto debería obtenerse de una tabla de asignación de profesores a materias
+    // Por ahora, asignamos aleatoriamente un curso a cada profesor
+    if (subjects.length > 0) {
+      const randomIndex = Math.floor(Math.random() * subjects.length);
+      const subject = subjects[randomIndex];
+      
+      teacher.subject = subject.Nombre;
+      teacher.semester = Math.floor(Math.random() * 8) + 1; // Semestre aleatorio entre 1 y 8
+      teacher.credits = subject.HorasClase;
+      teacher.hoursProfessor = subject.HorasClase;
+      teacher.hoursIndependent = 0;
+      teacher.facilities = subject.Requisitos;
+    }
+  });
+  
+  return updatedTeachers;
 }
 
 export async function generateSchedule(): Promise<ScheduleItem[]> {
@@ -301,4 +508,78 @@ export async function generateSchedule(): Promise<ScheduleItem[]> {
   });
   
   return schedule;
+}
+
+// Nueva funcion para generar el horario usando datos de la db
+export async function generateScheduleFromDb(): Promise<ScheduleItem[]> {
+  try {
+    const [dbTeachers, dbClassrooms, dbSubjects] = await Promise.all([
+      fetchTeachersFromDb(),
+      fetchClassroomsFromDb(),
+      fetchSubjectsFromDb()
+    ]);
+    
+    // Convertir los profesores de la db a el formato necesario para la generacion del horario
+    let teachers = await convertDbTeachersToTeachers(dbTeachers);
+    
+    // Convertir las aulas de la db a el formato necesario para la generacion del horario
+    const classrooms = convertDbClassroomsToClassrooms(dbClassrooms);
+    
+    teachers = assignCoursesToTeachers(teachers, dbSubjects);
+    
+    // Filtrar los profesores sin asignado un curso (aquellos que no tienen asignado un curso)  
+    teachers = teachers.filter(teacher => teacher.subject !== '');
+    
+    // Si no hay profesores con cursos, retornar un horario vacio
+    if (teachers.length === 0) {
+      console.warn('No teachers with courses found in the database');
+      return [];
+    }
+    
+    // Generar el horario usando la misma logica de la funcion original
+    const schedule: ScheduleItem[] = [];
+    
+    // Ordenar los profesores por semestre para distribuir las clases uniformemente
+    teachers.sort((a, b) => a.semester - b.semester);
+    
+    teachers.forEach(teacher => {
+      // Encontrar las aulas compatibles basado en los requisitos de instalaciones
+      const compatibleClassrooms = classrooms.filter(classroom => {
+        if (!teacher.facilities) return classroom.name.includes('Aula');
+        return teacher.facilities.split(',').some(facility => 
+          classroom.name.includes(facility.trim())
+        );
+      });
+      
+      if (compatibleClassrooms.length === 0) return;
+      
+      // Elegir una aula compatible aleatoria
+      const classroom = compatibleClassrooms[Math.floor(Math.random() * compatibleClassrooms.length)];
+      
+      // Para cada dia de disponibilidad del profesor
+      teacher.availability.forEach(dayAvail => {
+        // Verificar si la aula esta disponible en ese dia
+        if (!classroom.availability.includes(dayAvail.day)) return;
+        
+        // Para cada franja horaria de ese dia
+        dayAvail.timeFrames.forEach(timeFrame => {
+          // Agregar la clase al horario
+          schedule.push({
+            teacher: teacher.name,
+            subject: teacher.subject,
+            day: dayAvail.day,
+            time: timeFrame.start,
+            endTime: timeFrame.end,
+            classroom: classroom.name,
+            semester: teacher.semester
+          });
+        });
+      });
+    });
+    
+    return schedule;
+  } catch (error) {
+    console.error('Error generating schedule from database:', error);
+    throw error;
+  }
 }

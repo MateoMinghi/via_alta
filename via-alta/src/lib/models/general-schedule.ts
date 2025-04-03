@@ -20,7 +20,19 @@ class GeneralSchedule {
     try {
       await client.query('BEGIN');
       
-      // First, delete existing schedule for the same IdHorarioGeneral
+      // First, validate that all professor IDs exist
+      for (const item of scheduleItems) {
+        const professorCheck = await client.query(
+          'SELECT COUNT(*) FROM Profesor WHERE IdProfesor = $1',
+          [item.IdProfesor]
+        );
+        
+        if (professorCheck.rows[0].count === '0') {
+          throw new Error(`Professor with ID ${item.IdProfesor} does not exist in the database`);
+        }
+      }
+
+      // Then proceed with deletion if validation passes
       if (scheduleItems.length > 0) {
         await client.query('DELETE FROM HorarioGeneral WHERE IdHorarioGeneral = $1', [scheduleItems[0].IdHorarioGeneral]);
       }
@@ -57,19 +69,18 @@ class GeneralSchedule {
   }
 
   // Method to get the general schedule for a specific degree program
-  static async getGeneralSchedule(degreeId: number): Promise<GeneralScheduleItem[]> {
+  static async getGeneralSchedule(): Promise<GeneralScheduleItem[]> {
     const query = `
       SELECT 
         hg.*,
         m.Nombre as MateriaNombre,
         p.Nombre as ProfesorNombre
       FROM HorarioGeneral hg
-      JOIN Materia m ON hg.IdMateria = m.IdMateria
-      JOIN Profesor p ON hg.IdProfesor = p.IdProfesor
-      WHERE hg.IdHorarioGeneral = $1
+      LEFT JOIN Materia m ON hg.IdMateria = m.IdMateria
+      LEFT JOIN Profesor p ON hg.IdProfesor = p.IdProfesor
       ORDER BY hg.Dia, hg.HoraInicio
     `;
-    const result = await pool.query(query, [degreeId]);
+    const result = await pool.query(query);
     return result.rows;
   }
 
