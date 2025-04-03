@@ -114,7 +114,7 @@ export default function StatusTable({ students }: StatusTableProps) {
   }, [searchQuery, students]);
 
   const handleViewSchedule = (studentId: string) => {
-    router.push(`coordinador/horarios/${studentId}`);
+    router.push(`dashboard/horarios/${studentId}`);
   };
 
   const toggleSemester = (semester: string) => {
@@ -133,7 +133,7 @@ export default function StatusTable({ students }: StatusTableProps) {
       case 'no-inscrito':
         return 'bg-red-500';
       default:
-        return 'bg-gray-400';
+        return 'bg-red-500';
     }
   };
 
@@ -216,6 +216,7 @@ export default function StatusTable({ students }: StatusTableProps) {
                               <Calendar className="h-4 w-4" />
                               <span>Ver horario</span>
                             </Button>
+                          
                           </div>
                         </TableCell>
                       </TableRow>
