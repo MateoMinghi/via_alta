@@ -98,8 +98,22 @@ export default function Page() {
   async function handleGenerateSchedule() {
     try {
       setIsLoading(true);
-      const result = await generateSchedule();
-      setSchedule(result);
+      // Llamar a la API en lugar de directamente al generador de horarios
+      const response = await fetch('/api/schedule', {
+        method: 'PUT', // Usar PUT para la generación de horario
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      // Actualizar el estado con el horario generado devuelto por la API
+      setSchedule(result.data);
       toast.success('Horario generado correctamente');
     } catch (error) {
       console.error('Error al generar el horario:', error);
