@@ -46,6 +46,36 @@ class PasswordReset {
   }
 
   /**
+   * Creates a new password reset token with custom expiration time
+   */
+  static async createTokenWithExpiration(ivd_id: string, email: string, expiresAt: Date): Promise<ResetTokenData> {
+    // Generate a random token
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    const query = `
+      INSERT INTO password_reset_tokens 
+      (token, ivd_id, email, expires_at, used) 
+      VALUES ($1, $2, $3, $4, $5) 
+      RETURNING *
+    `;
+    
+    try {
+      const result = await pool.query(query, [
+        token,
+        ivd_id,
+        email,
+        expiresAt,
+        false
+      ]);
+      
+      return result.rows[0] as ResetTokenData;
+    } catch (error) {
+      console.error("Error creating password reset token:", error);
+      throw new Error("Failed to create password reset token");
+    }
+  }
+
+  /**
    * Finds a token record by the token value
    */
   static async findByToken(token: string): Promise<ResetTokenData | null> {
