@@ -63,16 +63,43 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      // For first-time users without a password, return first_time_login flag
+      // For first-time users without a password, trigger a setup token email instead of direct redirect
       if (isFirstTimeUser) {
-        return NextResponse.json({
-          first_time_login: true,
-          user: {
-            ivd_id: userData.data.ivd_id,
-            email: userData.data.email,
-            name: `${userData.data.name} ${userData.data.first_surname}`,
+        // Send request to our setup-token endpoint that will generate and send the token
+        try {
+          const setupTokenResponse = await fetch(new URL('/api/auth/send-setup-token', request.url), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              ivd_id: userData.data.ivd_id.toString(),
+              email: userData.data.email,
+              name: `${userData.data.name} ${userData.data.first_surname}`
+            })
+          });
+          
+          const setupTokenData = await setupTokenResponse.json();
+          
+          if (!setupTokenResponse.ok) {
+            throw new Error(setupTokenData.error || 'Failed to create setup token');
           }
-        });
+          
+          // Return a response indicating that the user needs to check their email
+          return NextResponse.json({
+            first_time_login: true,
+            email_sent: true,
+            user: {
+              ivd_id: userData.data.ivd_id,
+              email: userData.data.email,
+              name: `${userData.data.name} ${userData.data.first_surname}`,
+            },
+            message: setupTokenData.message || 'Se ha enviado un enlace para configurar tu contraseña al correo electrónico institucional.'
+          });
+        } catch (tokenError) {
+          console.error('Error creating setup token:', tokenError);
+          return NextResponse.json({ error: 'Error creating setup token' }, { status: 500 });
+        }
       }
 
       // Prepare user data with sensitive information removed

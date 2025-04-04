@@ -36,6 +36,14 @@ interface AuthContextType {
   login: (ivdId: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
+  setupEmailSent: boolean;
+  setupUserInfo: {
+    ivd_id?: number;
+    email?: string;
+    name?: string;
+  } | null;
+  setupMessage: string | null;
+  clearSetupState: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,6 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [setupEmailSent, setSetupEmailSent] = useState(false);
+  const [setupUserInfo, setSetupUserInfo] = useState<{ ivd_id?: number; email?: string; name?: string; } | null>(null);
+  const [setupMessage, setSetupMessage] = useState<string | null>(null);
   const router = useRouter();
 
   // Check for existing session on initial load
@@ -64,9 +75,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
+  const clearSetupState = () => {
+    setSetupEmailSent(false);
+    setSetupUserInfo(null);
+    setSetupMessage(null);
+  };
+
   const login = async (ivdId: string, password: string) => {
     setIsLoading(true);
     setError(null);
+    // Clear any previous setup state
+    clearSetupState();
     
     try {
       const response = await fetch('/api/auth', {
@@ -86,15 +105,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(data.error || 'Failed to authenticate');
       }
       
-      // Handle first-time login
-      if (data.first_time_login) {
-        // Redirect to password setup page with user data
-        const params = new URLSearchParams({
-          ivd_id: data.user.ivd_id.toString(),
-          name: data.user.name
-        });
-        
-        router.push(`/setup_password?${params.toString()}`);
+      // Handle first-time login with email token
+      if (data.first_time_login && data.email_sent) {
+        // Store information about the setup email being sent
+        setSetupEmailSent(true);
+        setSetupUserInfo(data.user || null);
+        setSetupMessage(data.message || 'Se ha enviado un enlace para configurar tu contraseña al correo electrónico institucional.');
         setIsLoading(false);
         return;
       }
@@ -139,6 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear user state
       setUser(null);
       
+      // Clear setup state
+      clearSetupState();
+      
       // Redirect to login page
       router.push('/');
       
@@ -156,6 +175,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         error,
+        setupEmailSent,
+        setupUserInfo,
+        setupMessage,
+        clearSetupState
       }}
     >
       {children}

@@ -100,6 +100,10 @@ export default function SetupPassword() {
   const [degrees, setDegrees] = useState<Degree[]>([]);
   const [loadingDegrees, setLoadingDegrees] = useState(false);
   const [isCheckingUserType, setIsCheckingUserType] = useState(false);
+  const [verifyingToken, setVerifyingToken] = useState(false);
+  const [tokenValid, setTokenValid] = useState(false);
+  const [userData, setUserData] = useState<{ ivd_id: string; email?: string } | null>(null);
+  
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -107,7 +111,45 @@ export default function SetupPassword() {
   const userName = searchParams.get('name');
   const userType = searchParams.get('type');
   const userRoleParam = searchParams.get('role');
-
+  const token = searchParams.get('token');
+  
+  // Verify token if provided
+  useEffect(() => {
+    if (token && ivdId) {
+      const verifyToken = async () => {
+        setVerifyingToken(true);
+        try {
+          const response = await fetch(`/api/auth/verify-token?token=${token}`);
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.error || "Token de verificación inválido");
+          }
+          
+          // If token is valid, update user data
+          setTokenValid(true);
+          setUserData(data.user);
+          
+          // Pre-fill the email field if provided by token verification
+          if (data.user?.email) {
+            form.setValue('email', data.user.email);
+          }
+        } catch (error) {
+          console.error('Error verifying token:', error);
+          setMessage({
+            text: error instanceof Error ? error.message : 'Token inválido o expirado',
+            type: 'error'
+          });
+          setTokenValid(false);
+        } finally {
+          setVerifyingToken(false);
+        }
+      };
+      
+      verifyToken();
+    }
+  }, [token, ivdId]);
+  
   // Fetch degrees from API if the user is a coordinator
   const fetchDegrees = async () => {
     setLoadingDegrees(true);
@@ -166,11 +208,6 @@ export default function SetupPassword() {
         setIsCheckingUserType(false);
       }
     };
-
-    const params: Record<string, string> = {};
-    searchParams.forEach((value, key) => {
-      params[key] = value;
-    });
     
     checkUserType();
   }, [ivdId]);
@@ -209,6 +246,11 @@ export default function SetupPassword() {
         password: values.password,
       };
 
+      // Add token if available
+      if (token) {
+        requestBody.token = token;
+      }
+      
       // Add selected degrees if the user is a coordinator
       if (isCoordinator && values.selectedDegrees) {
         requestBody.selectedDegrees = values.selectedDegrees.map(degreeId => {
@@ -259,16 +301,48 @@ export default function SetupPassword() {
   if (!ivdId) {
     return null; // Will redirect via useEffect
   }
+  
+  // Show loading state while verifying token
+  if (token && verifyingToken) {
+    return (
+      <div className="flex bg-black/70 h-screen items-center justify-center">
+        <Card className="flex flex-col items-center w-[400px] p-6">
+          <Loader2 className="h-8 w-8 animate-spin mb-4" />
+          <p className="text-center">Verificando token...</p>
+        </Card>
+      </div>
+    );
+  }
 
+  // Show error if token is invalid
+  if (token && !tokenValid && !verifyingToken) {
+    return (
+      <div className="flex bg-black/70 h-screen items-center justify-center">
+        <Card className="flex flex-col items-center w-[400px] p-6">
+          <CardHeader>
+            <Image src="/logo.svg" alt="logo" width={100} height={100} />
+          </CardHeader>
+          <div className="text-red-500 mb-4">
+            {message?.text || "Token inválido o expirado"}
+          </div>
+          <Button onClick={() => router.push('/')}>
+            Volver al inicio de sesión
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Main form
   return (
     <div className="flex bg-black/70 h-screen items-center justify-center">
       <Card className="flex flex-col items-center w-[450px] max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <Image src="/logo.svg" alt="logo" width={100} height={100} />
           <h2 className="text-xl font-bold text-center">Configura tu contraseña</h2>
-          {userName && (
+          {(userName || userData?.ivd_id) && (
             <p className="text-sm text-center text-gray-500">
-              Bienvenido(a), {userName}
+              Bienvenido(a), {userName || `Usuario ${userData?.ivd_id}`}
             </p>
           )}
           {isCheckingUserType && (
@@ -292,7 +366,7 @@ export default function SetupPassword() {
                   {message.text}
                 </div>
               )}
-
+              
               <FormField
                 control={form.control}
                 name="email"
@@ -300,7 +374,12 @@ export default function SetupPassword() {
                   <FormItem className="w-full">
                     <FormLabel>Correo electrónico</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="tu@correo.com" {...field} />
+                      <Input 
+                        type="email" 
+                        placeholder="tu@correo.com" 
+                        {...field} 
+                        disabled={!!userData?.email}
+                      />
                     </FormControl>
                     <FormDescription>
                       Ingresa tu correo electrónico registrado
@@ -309,7 +388,7 @@ export default function SetupPassword() {
                   </FormItem>
                 )}
               />
-
+              
               <FormField
                 control={form.control}
                 name="password"
@@ -330,7 +409,7 @@ export default function SetupPassword() {
                   </FormItem>
                 )}
               />
-
+              
               <FormField
                 control={form.control}
                 name="confirmPassword"
@@ -348,7 +427,7 @@ export default function SetupPassword() {
                   </FormItem>
                 )}
               />
-
+              
               <div className="flex items-center space-x-2 w-full">
                 <Checkbox 
                   id="showPassword" 
@@ -362,7 +441,7 @@ export default function SetupPassword() {
                   Mostrar contraseña
                 </label>
               </div>
-
+              
               {isCoordinator && (
                 <FormField
                   control={form.control}
@@ -430,7 +509,7 @@ export default function SetupPassword() {
                   )}
                 />
               )}
-
+              
               <FormField
                 control={form.control}
                 name="acceptTerms"
@@ -454,7 +533,7 @@ export default function SetupPassword() {
                   </FormItem>
                 )}
               />
-
+              
               <Button 
                 type="submit" 
                 className="w-full mt-4" 
@@ -472,6 +551,7 @@ export default function SetupPassword() {
             </form>
           </Form>
         </CardContent>
+        
         <CardFooter>
           <Button 
             variant="link" 

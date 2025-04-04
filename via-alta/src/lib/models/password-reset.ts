@@ -18,9 +18,9 @@ class PasswordReset {
     // Generate a random token
     const token = crypto.randomBytes(32).toString('hex');
     
-    // Set expiration to 24 hours from now
+    // Set expiration to 15 minutes from now (changed from 24 hours)
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    expiresAt.setMinutes(expiresAt.getMinutes() + 15);
     
     const query = `
       INSERT INTO password_reset_tokens 

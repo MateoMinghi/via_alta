@@ -11,7 +11,7 @@ async function sendResetEmail(email: string, ivd_id: string, token: string) {
   return await sendEmail({
     to: email,
     subject: 'Restablecimiento de contraseña - Via Alta',
-    text: `Hola,\n\nHemos recibido una solicitud para restablecer tu contraseña.\n\nPara continuar, haz clic en el siguiente enlace:\n${resetLink}\n\nSi no solicitaste restablecer tu contraseña, puedes ignorar este mensaje.\n\nEste enlace expirará en 24 horas.\n\nSaludos,\nEquipo Via Alta`,
+    text: `Hola,\n\nHemos recibido una solicitud para restablecer tu contraseña.\n\nPara continuar, haz clic en el siguiente enlace:\n${resetLink}\n\nSi no solicitaste restablecer tu contraseña, puedes ignorar este mensaje.\n\nEste enlace expirará en 15 minutos.\n\nSaludos,\nEquipo Via Alta`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Restablecimiento de Contraseña</h2>
@@ -23,7 +23,7 @@ async function sendResetEmail(email: string, ivd_id: string, token: string) {
         </p>
         <p>O copia y pega el siguiente enlace en tu navegador:</p>
         <p style="word-break: break-all;">${resetLink}</p>
-        <p>Este enlace expirará en 24 horas.</p>
+        <p>Este enlace expirará en 15 minutos.</p>
         <hr>
         <p style="color: #777; font-size: 12px;">Si no solicitaste este cambio, puedes ignorar este mensaje y tu contraseña permanecerá igual.</p>
       </div>
