@@ -1,17 +1,5 @@
-// Email configuration for password reset emails
-// In a production environment, use a proper email service like Nodemailer,
-// AWS SES, SendGrid, etc.
-
-export interface EmailConfig {
-  host: string;
-  port: number;
-  secure: boolean;
-  auth: {
-    user: string;
-    pass: string;
-  };
-  from: string;
-}
+// Email configuration using Resend for reliable email delivery
+import { Resend } from 'resend';
 
 export interface EmailOptions {
   to: string;
@@ -20,37 +8,41 @@ export interface EmailOptions {
   html: string;
 }
 
-// Load email configuration from environment variables
-export const emailConfig: EmailConfig = {
-  host: process.env.EMAIL_HOST || 'smtp.example.com',
-  port: parseInt(process.env.EMAIL_PORT || '587', 10),
-  secure: process.env.EMAIL_SECURE === 'true',
-  auth: {
-    user: process.env.EMAIL_USER || '',
-    pass: process.env.EMAIL_PASSWORD || '',
-  },
-  from: process.env.EMAIL_FROM || 'no-reply@viaalta.edu.mx',
-};
+// Create Resend instance with API key from environment
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Mock email sending function for development
+// Email sending function that uses Resend regardless of environment
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
-  if (process.env.NODE_ENV === 'production') {
-    // In production, implement actual email sending
-    // Example with Nodemailer:
-    // const transporter = nodemailer.createTransport(emailConfig);
-    // await transporter.sendMail({
-    //   from: emailConfig.from,
-    //   ...options,
-    // });
-    console.log('Production email would be sent:', options);
-    return true;
-  } else {
-    // In development, just log the email content
-    console.log('------------- DEV EMAIL -------------');
+  try {
+    // When no custom domain is available, use Resend's default shared domain
+    // The format is typically: Your Name <onboarding@resend.dev>
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Via Alta <onboarding@resend.dev>';
+    
+    // Log email content in both environments for debugging
+    console.log('------------- EMAIL ATTEMPT -------------');
     console.log('To:', options.to);
     console.log('Subject:', options.subject);
-    console.log('Text:', options.text);
-    console.log('-----------------------------------');
-    return true;
+    console.log('----------------------------------------');
+    
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: options.to,
+      subject: options.subject,
+      text: options.text,
+      html: options.html,
+      // You can also add a reply-to address to make replies go to an address you control
+      reply_to: process.env.REPLY_TO_EMAIL || 'support@viaalta.edu.mx',
+    });
+    
+    if (error) {
+      console.error('Error sending email with Resend:', error);
+      return false;
+    }
+    
+    console.log('Email sent successfully with Resend ID:', data?.id);
+    return !!data?.id;
+  } catch (error) {
+    console.error('Error sending email with Resend:', error);
+    return false;
   }
 }

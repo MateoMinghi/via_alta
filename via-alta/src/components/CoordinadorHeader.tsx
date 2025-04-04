@@ -1,7 +1,6 @@
 'use client';
-
-import React, { useState } from 'react';
-import { Calendar, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, User, Loader2 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -10,16 +9,44 @@ import { useRouter } from 'next/navigation';
 import { Button } from './ui/button';
 import LogoutButton from './LogoutButton';
 import { useAuth } from '@/context/AuthContext';
+import useGetSchoolCycles, { SchoolCycle } from '@/api/useGetSchoolCycles';
+import { toast } from 'sonner';
 
 export default function Header() {
-  const [semester, setSemester] = useState('2025-1');
+  const [selectedCycle, setSelectedCycle] = useState<string>('');
   const [activeButton, setActiveButton] = useState('ESTUDIANTES');
   const router = useRouter();
   const { user } = useAuth();
+  const { result: schoolCycles, loading, error } = useGetSchoolCycles();
   
+  // Find active school cycle and set it as default when data loads
+  useEffect(() => {
+    if (schoolCycles && schoolCycles.length > 0) {
+      // Find the active cycle
+      const activeCycle = schoolCycles.find(cycle => cycle.active);
+      if (activeCycle) {
+        setSelectedCycle(activeCycle.id.toString());
+      } else {
+        // If no active cycle, select the most recent one (first in the sorted list)
+        setSelectedCycle(schoolCycles[0].id.toString());
+      }
+    }
+  }, [schoolCycles]);
+  
+  useEffect(() => {
+    if (error) {
+      toast.error("Error loading school cycles");
+    }
+  }, [error]);
+
   const handleNavClick = (buttonName: string, path: string) => {
     setActiveButton(buttonName);
     router.push(path);
+  };
+  
+  const formatSchoolCycle = (cycle: SchoolCycle) => {
+    // Display the cycle code, if code is just "-", use a more descriptive text
+    return cycle.code === "-" ? "Sin código" : cycle.code;
   };
   
   return (
@@ -28,14 +55,27 @@ export default function Header() {
       
       <div className="flex items-center gap-2 mx-8">
         <Calendar className="h-5 w-5" />
-        <Select value={semester} onValueChange={setSemester}>
+        <Select value={selectedCycle} onValueChange={setSelectedCycle}>
           <SelectTrigger className="w-[180px] bg-dark">
-            <SelectValue placeholder="Seleccionar semestre" />
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Cargando...</span>
+              </div>
+            ) : (
+              <SelectValue placeholder="Seleccionar ciclo escolar" />
+            )}
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="2024-2">Semestre 2024-2</SelectItem>
-            <SelectItem value="2025-1">Semestre 2025-1</SelectItem>
-            <SelectItem value="2025-2">Semestre 2025-2</SelectItem>
+            {schoolCycles?.map((cycle) => (
+              <SelectItem 
+                key={cycle.id} 
+                value={cycle.id.toString()}
+              >
+                {formatSchoolCycle(cycle)}
+                {cycle.active && " (Activo)"}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

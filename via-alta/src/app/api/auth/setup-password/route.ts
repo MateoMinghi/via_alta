@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import LocalUser from '@/lib/models/local-user';
 import CoordinatorDegree from '@/lib/models/coordinator-degrees';
 import { authenticatedRequest } from '@/lib/m2mAuth';
+import PasswordReset from '@/lib/models/password-reset';
 
 // Interface for the Via Diseño API response
 interface ViaDisenioUser {
@@ -35,7 +36,7 @@ interface SelectedDegree {
 export async function POST(request: NextRequest) {
   try {
     // Parse request body
-    const { ivdId, email, password, selectedDegrees } = await request.json();
+    const { ivdId, email, password, selectedDegrees, token } = await request.json();
     
     if (!ivdId || !email || !password) {
       return NextResponse.json({ 
@@ -43,6 +44,24 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // If token is provided, verify it
+    if (token) {
+      const tokenData = await PasswordReset.findByToken(token);
+      
+      if (!tokenData) {
+        return NextResponse.json({ 
+          error: 'Token inválido o expirado' 
+        }, { status: 401 });
+      }
+      
+      // Verify token belongs to this user
+      if (tokenData.ivd_id !== String(ivdId)) {
+        return NextResponse.json({ 
+          error: 'Token no válido para este usuario' 
+        }, { status: 401 });
+      }
+    }
+    
     // Verify user exists in Via Diseño API using M2M authentication
     let userData;
     try {
@@ -123,6 +142,11 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error('Error saving coordinator degrees:', error);
       }
+    }
+    
+    // Mark token as used if provided
+    if (token) {
+      await PasswordReset.markTokenAsUsed(token);
     }
 
     // Return success
