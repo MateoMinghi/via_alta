@@ -26,6 +26,12 @@ class Classroom {
     return result.rows[0] as ClassroomData;
   }
 
+  static async findAll() {
+    const query = "SELECT * FROM Salon ORDER BY IdSalon";
+    const result = await pool.query(query);
+    return result.rows as ClassroomData[];
+  }
+
   static async findById(id: string) {
     const query = "SELECT * FROM Salon WHERE IdSalon = $1";
     const result = await pool.query(query, [id]);
