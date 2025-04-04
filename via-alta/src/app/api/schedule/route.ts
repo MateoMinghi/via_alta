@@ -1,9 +1,26 @@
 import { NextResponse } from 'next/server';
 import GeneralSchedule from '@/lib/models/general-schedule';
+import { generateSchedule, ScheduleItem } from '@/lib/utils/schedule-generator';
+import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 
 // Este archivo define las rutas de la API para el horario.
 // Actúa como el controlador en la arquitectura MVC,
 // recibiendo las solicitudes y utilizando el modelo Schedule para interactuar con la base de datos.
+
+// Función para convertir ScheduleItem a GeneralScheduleItem
+function convertToGeneralScheduleItem(scheduleItem: ScheduleItem): GeneralScheduleItem {
+  return {
+    IdHorarioGeneral: 1, // Valor por defecto, ajustar según necesidad
+    NombreCarrera: "Ingeniería", // Valor por defecto, ajustar según necesidad
+    IdMateria: parseInt(scheduleItem.subject) || 0,
+    IdProfesor: parseInt(scheduleItem.teacher) || 0,
+    IdCiclo: 1, // Valor por defecto, ajustar según necesidad
+    Dia: scheduleItem.day,
+    HoraInicio: scheduleItem.time,
+    HoraFin: scheduleItem.endTime,
+    Semestre: scheduleItem.semester
+  };
+}
 
 // Función para manejar las solicitudes GET a la ruta /api/schedule
 export async function GET() {
@@ -53,8 +70,11 @@ export async function PUT() {
     // Llama al generador de horarios
     const newSchedule = await generateSchedule();
     
+    // Convierte el horario al formato esperado
+    const generalScheduleItems = newSchedule.map(convertToGeneralScheduleItem);
+
     // Guarda el horario generado
-    await Schedule.saveGeneralSchedule(newSchedule);
+    await GeneralSchedule.saveGeneralSchedule(generalScheduleItems);
     
     // Retorna el nuevo horario generado
     return NextResponse.json({ success: true, data: newSchedule });
