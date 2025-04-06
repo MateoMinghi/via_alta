@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import LocalUser from '@/lib/models/local-user';
-import CoordinatorDegree from '@/lib/models/coordinator-degrees';
 import { authenticatedRequest } from '@/lib/m2mAuth';
 import PasswordReset from '@/lib/models/password-reset';
 
@@ -27,16 +26,10 @@ interface ViaDisenioResponse {
   data: ViaDisenioUser;
 }
 
-// Interface for degree selection
-interface SelectedDegree {
-  id: number;
-  name: string;
-}
-
 export async function POST(request: NextRequest) {
   try {
     // Parse request body
-    const { ivdId, email, password, selectedDegrees, token } = await request.json();
+    const { ivdId, email, password, token } = await request.json();
     
     if (!ivdId || !email || !password) {
       return NextResponse.json({ 
@@ -86,15 +79,6 @@ export async function POST(request: NextRequest) {
           error: 'El correo electrónico proporcionado no coincide con los registros del usuario' 
         }, { status: 400 });
       }
-
-      // Check if the user is a coordinator (admin role with id 24) and degrees were provided
-      const isCoordinator = userData.role?.id === 24 || userData.role?.name === 'admin';
-      
-      if (isCoordinator && (!selectedDegrees || !Array.isArray(selectedDegrees) || selectedDegrees.length === 0)) {
-        return NextResponse.json({ 
-          error: 'Los coordinadores deben seleccionar al menos una carrera' 
-        }, { status: 400 });
-      }
     } catch (error) {
       console.error('Error validating user with Via Diseño API:', error);
       return NextResponse.json({ 
@@ -119,30 +103,6 @@ export async function POST(request: NextRequest) {
       ivd_id: ivdId,
       password: hashedPassword
     });
-
-    // If the user is a coordinator (admin role with id 24) and selected degrees, save them
-    if ((userData.role?.id === 24 || userData.role?.name === 'admin') && selectedDegrees && Array.isArray(selectedDegrees)) {
-      try {
-        // Convert ivdId to string if it's not already
-        const coordinatorIdString = String(ivdId);
-        
-        // Delete any existing degrees for this coordinator (in case of update)
-        await CoordinatorDegree.deleteByCoordinatorId(coordinatorIdString);
-        
-        // Save the selected degrees for this coordinator
-        for (const degree of selectedDegrees) {  
-          await CoordinatorDegree.create({
-            coordinator_id: coordinatorIdString,
-            degree_id: degree.id,
-            degree_name: degree.name
-          });
-        }
-        
-        console.log(`Saved ${selectedDegrees.length} degrees for coordinator ${coordinatorIdString}`);
-      } catch (error) {
-        console.error('Error saving coordinator degrees:', error);
-      }
-    }
     
     // Mark token as used if provided
     if (token) {
