@@ -10,16 +10,31 @@ interface ClassroomData {
 class Classroom {
   // Crear un nuevo salón
   static async create(classroom: ClassroomData) {
-    const query = `
-      INSERT INTO salon (idsalon, cupo, tipo, nota) 
-      VALUES ($1, $2, $3, $4) RETURNING *`;
-    const result = await pool.query(query, [
-      classroom.idsalon,
-      classroom.cupo,
-      classroom.tipo,
-      classroom.nota,
-    ]);
-    return result.rows[0] as ClassroomData;
+    try {
+      // Obtener el valor máximo de 'idsalon'
+      const maxIdResult = await pool.query('SELECT MAX(idsalon) AS max_id FROM salon');
+      const maxId = maxIdResult.rows[0].max_id || 0; // Si no hay valores previos, maxId será 0
+
+      // Establecer el nuevo 'idsalon'
+      const newIdSalon = maxId + 1;
+
+      // Insertar el nuevo salón con el 'idsalon' generado
+      const query = `
+        INSERT INTO salon (idsalon, cupo, tipo, nota)
+        VALUES ($1, $2, $3, $4) RETURNING *`;
+
+      const result = await pool.query(query, [
+        newIdSalon, // Usamos el nuevo id generado
+        classroom.cupo,
+        classroom.tipo,
+        classroom.nota
+      ]);
+
+      return result.rows[0] as ClassroomData;
+    } catch (error) {
+      console.error("❌ Error al crear el salón:", error);
+      throw error;
+    }
   }
 
   // Leer todos los salones

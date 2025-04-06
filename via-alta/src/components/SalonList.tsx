@@ -1,294 +1,174 @@
-import React, { useState } from 'react';
-import {
-  Plus, Pencil, Trash, Search,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import React, { useEffect, useState } from "react";
+import { Plus, Pencil, Trash, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+interface Salon {
+  idsalon: number;
+  tipo: string;
+  cupo: number;
+  nota: string;
+}
 
 export default function SalonCRUD() {
-  const [classrooms, setClassrooms] = useState([
-    {
-      id: 1, name: 'Room 101', capacity: 25, type: 'Standard', isActive: true,
-    },
-    {
-      id: 2, name: 'Art Studio', capacity: 15, type: 'Specialized', isActive: true,
-    },
-    {
-      id: 3, name: 'Science Lab', capacity: 30, type: 'Specialized', isActive: false,
-    },
-    {
-      id: 4, name: 'Computer Lab', capacity: 20, type: 'Specialized', isActive: true,
-    },
-    {
-      id: 5, name: 'Room 205', capacity: 25, type: 'Standard', isActive: true,
-    },
-  ]);
-
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentClassroom, setCurrentClassroom] = useState<{ id: number; name: string; capacity: number; type: string; isActive: boolean } | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    capacity: '',
-    type: 'Standard',
-    isActive: true,
+  const [salones, setSalones] = useState<Salon[]>([]);
+  const [nuevoSalon, setNuevoSalon] = useState<Omit<Salon, "idsalon">>({
+    tipo: "Normal",  // Establecer un valor predeterminado
+    cupo: 0,
+    nota: "",
   });
+  const [search, setSearch] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentSalon, setCurrentSalon] = useState<Salon | null>(null);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
+  const cargarSalones = async () => {
+    const res = await fetch("/api/classroom");
+    const data = await res.json();
+    setSalones(data);
   };
 
-  const filteredClassrooms = classrooms.filter((classroom) => classroom.name.toLowerCase().includes(searchQuery.toLowerCase())
-        || classroom.type.toLowerCase().includes(searchQuery.toLowerCase()));
+  useEffect(() => {
+    cargarSalones();
+  }, []);
 
-  const handleAddClassroom = () => {
-    setCurrentClassroom(null);
-    setFormData({
-      name: '',
-      capacity: '',
-      type: 'Standard',
-      isActive: true,
+  const crearSalon = async () => {
+    await fetch("/api/classroom", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nuevoSalon),
     });
-    setIsDialogOpen(true);
+    setNuevoSalon({ tipo: "Normal", cupo: 0, nota: "" });
+    cargarSalones();
+    setIsDialogOpen(false); // Cierra el diálogo después de crear el salón
   };
 
-  const handleEditClassroom = (classroom: { id: number; name: string; capacity: number; type: string; isActive: boolean }) => {
-    setCurrentClassroom(classroom);
-    setFormData({
-      name: classroom.name,
-      capacity: classroom.capacity.toString(),
-      type: classroom.type,
-      isActive: classroom.isActive,
+  const actualizarCampo = async (idsalon: number, campo: string, valor: string) => {
+    await fetch("/api/classroom", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: idsalon, campo, valor }),
     });
+    cargarSalones();
+  };
+
+  const eliminarSalon = async (idsalon: number) => {
+    await fetch(`/api/classroom?id=${idsalon}`, { method: "DELETE" });
+    cargarSalones();
+  };
+
+  const salonesFiltrados = salones.filter((s) =>
+    s.tipo?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleEditSalon = (salon: Salon) => {
+    setCurrentSalon(salon);
     setIsDialogOpen(true);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleCheckboxChange = (checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      isActive: checked,
-    }));
-  };
-
-  const handleSelectChange = (value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      type: value,
-    }));
-  };
-
-  const handleSubmit = () => {
-    if (!formData.name || !formData.capacity) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    if (currentClassroom) {
-      setClassrooms((prev) => prev.map((item) => (item.id === (currentClassroom as any).id ? {
-        ...item,
-        name: formData.name,
-        capacity: parseInt(formData.capacity),
-        type: formData.type,
-        isActive: formData.isActive,
-      } : item)));
-    } else {
-      const newClassroom = {
-        id: classrooms.length > 0 ? Math.max(...classrooms.map((c) => c.id)) + 1 : 1,
-        name: formData.name,
-        capacity: parseInt(formData.capacity),
-        type: formData.type,
-        isActive: formData.isActive,
-      };
-      setClassrooms((prev) => [...prev, newClassroom]);
-    }
-
-    setIsDialogOpen(false);
-  };
-
-  const handleDeleteClassroom = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this classroom?')) {
-      setClassrooms((prev) => prev.filter((classroom) => classroom.id !== id));
-    }
   };
 
   return (
     <div className="container mx-auto p-4">
+      <h2 className="text-2xl font-bold mb-4">Gestión de Salones</h2>
 
       <div className="flex mb-4 justify-between">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search classrooms..."
+            placeholder="Buscar por tipo"
             className="pl-8"
-            value={searchQuery}
-            onChange={handleSearchChange}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button onClick={handleAddClassroom}>
+        <Button onClick={() => setIsDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          {' '}
-          Add Classroom
+          Agregar Salón
         </Button>
       </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Capacity</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>ID Salón</TableHead>
+            <TableHead>Cupo</TableHead>
+            <TableHead>Tipo</TableHead>
+            <TableHead>Nota</TableHead>
+            <TableHead>Acciones</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {salonesFiltrados.map((salon) => (
+            <TableRow key={salon.idsalon}>
+              <TableCell>{salon.idsalon}</TableCell>
+              <TableCell>{salon.cupo}</TableCell>
+              <TableCell>{salon.tipo}</TableCell>
+              <TableCell>{salon.nota}</TableCell>
+              <TableCell>
+                <Button variant="outline" size="sm" onClick={() => handleEditSalon(salon)} className="text-muted-foreground">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => eliminarSalon(salon.idsalon)} className="text-muted-foreground">
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredClassrooms.length > 0 ? (
-              filteredClassrooms.map((classroom) => (
-                <TableRow key={classroom.id}>
-                  <TableCell className="font-medium">{classroom.name}</TableCell>
-                  <TableCell>{classroom.capacity}</TableCell>
-                  <TableCell>{classroom.type}</TableCell>
-                  <TableCell>
-                    <Badge variant={classroom.isActive ? 'default' : 'secondary'}>
-                        {classroom.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEditClassroom(classroom)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteClassroom(classroom.id)}>
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                      </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
-                  No classrooms found.
-                                    </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="text-sm text-muted-foreground">
-        Showing
-        {' '}
-        {filteredClassrooms.length}
-        {' '}
-        of
-        {classrooms.length}
-        {' '}
-        classrooms
-      </div>
+          ))}
+        </TableBody>
+      </Table>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{currentClassroom ? 'Edit Classroom' : 'Add New Classroom'}</DialogTitle>
-            <DialogDescription>
-              {currentClassroom
-                ? 'Make changes to the classroom here.'
-                : 'Fill in the details to create a new classroom.'}
-            </DialogDescription>
+            <DialogTitle>{currentSalon ? "Editar Salón" : "Nuevo Salón"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name*
-              </Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="capacity" className="text-right">
-                Capacity*
-              </Label>
-              <Input
-                id="capacity"
-                name="capacity"
-                type="number"
-                value={formData.capacity}
-                onChange={handleInputChange}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="type" className="text-right">
-                Type
-              </Label>
-              <Select
-                value={formData.type}
-                onValueChange={handleSelectChange}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a classroom type" />
+              <Label htmlFor="tipo" className="text-right">Tipo*</Label>
+              <div className="col-span-3">
+                <Select
+                  value={nuevoSalon.tipo}
+                  onValueChange={(value) => setNuevoSalon({ ...nuevoSalon, tipo: value })}
+                >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Standard">Standard</SelectItem>
-                  <SelectItem value="Specialized">Specialized</SelectItem>
-                  <SelectItem value="Laboratory">Laboratory</SelectItem>
-                  <SelectItem value="Conference">Conference</SelectItem>
+                  <SelectItem value="Normal">Normal</SelectItem>
+                  <SelectItem value="Especial">Especial</SelectItem>
+                  <SelectItem value="Ambos">Ambos</SelectItem>
                 </SelectContent>
-              </Select>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="isActive" className="text-right">
-                Active
-              </Label>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isActive"
-                  checked={formData.isActive}
-                  onCheckedChange={handleCheckboxChange}
-                />
-                <label
-                  htmlFor="isActive"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Classroom is active
-                </label>
-              </div>
+              <Label htmlFor="cupo" className="text-right">Cupo*</Label>
+              <Input
+                id="cupo"
+                type="number"
+                value={nuevoSalon.cupo}
+                onChange={(e) => setNuevoSalon({ ...nuevoSalon, cupo: Number(e.target.value) })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="nota" className="text-right">Nota</Label>
+              <Input
+                id="nota"
+                value={nuevoSalon.nota}
+                onChange={(e) => setNuevoSalon({ ...nuevoSalon, nota: e.target.value })}
+                className="col-span-3"
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancel
+              Cancelar
             </Button>
-            <Button onClick={handleSubmit}>
-              {currentClassroom ? 'Save Changes' : 'Create Classroom'}
+            <Button onClick={crearSalon}>
+              {currentSalon ? "Guardar Cambios" : "Crear Salón"}
             </Button>
           </DialogFooter>
         </DialogContent>

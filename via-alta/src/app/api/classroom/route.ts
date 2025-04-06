@@ -21,11 +21,13 @@ export async function POST(req: NextRequest) {
     const nuevoSalon = await Classroom.create(data);
     return NextResponse.json(nuevoSalon, { status: 201 });
   } catch (error) {
+    console.error("❌ Error al crear el salón:", error);
     return NextResponse.json(
-      { error: "Error al crear el salón" },
+      { error: (error as Error).message || "Error al crear el salón" },
       { status: 500 }
     );
   }
+  
 }
 
 // Actualizar datos de un salón (tipo, cupo o nota)
