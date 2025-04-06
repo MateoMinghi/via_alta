@@ -22,6 +22,13 @@ class Classroom {
     return result.rows[0] as ClassroomData;
   }
 
+  // Leer todos los salones
+  static async findAll() {
+    const query = "SELECT * FROM salon ORDER BY idsalon";
+    const result = await pool.query(query);
+    return result.rows as ClassroomData[];
+  }
+
   // Modificar cupo de un salón
   static async updateCupo(id: number, newCupo: number) {
     const query = "UPDATE salon SET cupo = $1 WHERE idsalon = $2 RETURNING *";
@@ -36,14 +43,19 @@ class Classroom {
     return result.rows[0] as ClassroomData;
   }
 
-    // Modificar nota de un salón
-    static async updateNota(id: number, newNota: string) {
-      const query = "UPDATE salon SET nota = $1 WHERE idsalon = $2 RETURNING *";
-      const result = await pool.query(query, [newNota, id]);
-      return result.rows[0] as ClassroomData;
-    }
-  
+  // Modificar nota de un salón
+  static async updateNota(id: number, newNota: string) {
+    const query = "UPDATE salon SET nota = $1 WHERE idsalon = $2 RETURNING *";
+    const result = await pool.query(query, [newNota, id]);
+    return result.rows[0] as ClassroomData;
+  }
 
+  // Eliminar salón por ID
+  static async delete(id: number) {
+    const query = "DELETE FROM salon WHERE idsalon = $1 RETURNING *";
+    const result = await pool.query(query, [id]);
+    return result.rows[0] as ClassroomData;
+  }
 }
 
 export default Classroom;
