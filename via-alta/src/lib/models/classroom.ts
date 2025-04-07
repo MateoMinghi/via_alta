@@ -8,31 +8,33 @@ interface ClassroomData {
 }
 
 class Classroom {
-  // Crear un nuevo salón
+  // Crear un nuevo salón con ID proporcionado por el usuario
   static async create(classroom: ClassroomData) {
     try {
-      // Obtener el valor máximo de 'idsalon'
-      const maxIdResult = await pool.query('SELECT MAX(idsalon) AS max_id FROM salon');
-      const maxId = maxIdResult.rows[0].max_id || 0; // Si no hay valores previos, maxId será 0
+      // Verificar si ya existe un salón con ese ID
+      const existsQuery = "SELECT * FROM salon WHERE idsalon = $1";
+      const existsResult = await pool.query(existsQuery, [classroom.idsalon]);
 
-      // Establecer el nuevo 'idsalon'
-      const newIdSalon = maxId + 1;
+      if (existsResult.rows.length > 0) {
+        throw new Error(`Ya existe un salón con el ID ${classroom.idsalon}`);
+      }
 
-      // Insertar el nuevo salón con el 'idsalon' generado
+      // Insertar el nuevo salón
       const query = `
         INSERT INTO salon (idsalon, cupo, tipo, nota)
-        VALUES ($1, $2, $3, $4) RETURNING *`;
+        VALUES ($1, $2, $3, $4)
+        RETURNING *`;
 
       const result = await pool.query(query, [
-        newIdSalon, // Usamos el nuevo id generado
+        classroom.idsalon,
         classroom.cupo,
         classroom.tipo,
-        classroom.nota
+        classroom.nota,
       ]);
 
       return result.rows[0] as ClassroomData;
     } catch (error) {
-      console.error("❌ Error al crear el salón:", error);
+      console.error("Error al crear el salón:", error);
       throw error;
     }
   }
@@ -52,8 +54,9 @@ class Classroom {
   }
 
   static async findById(id: string) {
-    const query = "SELECT * FROM Salon WHERE IdSalon = $1";
+    const query = "SELECT * FROM salon WHERE idsalon = $1";
     const result = await pool.query(query, [id]);
+    return result.rows[0] as ClassroomData;
   }
 
   // Modificar tipo de un salón
@@ -76,6 +79,27 @@ class Classroom {
     const result = await pool.query(query, [id]);
     return result.rows[0] as ClassroomData;
   }
+
+  // Modificar idsalon de un salón
+static async updateId(oldId: number, newId: number) {
+  try {
+    // Verificar si el nuevo ID ya existe
+    const existsQuery = "SELECT 1 FROM salon WHERE idsalon = $1";
+    const existsResult = await pool.query(existsQuery, [newId]);
+
+    if (existsResult.rows.length > 0) {
+      throw new Error(`Ya existe un salón con el ID ${newId}`);
+    }
+
+    const query = "UPDATE salon SET idsalon = $1 WHERE idsalon = $2 RETURNING *";
+    const result = await pool.query(query, [newId, oldId]);
+    return result.rows[0] as ClassroomData;
+  } catch (error) {
+    console.error("Error al actualizar el ID del salón:", error);
+    throw error;
+  }
+}
+
 }
 
 export default Classroom;
