@@ -40,6 +40,10 @@ export default function Page() {
     IdCiclo: 1 // Default value
   });
 
+  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  const [selectedProfessor, setSelectedProfessor] = useState<number | null>(null);
+  const [selectedCareer, setSelectedCareer] = useState<string | null>(null);
+
   // Load schedule from database when component mounts
   useEffect(() => {
     loadScheduleFromDatabase();
@@ -181,6 +185,35 @@ export default function Page() {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
+  // Compute available filters from schedule
+  const availableFilters = useMemo(() => {
+    const careers = new Set<string>();
+    const professors = new Set<number>();
+    const semesters = new Set<number>();
+
+    schedule.forEach(item => {
+      careers.add(item.NombreCarrera);
+      professors.add(item.IdProfesor);
+      semesters.add(item.Semestre);
+    });
+
+    return {
+      careers: Array.from(careers).sort(),
+      professors: Array.from(professors).sort((a, b) => a - b),
+      semesters: Array.from(semesters).sort((a, b) => a - b)
+    };
+  }, [schedule]);
+
+  // Filter the schedule
+  const filteredSchedule = useMemo(() => {
+    return schedule.filter(item => {
+      const matchesSemester = selectedSemester === null || item.Semestre === selectedSemester;
+      const matchesProfessor = selectedProfessor === null || item.IdProfesor === selectedProfessor;
+      const matchesCareer = selectedCareer === null || item.NombreCarrera === selectedCareer;
+      return matchesSemester && matchesProfessor && matchesCareer;
+    });
+  }, [schedule, selectedSemester, selectedProfessor, selectedCareer]);
+
   /**
    * Crea una matriz bidimensional que representa el horario.
    * Solo se agrega la materia en la celda en que inicia.
@@ -195,7 +228,7 @@ export default function Page() {
       });
     });
     
-    schedule.forEach(item => {
+    filteredSchedule.forEach(item => {
       if (!item.HoraInicio || !item.HoraFin || !item.Dia) {
         console.warn('Invalid schedule item:', item);
         return;
@@ -219,7 +252,7 @@ export default function Page() {
     });
 
     return matrix;
-  }, [schedule, days, timeSlots]);
+  }, [filteredSchedule, days, timeSlots]);
   /**
    * Mueve una materia de una posición a otra en el horario
    * @param {GeneralScheduleItem} item - La materia a mover
@@ -381,38 +414,116 @@ export default function Page() {
   return (
     <DndProvider backend={HTML5Backend}>
       <main className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Horario General</h1>
-          <div className="flex items-center gap-4">
-            {lastSaved && (
-              <div className="text-sm text-muted-foreground">
-                Último guardado: {lastSaved}
+        <div className="flex flex-col gap-4 mb-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Horario General</h1>
+            <div className="flex items-center gap-4">
+              {lastSaved && (
+                <div className="text-sm text-muted-foreground">
+                  Último guardado: {lastSaved}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  onClick={saveScheduleToDatabase}
+                  variant="outline"
+                  className="border-red-700 text-red-700 hover:bg-red-50"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Guardando...' : 'Guardar Horario'}
+                </Button>
+                <Button
+                  onClick={() => setIsAddDialogOpen(true)}
+                  variant="outline"
+                  className="bg-red-700 text-white hover:bg-red-800"
+                >
+                  Agregar Clase
+                </Button>
+                <Button
+                  onClick={handleGenerateSchedule}
+                  className="bg-red-700 text-white hover:bg-red-800"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Generando...' : 'Generar Horario'}
+                </Button>
               </div>
-            )}
-            <div className="flex gap-2">
-              <Button
-                onClick={saveScheduleToDatabase}
-                variant="outline"
-                className="border-red-700 text-red-700 hover:bg-red-50"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Guardando...' : 'Guardar Horario'}
-              </Button>
-              <Button
-                onClick={() => setIsAddDialogOpen(true)}
-                variant="outline"
-                className="bg-red-700 text-white hover:bg-red-800"
-              >
-                Agregar Clase
-              </Button>
-              <Button
-                onClick={handleGenerateSchedule}
-                className="bg-red-700 text-white hover:bg-red-800"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Generando...' : 'Generar Horario'}
-              </Button>
             </div>
+          </div>
+
+          <div className="flex gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <Label>Semestre:</Label>
+              <Select 
+                value={selectedSemester?.toString() || ''} 
+                onValueChange={(value) => setSelectedSemester(value ? parseInt(value) : null)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Todos los semestres" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos los semestres</SelectItem>
+                  {availableFilters.semesters.map((semester) => (
+                    <SelectItem key={semester} value={semester.toString()}>
+                      Semestre {semester}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label>Profesor:</Label>
+              <Select 
+                value={selectedProfessor?.toString() || ''} 
+                onValueChange={(value) => setSelectedProfessor(value ? parseInt(value) : null)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Todos los profesores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos los profesores</SelectItem>
+                  {availableFilters.professors.map((professor) => (
+                    <SelectItem key={professor} value={professor.toString()}>
+                      Profesor {professor}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label>Carrera:</Label>
+              <Select 
+                value={selectedCareer || ''} 
+                onValueChange={(value) => setSelectedCareer(value || null)}
+              >
+                <SelectTrigger className="w-[280px]">
+                  <SelectValue placeholder="Todas las carreras" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todas las carreras</SelectItem>
+                  {availableFilters.careers.map((career) => (
+                    <SelectItem key={career} value={career}>
+                      {career}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(selectedSemester || selectedProfessor || selectedCareer) && (
+              <Button 
+                variant="ghost" 
+                onClick={() => {
+                  setSelectedSemester(null);
+                  setSelectedProfessor(null);
+                  setSelectedCareer(null);
+                }}
+                className="text-sm"
+              >
+                Limpiar filtros
+              </Button>
+            )}
           </div>
         </div>
 
