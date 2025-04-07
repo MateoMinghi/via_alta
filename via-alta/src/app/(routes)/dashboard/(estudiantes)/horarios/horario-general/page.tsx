@@ -103,17 +103,37 @@ export default function Page() {
       setIsLoading(true);
       const result = await generateSchedule();
       // Convertir el horario generado a formato GeneralScheduleItem
-      const convertedSchedule: GeneralScheduleItem[] = result.map(item => ({
-        IdHorarioGeneral: 1, // Default value segun el contexto
-        NombreCarrera: item.subject, 
-        IdMateria: parseInt(item.subject.split(' ')[0]) || 1, 
-        IdProfesor: parseInt(item.teacher.split(' ')[1]) || 1, 
-        IdCiclo: 1, //Valor default deberia cambiarse segun el contexto
-        Dia: item.day,
-        HoraInicio: item.time,
-        HoraFin: item.endTime,
-        Semestre: item.semester
-      }));
+      const convertedSchedule: GeneralScheduleItem[] = result.map(item => {
+        // Extract IDs from subject and teacher strings
+        let subjectId = 1;  // Default value
+        let professorId = 1; // Default value
+        
+        // Parse subject ID - try to extract the numeric ID at the beginning
+        const subjectMatch = item.subject.match(/^(\d+)/);
+        if (subjectMatch) {
+          subjectId = parseInt(subjectMatch[1]);
+        }
+        
+        // Parse professor ID - try to extract the numeric ID after "Prof" or anywhere in the string
+        if (item.teacher !== "Sin asignar") {
+          const profMatch = item.teacher.match(/Prof (\d+)|(\d+)/);
+          if (profMatch) {
+            professorId = parseInt(profMatch[1] || profMatch[2]);
+          }
+        }
+        
+        return {
+          IdHorarioGeneral: 1, // Default value segun el contexto
+          NombreCarrera: item.subject, 
+          IdMateria: subjectId, 
+          IdProfesor: professorId, 
+          IdCiclo: 1, //Valor default deberia cambiarse segun el contexto
+          Dia: item.day,
+          HoraInicio: item.time,
+          HoraFin: item.endTime,
+          Semestre: item.semester
+        };
+      });
       setSchedule(convertedSchedule);
       toast.success('Horario generado correctamente');
     } catch (error) {
