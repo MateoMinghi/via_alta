@@ -80,7 +80,7 @@ const crearSalon = async () => {
 };
 
   const eliminarSalon = async (idsalon: number) => {
-    await fetch(/api/classroom?id=${idsalon}, { method: "DELETE" });
+    await fetch(`/api/classroom?id=${idsalon}`, { method: "DELETE" });
     cargarSalones();
   };
 
