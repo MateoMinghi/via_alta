@@ -30,8 +30,6 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
       subject: options.subject,
       text: options.text,
       html: options.html,
-      // You can also add a reply-to address to make replies go to an address you control
-      reply_to: process.env.REPLY_TO_EMAIL || 'support@viaalta.edu.mx',
     });
     
     if (error) {

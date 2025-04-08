@@ -21,8 +21,8 @@ interface UserSession {
   [key: string]: any;
 }
 
-export function getSession(): UserSession | null {
-  const cookieStore = cookies();
+export async function getSession(): Promise<UserSession | null> {
+  const cookieStore = await cookies();
   const userCookie = cookieStore.get('user');
   
   if (!userCookie?.value) {
@@ -55,8 +55,8 @@ export function getUserFromRequest(req: NextRequest): UserSession | null {
   } as UserSession;
 }
 
-export function isAuthorized(allowedRoles: string[]): boolean {
-  const session = getSession();
+export async function isAuthorized(allowedRoles: string[]): Promise<boolean> {
+  const session = await getSession();
   
   if (!session) {
     return false;
@@ -65,12 +65,12 @@ export function isAuthorized(allowedRoles: string[]): boolean {
   return allowedRoles.includes(session.role.name);
 }
 
-export function getUserId(): number | null {
-  const session = getSession();
+export async function getUserId(): Promise<number | null> {
+  const session = await getSession();
   return session?.ivd_id || null;
 }
 
-export function getUserRole(): string | null {
-  const session = getSession();
+export async function getUserRole(): Promise<string | null> {
+  const session = await getSession();
   return session?.role?.name || null;
 }
