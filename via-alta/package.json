@@ -2,6 +2,10 @@
   "name": "via-alta",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
