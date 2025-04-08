@@ -14,9 +14,9 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Email sending function that uses Resend regardless of environment
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
-    // When no custom domain is available, use Resend's default shared domain
-    // The format is typically: Your Name <onboarding@resend.dev>
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Via Alta <onboarding@resend.dev>';
+    // Use custom domain for sending emails
+    // Format: Your Name <email@your-domain.com>
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'VIA ALTA MAIL TEST <no-reply@contacto.neuralharvest.com>';
     
     // Log email content in both environments for debugging
     console.log('------------- EMAIL ATTEMPT -------------');
