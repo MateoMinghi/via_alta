@@ -46,7 +46,7 @@ export default function CreatePassword({
   params,
 }: {
   params: { token: string };
-}) {
+} & { searchParams?: Record<string, string | string[]> }) {
   const [isLoading, setIsLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
