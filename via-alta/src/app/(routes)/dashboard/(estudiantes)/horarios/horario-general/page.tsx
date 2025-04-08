@@ -48,7 +48,6 @@ export default function Page() {
   useEffect(() => {
     loadScheduleFromDatabase();
   }, []);
-
   // Función para cargar el horario desde la base de datos
   const loadScheduleFromDatabase = async () => {
     try {
@@ -60,7 +59,23 @@ export default function Page() {
         throw new Error(result.error);
       }
       
-      setSchedule(result.data);
+      // Normalize data from database (lowercase keys to Pascal case)
+      const normalizedData = result.data.map((item: any) => {
+        // Convert database column names to match our expected format
+        return {
+          IdHorarioGeneral: item.idhorariogeneral || item.IdHorarioGeneral || 1,
+          NombreCarrera: item.nombrecarrera || item.NombreCarrera || '',
+          IdMateria: item.idmateria || item.IdMateria || 0,
+          IdProfesor: item.idprofesor || item.IdProfesor || 0,
+          IdCiclo: item.idciclo || item.IdCiclo || 1,
+          Dia: item.dia || item.Dia || '',
+          HoraInicio: item.horainicio || item.HoraInicio || '',
+          HoraFin: item.horafin || item.HoraFin || '',
+          Semestre: item.semestre || item.Semestre || 1
+        };
+      });
+      
+      setSchedule(normalizedData);
       setLastSaved(new Date().toLocaleString());
       toast.success('Horario cargado correctamente');
     } catch (error) {
@@ -98,47 +113,31 @@ export default function Page() {
       setIsLoading(false);
     }
   };
-
   /**
-   * Genera un nuevo horario utilizando el generador de horarios
+   * Genera un nuevo horario utilizando la API para generación de horarios en el servidor
    */
   async function handleGenerateSchedule() {
     try {
       setIsLoading(true);
-      const result = await generateSchedule();
-      // Convertir el horario generado a formato GeneralScheduleItem
-      const convertedSchedule: GeneralScheduleItem[] = result.map(item => {
-        // Extract IDs from subject and teacher strings
-        let subjectId = 1;  // Default value
-        let professorId = 1; // Default value
-        
-        // Parse subject ID - try to extract the numeric ID at the beginning
-        const subjectMatch = item.subject.match(/^(\d+)/);
-        if (subjectMatch) {
-          subjectId = parseInt(subjectMatch[1]);
+      toast.info('Generando horario. Esto puede tardar unos momentos...');
+      
+      // Llamar a la API para generar el horario en el servidor
+      const response = await fetch('/api/schedule', {
+        method: 'PUT', // Usamos PUT para generar y guardar un nuevo horario
+        headers: {
+          'Content-Type': 'application/json',
         }
-        
-        // Parse professor ID - try to extract the numeric ID after "Prof" or anywhere in the string
-        if (item.teacher !== "Sin asignar") {
-          const profMatch = item.teacher.match(/Prof (\d+)|(\d+)/);
-          if (profMatch) {
-            professorId = parseInt(profMatch[1] || profMatch[2]);
-          }
-        }
-        
-        return {
-          IdHorarioGeneral: 1, // Default value segun el contexto
-          NombreCarrera: item.subject, 
-          IdMateria: subjectId, 
-          IdProfesor: professorId, 
-          IdCiclo: 1, //Valor default deberia cambiarse segun el contexto
-          Dia: item.day,
-          HoraInicio: item.time,
-          HoraFin: item.endTime,
-          Semestre: item.semester
-        };
       });
-      setSchedule(convertedSchedule);
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Error al generar el horario');
+      }
+      
+      // Cargar el horario generado desde la base de datos
+      await loadScheduleFromDatabase();
+      
       toast.success('Horario generado correctamente');
     } catch (error) {
       console.error('Error al generar el horario:', error);
@@ -227,15 +226,28 @@ export default function Page() {
         matrix[time][day] = [];
       });
     });
-    
-    filteredSchedule.forEach(item => {
-      if (!item.HoraInicio || !item.HoraFin || !item.Dia) {
+      filteredSchedule.forEach(item => {
+      const dia = item.Dia;
+      const horaInicio = item.HoraInicio;
+      const horaFin = item.HoraFin;
+      
+      // Check if properties exist before using them
+      if (!horaInicio || !horaFin || !dia) {
         console.warn('Invalid schedule item:', item);
         return;
       }
 
-      const start = timeToMinutes(item.HoraInicio);
-      const end = timeToMinutes(item.HoraFin);
+      // Handle time formats with or without seconds
+      const formattedStartTime = horaInicio.includes(':') ? 
+        horaInicio.length > 5 ? horaInicio.substring(0, 5) : horaInicio :
+        `${horaInicio}:00`;
+        
+      const formattedEndTime = horaFin.includes(':') ? 
+        horaFin.length > 5 ? horaFin.substring(0, 5) : horaFin :
+        `${horaFin}:00`;
+      
+      const start = timeToMinutes(formattedStartTime);
+      const end = timeToMinutes(formattedEndTime);
       
       if (start === 0 || end === 0) {
         console.warn('Invalid time format in schedule item:', item);
@@ -246,7 +258,7 @@ export default function Page() {
       for (let t = start; t < end; t += 30) {
         const slot = minutesToTime(t);
         if (timeSlots.includes(slot)) {
-          matrix[slot][item.Dia].push(item);
+          matrix[slot][dia].push(item);
         }
       }
     });
@@ -452,16 +464,15 @@ export default function Page() {
 
           <div className="flex gap-4 items-center">
             <div className="flex items-center gap-2">
-              <Label>Semestre:</Label>
-              <Select 
-                value={selectedSemester?.toString() || ''} 
-                onValueChange={(value) => setSelectedSemester(value ? parseInt(value) : null)}
+              <Label>Semestre:</Label>              <Select 
+                value={selectedSemester?.toString() || "all"} 
+                onValueChange={(value) => setSelectedSemester(value === "all" ? null : parseInt(value))}
               >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Todos los semestres" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos los semestres</SelectItem>
+                  <SelectItem value="all">Todos los semestres</SelectItem>
                   {availableFilters.semesters.map((semester) => (
                     <SelectItem key={semester} value={semester.toString()}>
                       Semestre {semester}
@@ -469,19 +480,17 @@ export default function Page() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
+            </div>            <div className="flex items-center gap-2">
               <Label>Profesor:</Label>
               <Select 
-                value={selectedProfessor?.toString() || ''} 
-                onValueChange={(value) => setSelectedProfessor(value ? parseInt(value) : null)}
+                value={selectedProfessor?.toString() || 'all'} 
+                onValueChange={(value) => setSelectedProfessor(value === 'all' ? null : parseInt(value))}
               >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Todos los profesores" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos los profesores</SelectItem>
+                  <SelectItem value="all">Todos los profesores</SelectItem>
                   {availableFilters.professors.map((professor) => (
                     <SelectItem key={professor} value={professor.toString()}>
                       Profesor {professor}
@@ -489,19 +498,17 @@ export default function Page() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
+            </div>            <div className="flex items-center gap-2">
               <Label>Carrera:</Label>
               <Select 
-                value={selectedCareer || ''} 
-                onValueChange={(value) => setSelectedCareer(value || null)}
+                value={selectedCareer || 'all'} 
+                onValueChange={(value) => setSelectedCareer(value === 'all' ? null : value)}
               >
                 <SelectTrigger className="w-[280px]">
                   <SelectValue placeholder="Todas las carreras" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas las carreras</SelectItem>
+                  <SelectItem value="all">Todas las carreras</SelectItem>
                   {availableFilters.careers.map((career) => (
                     <SelectItem key={career} value={career}>
                       {career}
