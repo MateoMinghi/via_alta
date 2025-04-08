@@ -40,11 +40,14 @@ export default function Page() {
     IdCiclo: 1 // Default value
   });
 
+  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  const [selectedProfessor, setSelectedProfessor] = useState<number | null>(null);
+  const [selectedCareer, setSelectedCareer] = useState<string | null>(null);
+
   // Load schedule from database when component mounts
   useEffect(() => {
     loadScheduleFromDatabase();
   }, []);
-
   // Función para cargar el horario desde la base de datos
   const loadScheduleFromDatabase = async () => {
     try {
@@ -56,7 +59,23 @@ export default function Page() {
         throw new Error(result.error);
       }
       
-      setSchedule(result.data);
+      // Normalize data from database (lowercase keys to Pascal case)
+      const normalizedData = result.data.map((item: any) => {
+        // Convert database column names to match our expected format
+        return {
+          IdHorarioGeneral: item.idhorariogeneral || item.IdHorarioGeneral || 1,
+          NombreCarrera: item.nombrecarrera || item.NombreCarrera || '',
+          IdMateria: item.idmateria || item.IdMateria || 0,
+          IdProfesor: item.idprofesor || item.IdProfesor || 0,
+          IdCiclo: item.idciclo || item.IdCiclo || 1,
+          Dia: item.dia || item.Dia || '',
+          HoraInicio: item.horainicio || item.HoraInicio || '',
+          HoraFin: item.horafin || item.HoraFin || '',
+          Semestre: item.semestre || item.Semestre || 1
+        };
+      });
+      
+      setSchedule(normalizedData);
       setLastSaved(new Date().toLocaleString());
       toast.success('Horario cargado correctamente');
     } catch (error) {
@@ -94,27 +113,31 @@ export default function Page() {
       setIsLoading(false);
     }
   };
-
   /**
-   * Genera un nuevo horario utilizando el generador de horarios
+   * Genera un nuevo horario utilizando la API para generación de horarios en el servidor
    */
   async function handleGenerateSchedule() {
     try {
       setIsLoading(true);
-      const result = await generateSchedule();
-      // Convertir el horario generado a formato GeneralScheduleItem
-      const convertedSchedule: GeneralScheduleItem[] = result.map(item => ({
-        IdHorarioGeneral: 1, // Default value segun el contexto
-        NombreCarrera: item.subject, 
-        IdMateria: parseInt(item.subject.split(' ')[0]) || 1, 
-        IdProfesor: parseInt(item.teacher.split(' ')[1]) || 1, 
-        IdCiclo: 1, //Valor default deberia cambiarse segun el contexto
-        Dia: item.day,
-        HoraInicio: item.time,
-        HoraFin: item.endTime,
-        Semestre: item.semester
-      }));
-      setSchedule(convertedSchedule);
+      toast.info('Generando horario. Esto puede tardar unos momentos...');
+      
+      // Llamar a la API para generar el horario en el servidor
+      const response = await fetch('/api/schedule', {
+        method: 'PUT', // Usamos PUT para generar y guardar un nuevo horario
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Error al generar el horario');
+      }
+      
+      // Cargar el horario generado desde la base de datos
+      await loadScheduleFromDatabase();
+      
       toast.success('Horario generado correctamente');
     } catch (error) {
       console.error('Error al generar el horario:', error);
@@ -161,6 +184,35 @@ export default function Page() {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
+  // Compute available filters from schedule
+  const availableFilters = useMemo(() => {
+    const careers = new Set<string>();
+    const professors = new Set<number>();
+    const semesters = new Set<number>();
+
+    schedule.forEach(item => {
+      careers.add(item.NombreCarrera);
+      professors.add(item.IdProfesor);
+      semesters.add(item.Semestre);
+    });
+
+    return {
+      careers: Array.from(careers).sort(),
+      professors: Array.from(professors).sort((a, b) => a - b),
+      semesters: Array.from(semesters).sort((a, b) => a - b)
+    };
+  }, [schedule]);
+
+  // Filter the schedule
+  const filteredSchedule = useMemo(() => {
+    return schedule.filter(item => {
+      const matchesSemester = selectedSemester === null || item.Semestre === selectedSemester;
+      const matchesProfessor = selectedProfessor === null || item.IdProfesor === selectedProfessor;
+      const matchesCareer = selectedCareer === null || item.NombreCarrera === selectedCareer;
+      return matchesSemester && matchesProfessor && matchesCareer;
+    });
+  }, [schedule, selectedSemester, selectedProfessor, selectedCareer]);
+
   /**
    * Crea una matriz bidimensional que representa el horario.
    * Solo se agrega la materia en la celda en que inicia.
@@ -174,15 +226,28 @@ export default function Page() {
         matrix[time][day] = [];
       });
     });
-    
-    schedule.forEach(item => {
-      if (!item.HoraInicio || !item.HoraFin || !item.Dia) {
+      filteredSchedule.forEach(item => {
+      const dia = item.Dia;
+      const horaInicio = item.HoraInicio;
+      const horaFin = item.HoraFin;
+      
+      // Check if properties exist before using them
+      if (!horaInicio || !horaFin || !dia) {
         console.warn('Invalid schedule item:', item);
         return;
       }
 
-      const start = timeToMinutes(item.HoraInicio);
-      const end = timeToMinutes(item.HoraFin);
+      // Handle time formats with or without seconds
+      const formattedStartTime = horaInicio.includes(':') ? 
+        horaInicio.length > 5 ? horaInicio.substring(0, 5) : horaInicio :
+        `${horaInicio}:00`;
+        
+      const formattedEndTime = horaFin.includes(':') ? 
+        horaFin.length > 5 ? horaFin.substring(0, 5) : horaFin :
+        `${horaFin}:00`;
+      
+      const start = timeToMinutes(formattedStartTime);
+      const end = timeToMinutes(formattedEndTime);
       
       if (start === 0 || end === 0) {
         console.warn('Invalid time format in schedule item:', item);
@@ -193,13 +258,13 @@ export default function Page() {
       for (let t = start; t < end; t += 30) {
         const slot = minutesToTime(t);
         if (timeSlots.includes(slot)) {
-          matrix[slot][item.Dia].push(item);
+          matrix[slot][dia].push(item);
         }
       }
     });
 
     return matrix;
-  }, [schedule, days, timeSlots]);
+  }, [filteredSchedule, days, timeSlots]);
   /**
    * Mueve una materia de una posición a otra en el horario
    * @param {GeneralScheduleItem} item - La materia a mover
@@ -361,38 +426,111 @@ export default function Page() {
   return (
     <DndProvider backend={HTML5Backend}>
       <main className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Horario General</h1>
-          <div className="flex items-center gap-4">
-            {lastSaved && (
-              <div className="text-sm text-muted-foreground">
-                Último guardado: {lastSaved}
+        <div className="flex flex-col gap-4 mb-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Horario General</h1>
+            <div className="flex items-center gap-4">
+              {lastSaved && (
+                <div className="text-sm text-muted-foreground">
+                  Último guardado: {lastSaved}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  onClick={saveScheduleToDatabase}
+                  variant="outline"
+                  className="border-red-700 text-red-700 hover:bg-red-50"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Guardando...' : 'Guardar Horario'}
+                </Button>
+                <Button
+                  onClick={() => setIsAddDialogOpen(true)}
+                  variant="outline"
+                  className="bg-red-700 text-white hover:bg-red-800"
+                >
+                  Agregar Clase
+                </Button>
+                <Button
+                  onClick={handleGenerateSchedule}
+                  className="bg-red-700 text-white hover:bg-red-800"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Generando...' : 'Generar Horario'}
+                </Button>
               </div>
-            )}
-            <div className="flex gap-2">
-              <Button
-                onClick={saveScheduleToDatabase}
-                variant="outline"
-                className="border-red-700 text-red-700 hover:bg-red-50"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Guardando...' : 'Guardar Horario'}
-              </Button>
-              <Button
-                onClick={() => setIsAddDialogOpen(true)}
-                variant="outline"
-                className="bg-red-700 text-white hover:bg-red-800"
-              >
-                Agregar Clase
-              </Button>
-              <Button
-                onClick={handleGenerateSchedule}
-                className="bg-red-700 text-white hover:bg-red-800"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Generando...' : 'Generar Horario'}
-              </Button>
             </div>
+          </div>
+
+          <div className="flex gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <Label>Semestre:</Label>              <Select 
+                value={selectedSemester?.toString() || "all"} 
+                onValueChange={(value) => setSelectedSemester(value === "all" ? null : parseInt(value))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Todos los semestres" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los semestres</SelectItem>
+                  {availableFilters.semesters.map((semester) => (
+                    <SelectItem key={semester} value={semester.toString()}>
+                      Semestre {semester}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>            <div className="flex items-center gap-2">
+              <Label>Profesor:</Label>
+              <Select 
+                value={selectedProfessor?.toString() || 'all'} 
+                onValueChange={(value) => setSelectedProfessor(value === 'all' ? null : parseInt(value))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Todos los profesores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los profesores</SelectItem>
+                  {availableFilters.professors.map((professor) => (
+                    <SelectItem key={professor} value={professor.toString()}>
+                      Profesor {professor}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>            <div className="flex items-center gap-2">
+              <Label>Carrera:</Label>
+              <Select 
+                value={selectedCareer || 'all'} 
+                onValueChange={(value) => setSelectedCareer(value === 'all' ? null : value)}
+              >
+                <SelectTrigger className="w-[280px]">
+                  <SelectValue placeholder="Todas las carreras" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las carreras</SelectItem>
+                  {availableFilters.careers.map((career) => (
+                    <SelectItem key={career} value={career}>
+                      {career}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(selectedSemester || selectedProfessor || selectedCareer) && (
+              <Button 
+                variant="ghost" 
+                onClick={() => {
+                  setSelectedSemester(null);
+                  setSelectedProfessor(null);
+                  setSelectedCareer(null);
+                }}
+                className="text-sm"
+              >
+                Limpiar filtros
+              </Button>
+            )}
           </div>
         </div>
 

@@ -9,12 +9,30 @@ import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 
 // Función para convertir ScheduleItem a GeneralScheduleItem
 function convertToGeneralScheduleItem(scheduleItem: ScheduleItem): GeneralScheduleItem {
+  // Extract ID from format "123 Subject Name" or "Prof 123"
+  let subjectId = 0;
+  let professorId = 0;
+  
+  // Parse subject ID - try to extract the numeric ID at the beginning
+  const subjectMatch = scheduleItem.subject.match(/^(\d+)/);
+  if (subjectMatch) {
+    subjectId = parseInt(subjectMatch[1]);
+  }
+  
+  // Parse professor ID - try to extract the numeric ID after "Prof" or just parse the entire string
+  if (scheduleItem.teacher !== "Sin asignar") {
+    const profMatch = scheduleItem.teacher.match(/Prof (\d+)|(\d+)/);
+    if (profMatch) {
+      professorId = parseInt(profMatch[1] || profMatch[2]);
+    }
+  }
+  
   return {
-    IdHorarioGeneral: 1, // Valor por defecto, ajustar según necesidad
-    NombreCarrera: "Ingeniería", // Valor por defecto, ajustar según necesidad
-    IdMateria: parseInt(scheduleItem.subject) || 0,
-    IdProfesor: parseInt(scheduleItem.teacher) || 0,
-    IdCiclo: 1, // Valor por defecto, ajustar según necesidad
+    IdHorarioGeneral: 1, // Default value
+    NombreCarrera: scheduleItem.subject, // Keep full subject name as the career name
+    IdMateria: subjectId,
+    IdProfesor: professorId,
+    IdCiclo: 1, // Default value
     Dia: scheduleItem.day,
     HoraInicio: scheduleItem.time,
     HoraFin: scheduleItem.endTime,

@@ -58,6 +58,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   }, [subjects]);
 
   useEffect(() => {
+    // Initialize selected subjects with the provided subjects
     setSelectedSubjects(subjects);
   }, [subjects]);
 
@@ -79,8 +80,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   // Busca en todas las materias y materias seleccionadas
   const findSubject = (day: string, time: string) => {
     const allDisplaySubjects = [
-      ...subjects,
-      ...selectedSubjects.filter(selected => !subjects.some(s => s.id === selected.id)),
+      ...selectedSubjects,
+      ...allSubjects.filter(s => !selectedSubjects.some(ss => ss.id === s.id)),
     ];
 
     return allDisplaySubjects.find((subject) => subject.hours.some(
@@ -350,17 +351,17 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         </div>
       </div>
 
-      {/* Render the IndividualSubject dialog when a subject on the grid is clicked */}
-      {selectedSubject && (
+      {/* Render the IndividualSubject dialog when a subject on the grid is clicked */}      {selectedSubject && (
         <IndividualSubject
           subject={{
-            teacher: selectedSubject.professor,
-            subject: selectedSubject.title,
-            classroom: selectedSubject.salon,
-            semester: selectedSubject.semester,
-            day: selectedSubject.hours[0]?.day || '',
-            time: selectedSubject.hours[0]?.time || '',
-            endTime: (() => {
+            IdHorarioGeneral: 1, // Default value
+            NombreCarrera: selectedSubject.title,
+            IdMateria: selectedSubject.id,
+            IdProfesor: parseInt(selectedSubject.professor.replace(/\D/g, '')) || 0,
+            IdCiclo: 1, // Default value
+            Dia: selectedSubject.hours[0]?.day || '',
+            HoraInicio: selectedSubject.hours[0]?.time || '',
+            HoraFin: (() => {
               const time = selectedSubject.hours[0]?.time;
               if (!time) return '';
               const [h, m] = time.split(':').map(Number);
@@ -368,24 +369,24 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
               date.setHours(h, m, 0, 0);
               date.setHours(date.getHours() + 1);
               return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-            })()
+            })(),
+            Semestre: selectedSubject.semester
           }}
           isOpen={!!selectedSubject}
           onClose={() => setSelectedSubject(null)}
           onUpdate={(updatedScheduleItem) => {
             setSelectedSubjects(prev =>
               prev.map(s => {
-                if (s.professor === updatedScheduleItem.teacher && 
-                    s.title === updatedScheduleItem.subject) {
+                if (s.id === selectedSubject.id) {
                   return {
                     ...s,
-                    professor: updatedScheduleItem.teacher,
-                    title: updatedScheduleItem.subject,
-                    salon: updatedScheduleItem.classroom,
-                    semester: updatedScheduleItem.semester,
+                    title: updatedScheduleItem.NombreCarrera,
+                    professor: `Prof ${updatedScheduleItem.IdProfesor}`,
+                    salon: `Salon ${updatedScheduleItem.IdCiclo}`,
+                    semester: updatedScheduleItem.Semestre,
                     hours: [{
-                      day: updatedScheduleItem.day,
-                      time: updatedScheduleItem.time
+                      day: updatedScheduleItem.Dia,
+                      time: updatedScheduleItem.HoraInicio
                     }]
                   };
                 }
@@ -396,10 +397,7 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
           }}
           onDelete={(scheduleItem) => {
             setSelectedSubjects(prev =>
-              prev.filter(s => 
-                !(s.professor === scheduleItem.teacher && 
-                  s.title === scheduleItem.subject)
-              )
+              prev.filter(s => s.id !== selectedSubject.id)
             );
             setSelectedSubject(null);
           }}
