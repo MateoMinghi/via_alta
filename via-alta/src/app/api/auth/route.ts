@@ -3,6 +3,9 @@ import { cookies } from 'next/headers';
 import LocalUser from '@/lib/models/local-user';
 import { authenticatedRequest } from '@/lib/m2mAuth';
 
+// Import the setup token handler function directly
+import { POST as sendSetupToken } from '../auth/send-setup-token/route';
+
 interface ViaDisenioUser {
   id: number;
   uid: string;
@@ -63,11 +66,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
+      const host = request.headers.get('host');
       // For first-time users without a password, trigger a setup token email instead of direct redirect
       if (isFirstTimeUser) {
-        // Send request to our setup-token endpoint that will generate and send the token
+        // Create setup token by directly calling the function instead of making an HTTP request
         try {
-          const setupTokenResponse = await fetch(new URL('/api/auth/send-setup-token', request.url), {
+          // Create a new request object to pass to the setup token handler
+          const setupTokenRequest = new NextRequest(`https://${host}/api/auth/send-setup-token`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -79,11 +84,15 @@ export async function POST(request: NextRequest) {
             })
           });
           
-          const setupTokenData = await setupTokenResponse.json();
+          // Call the setup token handler function directly
+          const setupTokenResponse = await sendSetupToken(setupTokenRequest);
           
           if (!setupTokenResponse.ok) {
+            const setupTokenData = await setupTokenResponse.json();
             throw new Error(setupTokenData.error || 'Failed to create setup token');
           }
+          
+          const setupTokenData = await setupTokenResponse.json();
           
           // Return a response indicating that the user needs to check their email
           return NextResponse.json({
