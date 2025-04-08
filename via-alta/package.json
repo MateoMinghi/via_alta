@@ -9,8 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --no-lint",
-    "start": "node .next/standalone/server.js",
-    "start:next": "next start",
+    "start": "next start",
     "lint": "next lint",
     "lint:fix": "eslint . --fix",
     "test": "jest",
