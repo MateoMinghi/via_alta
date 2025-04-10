@@ -55,9 +55,7 @@ export default function Profesor() {
 
     useEffect(() => {
         fetchData();
-    }, []);
-
-    const handleProfessorSelect = async (professor: Professor) => {
+    }, []);    const handleProfessorSelect = async (professor: Professor) => {
         console.log("Selected professor details:", professor);
         setSelectedProfessor(professor);
         setSelectedSlots({}); // Clear slots while loading
@@ -67,8 +65,25 @@ export default function Profesor() {
             // Fetch availability from database
             const availability = await getAvailabilityFromDatabase(professor.id);
             setSelectedSlots(availability);
+            
+            // Fetch the latest professor data from database to ensure we have updated classes
+            const response = await fetch(`/api/professors/single?professorId=${professor.id}`);
+            const data = await response.json();
+            
+            if (data.success && data.data) {
+                console.log("Professor data from database:", data.data);
+                
+                // Update the selected professor with the most recent data from the database
+                const updatedProfessor = {
+                    ...professor,
+                    classes: data.data.Clases || ''
+                };
+                
+                // Update the selected professor state
+                setSelectedProfessor(updatedProfessor);
+            }
         } catch (err) {
-            console.error("Error fetching professor availability:", err);
+            console.error("Error fetching professor data:", err);
         }
     };
 
