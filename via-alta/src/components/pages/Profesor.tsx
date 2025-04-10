@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import ProfessorGrid from '../ProfessorGrid';
 import ProfessorSearch from '../ProfessorSearch';
 import ProfessorClasses from '../ProfessorClasses';
+import ProfessorClassesList from '../ProfessorClassesList';
 import { getProfessors, getProfessorsFromDatabase } from '@/api/getProfessors';
 import { saveAvailabilityToDatabase, getAvailabilityFromDatabase } from '@/lib/utils/availability-utils';
 
@@ -230,86 +231,66 @@ export default function Profesor() {
                         </div>
                     )}
 
-                    {selectedProfessor !== null ? (
+                    {selectedProfessor !== null && (
                         <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Left Column - Professor Details and Classes */}
-                            <div className="flex flex-col">
-                                <div className="mb-4">
-                                    <h2 className="text-xl font-bold mb-4">Información del Profesor</h2>
-                                    <Card className="p-3 flex justify-between items-center mb-4">
+                            <div className="flex flex-col space-y-6">
+                                <Card className="p-3">
+                                    <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="font-medium">{selectedProfessor.name}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {selectedProfessor.id} • {selectedProfessor.department} dpmto
-                                                {selectedProfessor.classes && (
-                                                    <span> • Materias: {
-                                                        /^\d+(,\d+)*$/.test(selectedProfessor.classes)
-                                                        ? selectedProfessor.classes.split(',').length  
-                                                        : selectedProfessor.classes.split(',').length   
-                                                    }</span>
-                                                )}
+                                            <p className="font-medium text-lg">{selectedProfessor.name}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                ID: {selectedProfessor.id} • Departamento: {selectedProfessor.department}
                                             </p>
-                                            {selectedProfessor.classes && !(/^\d+(,\d+)*$/.test(selectedProfessor.classes)) && (
-                                                <p className="text-xs text-gray-500 mt-1 line-clamp-1">
-                                                    {selectedProfessor.classes}
-                                                </p>
-                                            )}
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={removeSelectedProfessor}
-                                                className="h-8 w-8 text-red-500"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </Card>
-
-                                    <div className="mb-4">
-                                        <h2 className="text-lg font-semibold mb-2">1. Materias que imparte</h2>
-                                        <p className="text-sm text-gray-500 mb-4">Primero seleccione las materias que imparte este profesor</p>
-                                        
-                                        {showClassesEditor ? (
-                                            <ProfessorClasses 
-                                                professor={selectedProfessor} 
-                                                onSave={handleClassesEditComplete} 
-                                                onCancel={() => setShowClassesEditor(false)}
-                                            />
-                                        ) : (
-                                            <div className="flex justify-between items-center">
-                                                <div>
-                                                    {selectedProfessor.classes ? (
-                                                        <p className="text-sm">
-                                                            {selectedProfessor.classes.split(',').length} materias asignadas
-                                                        </p>
-                                                    ) : (
-                                                        <p className="text-sm text-amber-600">No hay materias asignadas</p>
-                                                    )}
-                                                </div>
-                                                <Button
-                                                    onClick={() => setShowClassesEditor(true)}
-                                                    className="flex items-center gap-2"
-                                                >
-                                                    <BookOpen className="h-4 w-4" />
-                                                    {selectedProfessor.classes ? 'Editar Materias' : 'Asignar Materias'}
-                                                </Button>
-                                            </div>
-                                        )}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={removeSelectedProfessor}
+                                            className="h-8 w-8 text-red-500"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
                                     </div>
+                                </Card>
+
+                                {/* Display classes list */}
+                                {selectedProfessor.classes && (
+                                    <ProfessorClassesList classes={selectedProfessor.classes} />
+                                )}
+
+                                <div>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-lg font-semibold">Gestión de Materias</h2>
+                                        <Button
+                                            onClick={() => setShowClassesEditor(true)}
+                                            className="flex items-center gap-2"
+                                        >
+                                            <BookOpen className="h-4 w-4" />
+                                            {selectedProfessor.classes ? 'Editar Materias' : 'Asignar Materias'}
+                                        </Button>
+                                    </div>
+
+                                    {showClassesEditor && (
+                                        <ProfessorClasses 
+                                            professor={selectedProfessor} 
+                                            onSave={handleClassesEditComplete} 
+                                            onCancel={() => setShowClassesEditor(false)}
+                                        />
+                                    )}
                                 </div>
                             </div>
 
                             {/* Right Column - Availability Grid */}
                             <div className="flex flex-col">
-                                <h2 className="text-lg font-semibold mb-2">2. Disponibilidad Horaria</h2>
+                                <h2 className="text-lg font-semibold mb-2">Disponibilidad Horaria</h2>
                                 <p className="text-sm text-gray-500 mb-4">
                                     {selectedProfessor.classes ? 
                                         "Seleccione los horarios en que el profesor está disponible" : 
                                         "Primero asigne materias al profesor antes de registrar su disponibilidad"}
                                 </p>
-                                <div className="pt-4">                                    <ProfessorGrid 
+                                <div className="pt-4">
+                                    <ProfessorGrid 
                                         selectedSlots={selectedSlots} 
                                         setSelectedSlots={setSelectedSlots}
                                         professorId={selectedProfessor.id}
@@ -339,11 +320,6 @@ export default function Profesor() {
                                     </Button>
                                 </div>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="mt-6">
-                            <p className="text-gray-500">No hay profesor seleccionado</p>
-                            <p className="pt-4">Seleccione un profesor usando la barra de búsqueda para asignarle materias y disponibilidad</p>
                         </div>
                     )}
                 </>
