@@ -4,7 +4,7 @@ import pool from "../../config/database"; // Importamos la instancia de pool par
 interface AvailabilityData {
   IdDisponibilidad: number;
   IdProfesor: string;
-  Dia: string;
+  Dia: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes';
   HoraInicio: string;
   HoraFin: string;
 }

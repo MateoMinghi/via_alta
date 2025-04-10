@@ -57,14 +57,14 @@ CREATE TABLE IF NOT EXISTS Alumno (
 );
 
 CREATE TABLE IF NOT EXISTS Profesor (
-    IdProfesor INTEGER PRIMARY KEY,
+    IdProfesor VARCHAR(10) PRIMARY KEY,
     Nombre VARCHAR(100) NOT NULL,
     Clases TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS Disponibilidad (
     IdDisponibilidad INTEGER PRIMARY KEY,
-    IdProfesor INTEGER,
+    IdProfesor VARCHAR(10),
     Dia VARCHAR(10) NOT NULL,
     HoraInicio TIME NOT NULL,
     HoraFin TIME NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS Ciclo (
 CREATE TABLE IF NOT EXISTS Grupo (
     IdGrupo INTEGER PRIMARY KEY,
     IdMateria INTEGER,
-    IdProfesor INTEGER,
+    IdProfesor VARCHAR(10),
     IdSalon INTEGER,
     IdCiclo INTEGER,
     FOREIGN KEY (IdMateria) REFERENCES Materia(IdMateria),
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS HorarioGeneral (
     IdHorarioGeneral INTEGER NOT NULL,
     NombreCarrera VARCHAR(100) NOT NULL,
     IdMateria INTEGER NOT NULL,
-    IdProfesor INTEGER NOT NULL,
+    IdProfesor VARCHAR(10) NOT NULL,
     IdCiclo INTEGER NOT NULL,
     Dia VARCHAR(10) NOT NULL,
     HoraInicio TIME NOT NULL,

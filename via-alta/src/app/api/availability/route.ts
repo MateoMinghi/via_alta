@@ -31,12 +31,15 @@ export async function POST(request: Request) {
         if (!isAvailable) return null;
 
         // Parsea la clave del horario para extraer día, hora de inicio y fin
-        const { day, startTime, endTime } = parseSlotKey(slotKey);
-
+        const { day, startTime, endTime } = parseSlotKey(slotKey);        // Ensure day is one of the valid values
+        if (!['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'].includes(day)) {
+          throw new Error(`Invalid day: ${day}`);
+        }
+        
         return {
           IdDisponibilidad: maxId + index + 1,
           IdProfesor: professorId,
-          Dia: day,
+          Dia: day as 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes',
           HoraInicio: startTime,
           HoraFin: endTime
         };
