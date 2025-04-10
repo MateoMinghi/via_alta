@@ -10,15 +10,42 @@ export async function GET(request: Request) {
   }
 
   try {
+    console.log('Fetching availability for professor:', professorId);
     const availabilityData = await Availability.findByProfessor(professorId);
+    console.log('Raw availability data:', availabilityData);
     
     // Transform the data into the format expected by the frontend
     const formattedAvailability: Record<string, boolean> = {};
+    
     availabilityData.forEach((slot) => {
-      const slotKey = `${slot.Dia}-${slot.HoraInicio}`;
-      formattedAvailability[slotKey] = true;
+      // Since we're now using the normalized data, we don't need all the null checks
+      // Get the start time and end time (remove seconds part)
+      const startTime = slot.HoraInicio.split(':').slice(0, 2).join(':');
+      const endTime = slot.HoraFin.split(':').slice(0, 2).join(':');
+      
+      try {
+        // Parse the times to create 30-minute intervals
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
+        
+        // Calculate start and end in minutes for easier comparison
+        const startInMinutes = startHour * 60 + startMinute;
+        const endInMinutes = endHour * 60 + endMinute;
+        
+        // Create slots for every 30-minute interval in this availability period
+        for (let timeInMinutes = startInMinutes; timeInMinutes < endInMinutes; timeInMinutes += 30) {
+          const hour = Math.floor(timeInMinutes / 60);
+          const minute = timeInMinutes % 60;
+          const timeSlot = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          const slotKey = `${slot.Dia}-${timeSlot}`;
+          formattedAvailability[slotKey] = true;
+        }
+      } catch (err) {
+        console.warn('Error processing slot:', slot, err);
+      }
     });
 
+    console.log('Formatted availability:', formattedAvailability);
     return NextResponse.json({ success: true, availability: formattedAvailability });
   } catch (error) {
     console.error('Error fetching availability:', error);
@@ -39,32 +66,75 @@ export async function POST(request: Request) {
         { success: false, message: 'Professor ID and availability are required' },
         { status: 400 }
       );
-    }    // Delete all existing availability entries for this professor first
+    }
+
+    // Delete all existing availability entries for this professor first
     try {
-        const existingSlots = await Availability.findByProfessor(professorId.toString());
-        for (const slot of existingSlots) {
-            await Availability.delete(slot.IdDisponibilidad);
-        }
+      const existingSlots = await Availability.findByProfessor(professorId.toString());
+      for (const slot of existingSlots) {
+        await Availability.delete(slot.IdDisponibilidad);
+      }
     } catch (error) {
-        console.error('Error deleting existing availability:', error);
+      console.error('Error deleting existing availability:', error);
     }
 
     // Get the current max ID to start incrementing from there
     const maxId = await Availability.getMaxId();
     let currentId = maxId + 1;
 
-    // Insert new availability slots
-    for (const [slotKey, isAvailable] of Object.entries(availability)) {
+    // Group slots by day and sort them by time
+    const slotsByDay: Record<string, string[]> = {};
+    Object.entries(availability).forEach(([slotKey, isAvailable]) => {
       if (isAvailable) {
         const [day, time] = slotKey.split('-');
+        if (!slotsByDay[day]) {
+          slotsByDay[day] = [];
+        }
+        slotsByDay[day].push(time);
+      }
+    });
+
+    // For each day, create consolidated availability slots
+    for (const [day, times] of Object.entries(slotsByDay)) {
+      // Sort times chronologically
+      times.sort();
+      
+      let startTime = times[0];
+      let lastTime = startTime;
+      
+      for (let i = 1; i <= times.length; i++) {
+        const currentTime = times[i];
+        const lastTimeMinutes = timeToMinutes(lastTime);
+        const currentTimeMinutes = currentTime ? timeToMinutes(currentTime) : -1;
         
-        await Availability.create({
-          IdDisponibilidad: currentId++,
-          IdProfesor: professorId.toString(),
-          Dia: day as 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes',
-          HoraInicio: time,
-          HoraFin: calculateEndTime(time)
-        });
+        // If we're at the end or there's a gap in time slots, save the current period
+        if (i === times.length || currentTimeMinutes - lastTimeMinutes > 30) {
+          // Calculate end time (30 minutes after the last slot)
+          const [lastHour, lastMinute] = lastTime.split(':').map(Number);
+          let endMinutes = lastMinute + 30;
+          let endHour = lastHour;
+          if (endMinutes >= 60) {
+            endMinutes = 0;
+            endHour += 1;
+          }
+          const endTime = `${endHour.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+          
+          // Create availability record
+          await Availability.create({
+            IdDisponibilidad: currentId++,
+            IdProfesor: professorId.toString(),
+            Dia: day as 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes',
+            HoraInicio: startTime,
+            HoraFin: endTime
+          });
+          
+          // Start a new period if we're not at the end
+          if (i < times.length) {
+            startTime = currentTime;
+          }
+        }
+        
+        lastTime = currentTime;
       }
     }
 
@@ -78,15 +148,7 @@ export async function POST(request: Request) {
   }
 }
 
-function calculateEndTime(startTime: string): string {
-  const [hours, minutes] = startTime.split(':').map(Number);
-  let endMinutes = minutes + 30;
-  let endHours = hours;
-  
-  if (endMinutes >= 60) {
-    endMinutes = 0;
-    endHours += 1;
-  }
-  
-  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
 }

@@ -1,12 +1,38 @@
-import pool from "../../config/database"; // Importamos la instancia de pool para interactuar con la base de datos
+import pool from "../../config/database";
 
-// Definimos la interfaz para los datos de disponibilidad
+// Definimos la interfaz para los datos de disponibilidad tal como vienen de la base de datos
+interface RawAvailabilityData {
+  iddisponibilidad?: number;
+  idprofesor?: string;
+  dia?: string;
+  horainicio?: string;
+  horafin?: string;
+  // También permitimos las versiones en PascalCase
+  IdDisponibilidad?: number;
+  IdProfesor?: string;
+  Dia?: string;
+  HoraInicio?: string;
+  HoraFin?: string;
+}
+
+// Definimos la interfaz para los datos de disponibilidad normalizados
 interface AvailabilityData {
   IdDisponibilidad: number;
   IdProfesor: string;
   Dia: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes';
   HoraInicio: string;
   HoraFin: string;
+}
+
+// Función auxiliar para normalizar los datos de la base de datos
+function normalizeAvailabilityData(raw: RawAvailabilityData): AvailabilityData {
+  return {
+    IdDisponibilidad: raw.iddisponibilidad || raw.IdDisponibilidad || 0,
+    IdProfesor: raw.idprofesor || raw.IdProfesor || '',
+    Dia: (raw.dia || raw.Dia || 'Lunes') as AvailabilityData['Dia'],
+    HoraInicio: raw.horainicio || raw.HoraInicio || '',
+    HoraFin: raw.horafin || raw.HoraFin || ''
+  };
 }
 
 // Clase para gestionar las operaciones sobre la tabla "Disponibilidad" en la base de datos
@@ -48,7 +74,7 @@ class Availability {
   static async findByProfessor(professorId: string): Promise<AvailabilityData[]> {
     const query = "SELECT * FROM Disponibilidad WHERE IdProfesor = $1";
     const result = await pool.query(query, [professorId]);
-    return result.rows as AvailabilityData[]; // Retorna un arreglo de disponibilidades
+    return result.rows.map(normalizeAvailabilityData);
   }
 
   /**

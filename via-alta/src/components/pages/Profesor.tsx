@@ -58,24 +58,27 @@ export default function Profesor() {
         fetchData();
     }, []);    const handleProfessorSelect = async (professor: Professor) => {
         console.log("Selected professor details:", professor);
-        setSelectedProfessor(professor);
-        setSelectedSlots({}); // Clear slots while loading
-        setShowClassesEditor(false); // Hide classes editor when selecting new professor
-        
         try {
+            // First, fetch availability before updating any state
+            const availability = await getAvailabilityFromDatabase(professor.id);
+            
+            setSelectedProfessor(professor);
+            setSelectedSlots(availability); // Set the fetched availability
+            setShowClassesEditor(false);
+            
             // Fetch the latest professor data from database to ensure we have updated classes
             const response = await fetch(`/api/professors/single?professorId=${professor.id}`);
             const data = await response.json();
-            
+
             if (data.success && data.data) {
                 console.log("Professor data from database:", data.data);
-                  // Update the selected professor with the most recent data from the database
+                // Update the selected professor with the most recent data from the database
                 const updatedProfessor = {
                     ...professor,
                     classes: data.data.clases || ''
                 };
                 
-                // Update the selected professor state first
+                // Update the selected professor state
                 setSelectedProfessor(updatedProfessor);
                 
                 // Also update this professor in the professors array if needed
@@ -87,11 +90,9 @@ export default function Profesor() {
                         setProfessors(newProfessors);
                     }
                 }
+            } else {
+                console.error("Failed to get updated professor data:", data.error);
             }
-            
-            // Then fetch availability after professor data is updated
-            const availability = await getAvailabilityFromDatabase(professor.id);
-            setSelectedSlots(availability);
         } catch (err) {
             console.error("Error fetching professor data:", err);
         }

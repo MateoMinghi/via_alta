@@ -34,7 +34,7 @@ export async function getAvailabilityFromDatabase(
   professorId: number
 ): Promise<Record<string, boolean>> {
   try {
-    const response = await fetch(`/api/availability?professorId=${professorId}`);
+    const response = await fetch(`/api/availability?professorId=${professorId.toString()}`);
     const data = await response.json();
 
     if (!data.success) {
@@ -42,6 +42,7 @@ export async function getAvailabilityFromDatabase(
       return {};
     }
 
+    console.log('Retrieved availability:', data.availability); // Debug log
     return data.availability || {};
   } catch (error) {
     console.error('Error fetching availability:', error);
