@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Professor } from '@/api/getProfessors';
 import { Check, X, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProfessorClassesProps {
   professor: Professor | null;
@@ -11,10 +12,35 @@ interface ProfessorClassesProps {
   onCancel: () => void;
 }
 
+// Define interfaces for API response structure
+interface Degree {
+  id: number;
+  name: string;
+  status: string;
+}
+
+interface Plan {
+  id: number;
+  version: string;
+  status: string;
+  degree: Degree;
+}
+
+interface Subject {
+  id: number;
+  name: string;
+  credits: string;
+  plans: Plan[];
+  // Other properties as needed
+}
+
 export default function ProfessorClasses({ professor, onSave, onCancel }: ProfessorClassesProps) {
-  const [subjects, setSubjects] = useState<Array<{ id: number, name: string }>>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState<Set<number>>(new Set());
+  const [degrees, setDegrees] = useState<Degree[]>([]);
+  const [selectedDegree, setSelectedDegree] = useState<string>("all");
   
   // Load subjects and professor's classes when component mounts
   useEffect(() => {
@@ -25,7 +51,13 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
-            setSubjects(data.data);
+            const subjectsData = data.data;
+            setSubjects(subjectsData);
+            setFilteredSubjects(subjectsData); // Initialize filteredSubjects
+            
+            // Extract unique degrees from subjects
+            const uniqueDegrees = extractUniqueDegrees(subjectsData);
+            setDegrees(uniqueDegrees);
           }
         }
 
@@ -56,6 +88,22 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
 
     fetchData();
   }, [professor, subjects.length]);
+  
+  // Extract unique degrees from the subjects data
+  const extractUniqueDegrees = (subjects: Subject[]): Degree[] => {
+    const degreeMap = new Map<number, Degree>();
+    
+    subjects.forEach(subject => {
+      subject.plans?.forEach(plan => {
+        if (plan.degree && !degreeMap.has(plan.degree.id)) {
+          degreeMap.set(plan.degree.id, plan.degree);
+        }
+      });
+    });
+    
+    return Array.from(degreeMap.values());
+  };
+
   const handleSave = async () => {
     if (!professor) return;
     
@@ -110,15 +158,44 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
     setSelectedSubjects(newSelected);
   };
 
+  const handleDegreeChange = (value: string) => {
+    setSelectedDegree(value);
+    
+    if (value === "all") {
+      setFilteredSubjects(subjects);
+    } else {
+      const filtered = subjects.filter(subject => 
+        subject.plans?.some(plan => 
+          plan.degree && plan.degree.name === value
+        )
+      );
+      setFilteredSubjects(filtered);
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">Asigne las materias para {professor?.name}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {subjects.length > 0 ? (
+      </CardHeader>      <CardContent>
+        <div className="mb-4">
+          <label className="text-sm font-medium mb-2 block">Filtrar por Carrera:</label>
+          <Select onValueChange={handleDegreeChange} value={selectedDegree}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Todas las carreras" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las carreras</SelectItem>
+              {degrees.map((degree) => (
+                <SelectItem key={degree.id} value={degree.name}>{degree.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {filteredSubjects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {subjects.map((subject) => (
+            {filteredSubjects.map((subject) => (
               <div 
                 key={subject.id} 
                 className={`p-2 border rounded-md cursor-pointer ${
