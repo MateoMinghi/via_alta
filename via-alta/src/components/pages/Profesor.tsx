@@ -236,6 +236,17 @@ export default function Profesor() {
                         <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Left Column - Professor Details and Classes */}
                             <div className="flex flex-col space-y-6">
+                            <div>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-lg font-semibold">Gestión de Materias</h2>
+                                        <Button
+                                            onClick={() => setShowClassesEditor(true)}
+                                            className="flex items-center gap-2"
+                                        >
+                                            <BookOpen className="h-4 w-4" />
+                                            {selectedProfessor.classes ? 'Editar Materias' : 'Asignar Materias'}
+                                        </Button>
+                                    </div>
                                 <Card className="p-3">
                                     <div className="flex justify-between items-start">
                                         <div>
@@ -257,20 +268,10 @@ export default function Profesor() {
 
                                 {/* Display classes list */}
                                 {selectedProfessor.classes && (
-                                    <ProfessorClassesList classes={selectedProfessor.classes} />
-                                )}
-
-                                <div>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-lg font-semibold">Gestión de Materias</h2>
-                                        <Button
-                                            onClick={() => setShowClassesEditor(true)}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <BookOpen className="h-4 w-4" />
-                                            {selectedProfessor.classes ? 'Editar Materias' : 'Asignar Materias'}
-                                        </Button>
+                                    <div className="mt-4">
+                                        <ProfessorClassesList classes={selectedProfessor.classes} />
                                     </div>
+                                )}
 
                                     {showClassesEditor && (
                                         <ProfessorClasses 
