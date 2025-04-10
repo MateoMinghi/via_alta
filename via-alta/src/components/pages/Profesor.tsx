@@ -62,10 +62,6 @@ export default function Profesor() {
         setShowClassesEditor(false); // Hide classes editor when selecting new professor
         
         try {
-            // Fetch availability from database
-            const availability = await getAvailabilityFromDatabase(professor.id);
-            setSelectedSlots(availability);
-            
             // Fetch the latest professor data from database to ensure we have updated classes
             const response = await fetch(`/api/professors/single?professorId=${professor.id}`);
             const data = await response.json();
@@ -79,9 +75,23 @@ export default function Profesor() {
                     classes: data.data.Clases || ''
                 };
                 
-                // Update the selected professor state
+                // Update the selected professor state first
                 setSelectedProfessor(updatedProfessor);
+                
+                // Also update this professor in the professors array if needed
+                if (professors) {
+                    const newProfessors = [...professors];
+                    const index = newProfessors.findIndex(p => p.id === professor.id);
+                    if (index !== -1) {
+                        newProfessors[index] = updatedProfessor;
+                        setProfessors(newProfessors);
+                    }
+                }
             }
+            
+            // Then fetch availability after professor data is updated
+            const availability = await getAvailabilityFromDatabase(professor.id);
+            setSelectedSlots(availability);
         } catch (err) {
             console.error("Error fetching professor data:", err);
         }

@@ -221,9 +221,11 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-        </div>
-
-        {filteredSubjects.length > 0 ? (
+        </div>        {subjects.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-gray-500">Cargando materias disponibles...</p>
+          </div>
+        ) : filteredSubjects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {filteredSubjects.map((subject) => (
               <div 
@@ -246,7 +248,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
           </div>
         ) : (
           <div className="text-center py-4">
-            <p className="text-gray-500">Cargando materias disponibles...</p>
+            <p className="text-gray-500">No se encontraron materias que coincidan con los filtros actuales</p>
           </div>
         )}
 
