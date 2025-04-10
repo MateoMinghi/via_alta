@@ -41,7 +41,8 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
   const [selectedSubjects, setSelectedSubjects] = useState<Set<number>>(new Set());
   const [degrees, setDegrees] = useState<Degree[]>([]);
   const [selectedDegree, setSelectedDegree] = useState<string>("all");
-  
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
   // Load subjects and professor's classes when component mounts
   useEffect(() => {
     const fetchData = async () => {
@@ -158,39 +159,68 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
     setSelectedSubjects(newSelected);
   };
 
-  const handleDegreeChange = (value: string) => {
-    setSelectedDegree(value);
+  // Update filtered subjects based on both degree and search query
+  useEffect(() => {
+    let filtered = [...subjects];
     
-    if (value === "all") {
-      setFilteredSubjects(subjects);
-    } else {
-      const filtered = subjects.filter(subject => 
+    // Apply degree filter
+    if (selectedDegree !== "all") {
+      filtered = filtered.filter(subject => 
         subject.plans?.some(plan => 
-          plan.degree && plan.degree.name === value
+          plan.degree && plan.degree.name === selectedDegree
         )
       );
-      setFilteredSubjects(filtered);
     }
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(subject => 
+        subject.name.toLowerCase().includes(query)
+      );
+    }
+    
+    setFilteredSubjects(filtered);
+  }, [subjects, selectedDegree, searchQuery]);
+
+  const handleDegreeChange = (value: string) => {
+    setSelectedDegree(value);
+  };
+  
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
   };
 
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">Asigne las materias para {professor?.name}</CardTitle>
-      </CardHeader>      <CardContent>
-        <div className="mb-4">
-          <label className="text-sm font-medium mb-2 block">Filtrar por Carrera:</label>
-          <Select onValueChange={handleDegreeChange} value={selectedDegree}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Todas las carreras" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las carreras</SelectItem>
-              {degrees.map((degree) => (
-                <SelectItem key={degree.id} value={degree.name}>{degree.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      </CardHeader>      <CardContent>        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">Filtrar por Carrera:</label>
+            <Select onValueChange={handleDegreeChange} value={selectedDegree}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Todas las carreras" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las carreras</SelectItem>
+                {degrees.map((degree) => (
+                  <SelectItem key={degree.id} value={degree.name}>{degree.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div>
+            <label className="text-sm font-medium mb-2 block">Buscar por Nombre:</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Buscar materia..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
         </div>
 
         {filteredSubjects.length > 0 ? (
