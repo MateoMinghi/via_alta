@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Professor } from '@/api/getProfessors';
-import { Check, X } from 'lucide-react';
+import { Check, X, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ProfessorClassesProps {
@@ -106,9 +106,9 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Materias que imparte {professor?.name}</CardTitle>
+    <Card className="w-full">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">Asigne las materias para {professor?.name}</CardTitle>
       </CardHeader>
       <CardContent>
         {subjects.length > 0 ? (
@@ -127,7 +127,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
                   }`}>
                     {selectedSubjects.has(subject.id) && <Check className="w-4 h-4 text-white" />}
                   </div>
-                  <span>{subject.name}</span>
+                  <span className="text-sm">{subject.name}</span>
                 </div>
               </div>
             ))}
@@ -144,7 +144,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
           </p>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
+      <CardFooter className="flex justify-between border-t pt-4">
         <Button 
           variant="outline" 
           onClick={onCancel}
@@ -156,14 +156,14 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
         <Button 
           onClick={handleSave} 
           disabled={isSaving}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
         >
           {isSaving ? (
             <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
           ) : (
-            <Check className="w-4 h-4" />
+            <Save className="w-4 h-4" />
           )}
-          {isSaving ? 'Guardando...' : 'Guardar materias'}
+          {isSaving ? 'Guardando...' : 'Guardar Información del Profesor'}
         </Button>
       </CardFooter>
     </Card>

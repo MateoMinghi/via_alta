@@ -101,12 +101,10 @@ export default function Profesor() {
     const handleClassesEditComplete = () => {
         setShowClassesEditor(false);
         fetchData(); // Refresh professor data to get updated classes
-    };
-
-    return (
+    };    return (
         <div className="container mx-auto py-6 px-4 md:px-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                <p className="text-3xl font-bold">Registro de Disponibilidad</p>
+                <p className="text-3xl font-bold">Registro de Profesores</p>
             </div>
 
             {loading && (
@@ -144,96 +142,121 @@ export default function Profesor() {
                         </div>
                     )}
 
-                    <div className="w-full pl-8 mt-6">
-                        <p className="text-2xl font-bold">Profesor seleccionado:</p>
-                        {selectedProfessor !== null ? (
-                            <div className="mt-4 mb-4">
-                                <Card className="p-3 flex justify-between items-center">
-                                    <div>
-                                        <p className="font-medium">{selectedProfessor.name}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {selectedProfessor.id} • {selectedProfessor.department} dpmto
-                                            {selectedProfessor.classes && (
-                                                <span> • Materias: {
-                                                    /^\d+(,\d+)*$/.test(selectedProfessor.classes)
-                                                    ? selectedProfessor.classes.split(',').length  // Show count if numbers
-                                                    : selectedProfessor.classes.split(',').length   // Show count for names too
-                                                }</span>
-                                            )}
-                                        </p>
-                                        {selectedProfessor.classes && !(/^\d+(,\d+)*$/.test(selectedProfessor.classes)) && (
-                                            <p className="text-xs text-gray-500 mt-1 line-clamp-1">
-                                                {selectedProfessor.classes}
+                    {selectedProfessor !== null ? (
+                        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Left Column - Professor Details and Classes */}
+                            <div className="flex flex-col">
+                                <div className="mb-4">
+                                    <h2 className="text-xl font-bold mb-4">Información del Profesor</h2>
+                                    <Card className="p-3 flex justify-between items-center mb-4">
+                                        <div>
+                                            <p className="font-medium">{selectedProfessor.name}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {selectedProfessor.id} • {selectedProfessor.department} dpmto
+                                                {selectedProfessor.classes && (
+                                                    <span> • Materias: {
+                                                        /^\d+(,\d+)*$/.test(selectedProfessor.classes)
+                                                        ? selectedProfessor.classes.split(',').length  
+                                                        : selectedProfessor.classes.split(',').length   
+                                                    }</span>
+                                                )}
                                             </p>
+                                            {selectedProfessor.classes && !(/^\d+(,\d+)*$/.test(selectedProfessor.classes)) && (
+                                                <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+                                                    {selectedProfessor.classes}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={removeSelectedProfessor}
+                                                className="h-8 w-8 text-red-500"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </Card>
+
+                                    <div className="mb-4">
+                                        <h2 className="text-lg font-semibold mb-2">1. Materias que imparte</h2>
+                                        <p className="text-sm text-gray-500 mb-4">Primero seleccione las materias que imparte este profesor</p>
+                                        
+                                        {showClassesEditor ? (
+                                            <ProfessorClasses 
+                                                professor={selectedProfessor} 
+                                                onSave={handleClassesEditComplete} 
+                                                onCancel={() => setShowClassesEditor(false)}
+                                            />
+                                        ) : (
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    {selectedProfessor.classes ? (
+                                                        <p className="text-sm">
+                                                            {selectedProfessor.classes.split(',').length} materias asignadas
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-sm text-amber-600">No hay materias asignadas</p>
+                                                    )}
+                                                </div>
+                                                <Button
+                                                    onClick={() => setShowClassesEditor(true)}
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    <BookOpen className="h-4 w-4" />
+                                                    {selectedProfessor.classes ? 'Editar Materias' : 'Asignar Materias'}
+                                                </Button>
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => setShowClassesEditor(true)}
-                                            className="h-8 w-8 text-blue-500"
-                                            title="Editar materias"
-                                        >
-                                            <BookOpen className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={removeSelectedProfessor}
-                                            className="h-8 w-8 text-red-500"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </Card>
+                                </div>
                             </div>
-                        ) : (
-                            <div>
-                                <p className="text-gray-500">No hay profesor seleccionado</p>
-                                <p className="pt-4">Selecciona un profesor para asignarle disponibilidad</p>
-                            </div>
-                        )}
-                    </div>
 
-                    {selectedProfessor !== null && showClassesEditor && (
-                        <div className="py-4">
-                            <ProfessorClasses 
-                                professor={selectedProfessor} 
-                                onSave={handleClassesEditComplete} 
-                                onCancel={() => setShowClassesEditor(false)}
-                            />
+                            {/* Right Column - Availability Grid */}
+                            <div className="flex flex-col">
+                                <h2 className="text-lg font-semibold mb-2">2. Disponibilidad Horaria</h2>
+                                <p className="text-sm text-gray-500 mb-4">
+                                    {selectedProfessor.classes ? 
+                                        "Seleccione los horarios en que el profesor está disponible" : 
+                                        "Primero asigne materias al profesor antes de registrar su disponibilidad"}
+                                </p>
+                                <div className="pt-4">
+                                    <ProfessorGrid 
+                                        selectedSlots={selectedSlots} 
+                                        setSelectedSlots={setSelectedSlots} 
+                                    />
+                                </div>
+
+                                <div className="flex justify-between mt-8 gap-4">
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => setSelectedSlots({})} 
+                                        className="w-full bg-red-700 text-white hover:bg-red-800"
+                                        disabled={!selectedProfessor.classes}
+                                    >
+                                        Limpiar
+                                    </Button>
+                                    <Button 
+                                        className="w-full flex items-center gap-2" 
+                                        onClick={handleSaveAvailability}
+                                        disabled={isSaving || !selectedProfessor.classes}
+                                    >
+                                        {isSaving ? (
+                                            <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                                        ) : (
+                                            <Save className="h-4 w-4" />
+                                        )}
+                                        {isSaving ? 'Guardando...' : 'Guardar Disponibilidad'}
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
-                    )}
-
-                    {selectedProfessor !== null && !showClassesEditor && (
-                        <>
-                            <div className="pt-4">
-                                <ProfessorGrid selectedSlots={selectedSlots} setSelectedSlots={setSelectedSlots} />
-                            </div>
-
-                            <div className="flex justify-between mt-8 gap-4">
-                                <Button 
-                                    variant="outline" 
-                                    onClick={() => setSelectedSlots({})} 
-                                    className="w-full bg-red-700 text-white hover:bg-red-800"
-                                >
-                                    Limpiar
-                                </Button>
-                                <Button 
-                                    className="w-full flex items-center gap-2" 
-                                    onClick={handleSaveAvailability}
-                                    disabled={isSaving}
-                                >
-                                    {isSaving ? (
-                                        <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
-                                    ) : (
-                                        <Save className="h-4 w-4" />
-                                    )}
-                                    {isSaving ? 'Guardando...' : 'Guardar'}
-                                </Button>
-                            </div>
-                        </>
+                    ) : (
+                        <div className="mt-6">
+                            <p className="text-gray-500">No hay profesor seleccionado</p>
+                            <p className="pt-4">Seleccione un profesor usando la barra de búsqueda para asignarle materias y disponibilidad</p>
+                        </div>
                     )}
                 </>
             )}
