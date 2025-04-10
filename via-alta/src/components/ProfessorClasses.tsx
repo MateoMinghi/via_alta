@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 interface ProfessorClassesProps {
   professor: Professor | null;
-  onSave: () => void;
+  onSave: (updatedClasses?: string) => void;
   onCancel: () => void;
 }
 
@@ -56,7 +56,6 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
 
     fetchData();
   }, [professor, subjects.length]);
-
   const handleSave = async () => {
     if (!professor) return;
     
@@ -67,6 +66,9 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
         .map(id => subjects.find(subject => subject.id === id)?.name || '')
         .filter(name => name !== '');
       
+      // Store the classes as a comma-separated string
+      const classesString = selectedSubjectNames.join(',');
+      
       // Store the names instead of IDs
       const response = await fetch('/api/professors', {
         method: 'POST',
@@ -75,7 +77,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
         },
         body: JSON.stringify({
           professorId: professor.id,
-          classes: selectedSubjectNames.join(',')
+          classes: classesString
         }),
       });
 
@@ -86,7 +88,10 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
       }
 
       toast.success('Materias actualizadas correctamente');
-      onSave();
+      
+      // Pass the updated classes string back to the parent component
+      // This ensures the UI is updated immediately without waiting for an API fetch
+      onSave(classesString);
     } catch (error) {
       console.error("Error saving professor classes:", error);
       toast.error('Error al guardar las materias');

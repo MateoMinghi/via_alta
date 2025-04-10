@@ -96,12 +96,77 @@ export default function Profesor() {
         } finally {
             setIsSaving(false);
         }
-    };
-
-    const handleClassesEditComplete = () => {
+    };    const handleClassesEditComplete = async (updatedClasses?: string) => {
         setShowClassesEditor(false);
-        fetchData(); // Refresh professor data to get updated classes
-    };    return (
+        
+        if (selectedProfessor) {
+            // If we received updated classes directly from the ProfessorClasses component,
+            // use them to immediately update the state without making an API call
+            if (updatedClasses !== undefined) {
+                console.log("Directly updating professor with classes:", updatedClasses);
+                
+                // Update the selected professor with the classes we just saved
+                const updatedProfessor = {
+                    ...selectedProfessor,
+                    classes: updatedClasses
+                };
+                
+                // Update the selected professor state
+                setSelectedProfessor(updatedProfessor);
+                
+                // Also update this professor in the professors array if needed
+                if (professors) {
+                    const newProfessors = [...professors];
+                    const index = newProfessors.findIndex(p => p.id === selectedProfessor.id);
+                    if (index !== -1) {
+                        newProfessors[index] = updatedProfessor;
+                        setProfessors(newProfessors);
+                    }
+                }
+                
+                return; // Skip the API call since we already have the updated data
+            }
+            
+            // If we didn't get updated classes directly, fall back to the API call
+            try {
+                // Fetch the specific professor directly from the API to get the most up-to-date data
+                const response = await fetch(`/api/professors/single?professorId=${selectedProfessor.id}`);
+                const data = await response.json();
+                
+                console.log("Fetched professor data:", data);
+                
+                if (data.success && data.data) {
+                    console.log("Professor data from API:", data.data);
+                    console.log("Classes from API:", data.data.Clases);
+                    
+                    // Update the selected professor with the fresh data
+                    const updatedProfessor = {
+                        ...selectedProfessor,
+                        classes: data.data.Clases || ''
+                    };
+                    
+                    console.log("Updated professor object:", updatedProfessor);
+                    
+                    // Update the selected professor state
+                    setSelectedProfessor(updatedProfessor);
+                    
+                    // Also update this professor in the professors array
+                    if (professors) {
+                        const newProfessors = [...professors];
+                        const index = newProfessors.findIndex(p => p.id === selectedProfessor.id);
+                        if (index !== -1) {
+                            newProfessors[index] = updatedProfessor;
+                            setProfessors(newProfessors);
+                        }
+                    }
+                } else {
+                    console.error("Failed to get updated professor data:", data.error);
+                }
+            } catch (err) {
+                console.error("Error fetching updated professor data:", err);
+            }
+        }
+    };return (
         <div className="container mx-auto py-6 px-4 md:px-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                 <p className="text-3xl font-bold">Registro de Profesores</p>
