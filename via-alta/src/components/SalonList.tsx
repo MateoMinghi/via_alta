@@ -25,6 +25,8 @@ export default function SalonCRUD() {
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentSalon, setCurrentSalon] = useState<Salon | null>(null);
+  const [salonAEliminar, setSalonAEliminar] = useState<Salon | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const cargarSalones = async () => {
     const res = await fetch("/api/classroom");
@@ -36,48 +38,47 @@ export default function SalonCRUD() {
     cargarSalones();
   }, []);
 
+  const crearSalon = async () => {
+    if (currentSalon) {
+      // Modo edición
+      if (currentSalon.idsalon !== nuevoSalon.idsalon) {
+        await fetch("/api/classroom", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: currentSalon.idsalon, campo: "idsalon", valor: nuevoSalon.idsalon }),
+        });
+      }
 
-const crearSalon = async () => {
-  if (currentSalon) {
-    // Modo edición
-    if (currentSalon.idsalon !== nuevoSalon.idsalon) {
       await fetch("/api/classroom", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: currentSalon.idsalon, campo: "idsalon", valor: nuevoSalon.idsalon }),
+        body: JSON.stringify({ id: nuevoSalon.idsalon, campo: "cupo", valor: nuevoSalon.cupo }),
+      });
+
+      await fetch("/api/classroom", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: nuevoSalon.idsalon, campo: "tipo", valor: nuevoSalon.tipo }),
+      });
+
+      await fetch("/api/classroom", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: nuevoSalon.idsalon, campo: "nota", valor: nuevoSalon.nota }),
+      });
+    } else {
+      await fetch("/api/classroom", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nuevoSalon),
       });
     }
 
-    await fetch("/api/classroom", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: nuevoSalon.idsalon, campo: "cupo", valor: nuevoSalon.cupo }),
-    });
-
-    await fetch("/api/classroom", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: nuevoSalon.idsalon, campo: "tipo", valor: nuevoSalon.tipo }),
-    });
-
-    await fetch("/api/classroom", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: nuevoSalon.idsalon, campo: "nota", valor: nuevoSalon.nota }),
-    });
-  } else {
-    await fetch("/api/classroom", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(nuevoSalon),
-    });
-  }
-
-  setNuevoSalon({ idsalon: 0, tipo: "Normal", cupo: 0, nota: "" });
-  setCurrentSalon(null);
-  cargarSalones();
-  setIsDialogOpen(false);
-};
+    setNuevoSalon({ idsalon: 0, tipo: "Normal", cupo: 0, nota: "" });
+    setCurrentSalon(null);
+    cargarSalones();
+    setIsDialogOpen(false);
+  };
 
   const eliminarSalon = async (idsalon: number) => {
     await fetch(`/api/classroom?id=${idsalon}`, { method: "DELETE" });
@@ -149,12 +150,14 @@ const crearSalon = async () => {
                   <Button
                     className="bg-red-800 hover:bg-red-700 text-white"
                     size="sm"
-                    onClick={() => eliminarSalon(salon.idsalon)}
+                    onClick={() => {
+                      setSalonAEliminar(salon);
+                      setIsDeleteDialogOpen(true);
+                    }}
                   >
                     <Trash className="h-4 w-4" />
                   </Button>
                 </TableCell>
-
               </TableRow>
             ))}
           </TableBody>
@@ -169,19 +172,18 @@ const crearSalon = async () => {
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="idsalon" className="text-right">ID Salón*</Label>
-                <Input
-                  id="idsalon"
-                  type="number"
-                  value={nuevoSalon.idsalon}
-                  onChange={(e) =>
-                    setNuevoSalon({ ...nuevoSalon, idsalon: Number(e.target.value) })
-                  }
-                  className="col-span-3"
-                />
-              </div>
-
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="idsalon" className="text-right">ID Salón*</Label>
+              <Input
+                id="idsalon"
+                type="number"
+                value={nuevoSalon.idsalon}
+                onChange={(e) =>
+                  setNuevoSalon({ ...nuevoSalon, idsalon: Number(e.target.value) })
+                }
+                className="col-span-3"
+              />
+            </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="tipo" className="text-right">Tipo*</Label>
               <div className="col-span-3">
@@ -232,6 +234,35 @@ const crearSalon = async () => {
             </Button>
             <Button onClick={crearSalon}>
               {currentSalon ? "Guardar Cambios" : "Crear Salón"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>¿Eliminar salón?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            ¿Estás seguro de que deseas eliminar el salón con ID <strong>{salonAEliminar?.idsalon}</strong>?
+            Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-red-700 text-white hover:bg-red-600"
+              onClick={async () => {
+                if (salonAEliminar) {
+                  await eliminarSalon(salonAEliminar.idsalon);
+                  setIsDeleteDialogOpen(false);
+                  setSalonAEliminar(null);
+                }
+              }}
+            >
+              Eliminar
             </Button>
           </DialogFooter>
         </DialogContent>
