@@ -68,11 +68,10 @@ export default function Profesor() {
             
             if (data.success && data.data) {
                 console.log("Professor data from database:", data.data);
-                
-                // Update the selected professor with the most recent data from the database
+                  // Update the selected professor with the most recent data from the database
                 const updatedProfessor = {
                     ...professor,
-                    classes: data.data.Clases || ''
+                    classes: data.data.clases || ''
                 };
                 
                 // Update the selected professor state first
@@ -161,13 +160,12 @@ export default function Profesor() {
                 console.log("Fetched professor data:", data);
                 
                 if (data.success && data.data) {
-                    console.log("Professor data from API:", data.data);
-                    console.log("Classes from API:", data.data.Clases);
+                    console.log("Professor data from API:", data.data);                    console.log("Classes from API:", data.data.clases);
                     
                     // Update the selected professor with the fresh data
                     const updatedProfessor = {
                         ...selectedProfessor,
-                        classes: data.data.Clases || ''
+                        classes: data.data.clases || ''
                     };
                     
                     console.log("Updated professor object:", updatedProfessor);
@@ -311,10 +309,10 @@ export default function Profesor() {
                                         "Seleccione los horarios en que el profesor está disponible" : 
                                         "Primero asigne materias al profesor antes de registrar su disponibilidad"}
                                 </p>
-                                <div className="pt-4">
-                                    <ProfessorGrid 
+                                <div className="pt-4">                                    <ProfessorGrid 
                                         selectedSlots={selectedSlots} 
-                                        setSelectedSlots={setSelectedSlots} 
+                                        setSelectedSlots={setSelectedSlots}
+                                        professorId={selectedProfessor.id}
                                     />
                                 </div>
 

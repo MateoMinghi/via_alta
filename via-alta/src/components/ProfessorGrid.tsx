@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 interface AvailabilityGridProps {
   selectedSlots: Record<string, boolean>
   setSelectedSlots: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
+  professorId?: number;
 }
 
 export default function AvailabilityGrid({ selectedSlots, setSelectedSlots }: AvailabilityGridProps) {

@@ -1,97 +1,92 @@
-import { NextResponse } from "next/server";
-import Availability from "@/lib/models/availability";
-import Professor from "@/lib/models/professor";
-import { parseSlotKey } from "@/lib/utils/availability-utils";
+import { NextResponse } from 'next/server';
+import Availability from '@/lib/models/availability';
 
-/**
- * Maneja la solicitud POST para guardar la disponibilidad de un profesor.
- * @param {Request} request - La solicitud HTTP con el ID del profesor y los horarios disponibles.
- * @returns {NextResponse} Respuesta en formato JSON indicando el éxito o error de la operación.
- */
-export async function POST(request: Request) {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const professorId = searchParams.get('professorId');
+
+  if (!professorId) {
+    return NextResponse.json({ success: false, message: 'Professor ID is required' }, { status: 400 });
+  }
+
   try {
-    // Extrae el ID del profesor y los horarios desde el cuerpo de la solicitud
-    const { professorId, slots } = await request.json();
+    const availabilityData = await Availability.findByProfessor(professorId);
+    
+    // Transform the data into the format expected by the frontend
+    const formattedAvailability: Record<string, boolean> = {};
+    availabilityData.forEach((slot) => {
+      const slotKey = `${slot.Dia}-${slot.HoraInicio}`;
+      formattedAvailability[slotKey] = true;
+    });
 
-    // Verifica si el profesor existe en la base de datos
-    const professor = await Professor.findById(professorId);
-    if (!professor) {
-      return NextResponse.json(
-        { success: false, error: `El profesor con ID ${professorId} no existe` },
-        { status: 404 }
-      );
-    }
-
-    // Obtiene el ID máximo actual para asignar nuevos registros
-    const maxId = await Availability.getMaxId();
-
-    // Convierte los horarios en registros de disponibilidad
-    const availabilityRecords = Object.entries(slots)
-      .map(([slotKey, isAvailable], index) => {
-        if (!isAvailable) return null;
-
-        // Parsea la clave del horario para extraer día, hora de inicio y fin
-        const { day, startTime, endTime } = parseSlotKey(slotKey);        // Ensure day is one of the valid values
-        if (!['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'].includes(day)) {
-          throw new Error(`Invalid day: ${day}`);
-        }
-        
-        return {
-          IdDisponibilidad: maxId + index + 1,
-          IdProfesor: professorId,
-          Dia: day as 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes',
-          HoraInicio: startTime,
-          HoraFin: endTime
-        };
-      })
-      .filter(record => record !== null); // Filtra los valores nulos
-
-    // Elimina los registros de disponibilidad existentes para este profesor
-    const existingRecords = await Availability.findByProfessor(professorId);
-    for (const record of existingRecords) {
-      await Availability.delete(record.IdDisponibilidad);
-    }
-
-    // Crea nuevos registros de disponibilidad
-    for (const record of availabilityRecords) {
-      await Availability.create(record);
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, availability: formattedAvailability });
   } catch (error) {
+    console.error('Error fetching availability:', error);
     return NextResponse.json(
-      { success: false, error: "Error al guardar la disponibilidad" },
+      { success: false, message: 'Failed to fetch availability' },
       { status: 500 }
     );
   }
 }
 
-/**
- * Maneja la solicitud GET para obtener la disponibilidad de un profesor.
- * @param {Request} request - La solicitud HTTP con el ID del profesor en los parámetros de búsqueda.
- * @returns {NextResponse} Respuesta en formato JSON con la disponibilidad del profesor o un mensaje de error.
- */
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
-    // Obtiene los parámetros de la URL
-    const { searchParams } = new URL(request.url);
-    const professorId = searchParams.get("professorId");
+    const body = await request.json();
+    const { professorId, availability } = body;
 
-    if (!professorId) {
+    if (!professorId || !availability) {
       return NextResponse.json(
-        { success: false, error: "El ID del profesor es obligatorio" },
+        { success: false, message: 'Professor ID and availability are required' },
         { status: 400 }
       );
+    }    // Delete all existing availability entries for this professor first
+    try {
+        const existingSlots = await Availability.findByProfessor(professorId.toString());
+        for (const slot of existingSlots) {
+            await Availability.delete(slot.IdDisponibilidad);
+        }
+    } catch (error) {
+        console.error('Error deleting existing availability:', error);
     }
 
-    // Busca la disponibilidad del profesor en la base de datos
-    const availability = await Availability.findByProfessor(professorId);
-    return NextResponse.json({ success: true, data: availability });
+    // Get the current max ID to start incrementing from there
+    const maxId = await Availability.getMaxId();
+    let currentId = maxId + 1;
+
+    // Insert new availability slots
+    for (const [slotKey, isAvailable] of Object.entries(availability)) {
+      if (isAvailable) {
+        const [day, time] = slotKey.split('-');
+        
+        await Availability.create({
+          IdDisponibilidad: currentId++,
+          IdProfesor: professorId.toString(),
+          Dia: day as 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes',
+          HoraInicio: time,
+          HoraFin: calculateEndTime(time)
+        });
+      }
+    }
+
+    return NextResponse.json({ success: true, message: 'Availability saved successfully' });
   } catch (error) {
-    console.error("Error al obtener la disponibilidad:", error);
+    console.error('Error saving availability:', error);
     return NextResponse.json(
-      { success: false, error: "Error al obtener la disponibilidad" },
+      { success: false, message: 'Failed to save availability' },
       { status: 500 }
     );
   }
+}
+
+function calculateEndTime(startTime: string): string {
+  const [hours, minutes] = startTime.split(':').map(Number);
+  let endMinutes = minutes + 30;
+  let endHours = hours;
+  
+  if (endMinutes >= 60) {
+    endMinutes = 0;
+    endHours += 1;
+  }
+  
+  return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
 }
