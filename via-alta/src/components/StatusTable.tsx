@@ -17,6 +17,9 @@ import {
 interface Student {
   id: string;
   name: string;
+  first_surname: string;
+  second_surname: string;
+  ivd_id: string;
   semestre: string;
   status: string;
   comentario: string;
@@ -78,7 +81,10 @@ export default function StatusTable({ students }: StatusTableProps) {
 
     const query = searchQuery.toLowerCase();
     const results = students.filter(
-      (student) => student.id.toLowerCase().includes(query) || student.name.toLowerCase().includes(query),
+      (student) =>
+        student.id.toLowerCase().includes(query) ||
+        student.name.toLowerCase().includes(query) ||
+        (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)),
     );
     setFilteredStudents(results);
 
@@ -108,7 +114,7 @@ export default function StatusTable({ students }: StatusTableProps) {
   }, [searchQuery, students]);
 
   const handleViewSchedule = (studentId: string) => {
-    router.push(`coordinador/horarios/${studentId}`);
+    router.push(`dashboard/horarios/${studentId}`);
   };
 
   const toggleSemester = (semester: string) => {
@@ -127,7 +133,7 @@ export default function StatusTable({ students }: StatusTableProps) {
       case 'no-inscrito':
         return 'bg-red-500';
       default:
-        return 'bg-gray-400';
+        return 'bg-red-500';
     }
   };
 
@@ -179,7 +185,7 @@ export default function StatusTable({ students }: StatusTableProps) {
                 <Table>
                   <TableHeader className="bg-gray-50">
                     <TableRow>
-                      <TableHead className="text-center self-center font-medium">Matrícula de Alumno</TableHead>
+                      <TableHead className="text-center self-center font-medium">Matrícula</TableHead>
                       <TableHead className="text-center self-center font-medium">Nombre de Alumno</TableHead>
                       <TableHead className="text-center self-center font-medium">Status de Inscripción</TableHead>
                       <TableHead className="" />
@@ -188,8 +194,12 @@ export default function StatusTable({ students }: StatusTableProps) {
                   <TableBody>
                     {groupedStudents[semester].map((student) => (
                       <TableRow key={student.id} className="border-b border-gray-200 last:border-b-0">
-                        <TableCell className="text-center self-center font-medium text-gray-500">{student.id}</TableCell>
-                        <TableCell className='text-center self-center'>{student.name}</TableCell>
+                        <TableCell className="text-center self-center font-medium text-gray-500">
+                          {student.ivd_id || 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-center self-center">
+                          {student.name} {student.first_surname} {student.second_surname}
+                        </TableCell>
                         <TableCell>
                           <div className="flex justify-center">
                             <div className={`w-4 h-4 rounded-full ${getStatusColor(student.status)}`} />
@@ -206,6 +216,7 @@ export default function StatusTable({ students }: StatusTableProps) {
                               <Calendar className="h-4 w-4" />
                               <span>Ver horario</span>
                             </Button>
+                          
                           </div>
                         </TableCell>
                       </TableRow>

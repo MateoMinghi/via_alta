@@ -13,6 +13,7 @@ interface Subject {
   salon: string
   professor: string
   credits: number
+  semester: number
   hours: { day: string; time: string }[]
 }
 

@@ -3,77 +3,107 @@ import { useState, useEffect } from "react";
 
 // Define el tipo de datos para una materia
 // Una materia tiene un id, título, profesor, créditos, salón, semestre y horarios
-type Subject = {
+export type Subject = {
     id: number;
     title: string;
     professor: string;
     credits: number;
     salon: string;
     semester: number;
-    hours: { day: string; time: string }[];
+    hours: { day: string; time: string }    [];
 };
 
 const GENERAL_SCHEDULE_KEY = 'via-alta-schedule'; // Clave para acceder al horario general en el almacenamiento local
+
+// Extrae las materias de la base de datos o del almacenamiento local
+export async function getSubjects(): Promise<{ result: Array<{ id: number, name: string }> | null; error: string }> {
+    try {
+        // Intenta obtener las materias del almacenamiento local primero
+        const savedSchedule = localStorage.getItem(GENERAL_SCHEDULE_KEY);
+        let subjects: Array<{ id: number, name: string }> = [];
+        
+        if (savedSchedule) {
+            const generalSchedule = JSON.parse(savedSchedule);
+            
+            // Crea un mapa para agrupar las clases por sus identificadores únicos
+            const subjectMap = new Map();
+            
+            generalSchedule.forEach((item: any) => {
+                // Crea una clave única para cada materia
+                const key = `${item.subject}-${item.teacher}-${item.semester}`;
+                
+                if (!subjectMap.has(key)) {
+                    // Crea una nueva entrada para la materia
+                    subjectMap.set(key, {
+                        id: item.id || Math.random(), // Genera un id temporal o usa el existente
+                        name: item.subject
+                    });
+                }
+            });
+            
+            // Convierte el mapa en un arreglo
+            subjects = Array.from(subjectMap.values());
+        } else {
+            // Si no hay materias en localStorage, intenta obtenerlas de la tabla Materia en la DB
+            try {
+                const response = await fetch('/api/subjects');
+                if (response.ok) {
+                    const data = await response.json();
+                    subjects = data.map((subject: any) => ({
+                        id: subject.IdMateria,
+                        name: subject.Nombre
+                    }));
+                }
+            } catch (err) {
+                console.error("Error fetching subjects from API:", err);
+                // Fallback a materias codificadas si ambos métodos fallan
+                subjects = [
+                    { id: 1, name: 'Fundamentos de Diseño' },
+                    { id: 2, name: 'Dibujo del Cuerpo' },
+                    { id: 3, name: 'Patronaje de Prendas Básicas' },
+                    { id: 4, name: 'Confección de Prendas Básicas' },
+                    { id: 5, name: 'Técnicas de Expresión Gráfica' },
+                    { id: 6, name: 'Historia de la Moda' },
+                    { id: 7, name: 'Herramientas y Puntadas Básicas' },
+                    { id: 8, name: 'Patronaje de Prendas Femeninas' },
+                    { id: 9, name: 'Confección de Prendas Femeninas' },
+                    { id: 10, name: 'Conceptos y Tendencias de la Moda I' }
+                ];
+            }
+        }
+        
+        return { result: subjects, error: '' };
+    } catch (err: any) {
+        console.error("Error in getSubjects:", err);
+        return { result: null, error: err.message || "Error fetching subjects" };
+    }
+}
 
 // Hook personalizado para obtener las materias
 // No recibe parámetros
 // Retorna un objeto con las materias (result), un indicador de carga (loading) y un posible error (error)
 export function useGetSubjects() {
-    const [result, setResult] = useState<Subject[] | null>(null); // Estado para almacenar las materias
-    const [loading, setLoading] = useState(true); // Estado para indicar si está cargando
-    const [error, setError] = useState<string>(''); // Estado para almacenar errores
+    const [result, setResult] = useState<Array<{ id: number, name: string }> | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
     useEffect(() => {
-        try {
-            // Obtiene los datos del horario general desde el almacenamiento local
-            const savedSchedule = localStorage.getItem(GENERAL_SCHEDULE_KEY);
-            if (savedSchedule) {
-                const generalSchedule = JSON.parse(savedSchedule);
-                
-                // Crea un mapa para agrupar las clases por sus identificadores únicos
-                const subjectMap = new Map();
-                
-                generalSchedule.forEach((item: any) => {
-                    // Crea una clave única para cada materia
-                    const key = `${item.subject}-${item.teacher}-${item.semester}`;
-                    
-                    if (!subjectMap.has(key)) {
-                        // Crea una nueva entrada para la materia
-                        subjectMap.set(key, {
-                            id: Math.random(), // Genera un id temporal
-                            title: item.subject,
-                            professor: item.teacher,
-                            credits: item.credits || 0, // Si no hay créditos, asigna 0 por defecto
-                            salon: item.classroom,
-                            semester: item.semester,
-                            hours: [{
-                                day: item.day,
-                                time: item.time
-                            }]
-                        });
-                    } else {
-                        // Agrega un nuevo horario a una materia existente
-                        const subject = subjectMap.get(key);
-                        subject.hours.push({
-                            day: item.day,
-                            time: item.time
-                        });
-                    }
-                });
-                
-                // Convierte el mapa en un arreglo
-                const subjects: Subject[] = Array.from(subjectMap.values());
-                setResult(subjects);
-            } else {
-                setResult([]); // Si no hay datos guardados, retorna un arreglo vacío
+        const fetchSubjects = async () => {
+            try {
+                const response = await getSubjects();
+                setResult(response.result);
+                if (response.error) {
+                    setError(response.error);
+                }
+            } catch (err: any) {
+                setError(err.message || "An unexpected error occurred");
+            } finally {
+                setLoading(false);
             }
-            setLoading(false); // Finaliza la carga
-        } catch (err: any) {
-            console.error('Error loading subjects:', err); // Muestra el error en la consola
-            setError(err?.message || 'Ocurrió un error'); // Almacena el mensaje de error
-            setLoading(false); // Finaliza la carga incluso si hay un error
-        }
-    }, []); // Ejecuta el efecto solo una vez al montar el componente
+        };
 
-    return { result, loading, error }; // Retorna el estado de las materias, la carga y el error
+        fetchSubjects();
+    }, []);
+
+    return { result, loading, error };
 }

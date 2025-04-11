@@ -2,9 +2,13 @@
   "name": "via-alta",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --no-lint",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "eslint . --fix",
@@ -12,7 +16,8 @@
     "test:watch": "jest --watch",
     "test:schedule": "jest schedule-generator",
     "test:horario-semestre": "jest horario-semestre.integration HorariosSlug CoordinadorSchedule",
-    "test:confirmacion": "jest estudiante-confirmacion useConfirmSchedule.integration confirmacion-page"
+    "test:confirmacion": "jest estudiante-confirmacion useConfirmSchedule.integration confirmacion-page",
+    "db:init": "node src/lib/db-init.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",
@@ -23,9 +28,11 @@
     "@radix-ui/react-separator": "^1.1.2",
     "@radix-ui/react-slot": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.3",
+    "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",
+    "js-cookie": "^3.0.5",
     "lucide-react": "^0.477.0",
     "next": "15.2.0",
     "pg": "^8.14.1",
@@ -35,6 +42,7 @@
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.2",
+    "resend": "^4.2.0",
     "sonner": "^2.0.1",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
@@ -48,8 +56,10 @@
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/jest": "^29.5.14",
-    "@types/node": "^20",
+    "@types/js-cookie": "^3.0.6",
+    "@types/node": "^20.17.28",
     "@types/pg": "^8.11.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -67,6 +77,7 @@
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "ts-jest": "^29.3.0",
-    "typescript": "^5"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
   }
 }

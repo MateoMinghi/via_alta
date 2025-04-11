@@ -5,7 +5,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import SubjectList from './SubjectList';
 import SubjectSearch from './SubjectSearch';
@@ -44,19 +44,13 @@ const timeSlots = [
   '14:30', '15:00', '15:30', '16:00'
 ];
 
-// Claves para el almacenamiento local del horario general y la última vez que se guardó
-const GENERAL_SCHEDULE_KEY = 'via-alta-schedule';
-const LAST_SAVED_KEY = 'via-alta-schedule-last-saved';
-
 // Componente principal para gestionar el horario del coordinador
 // Recibe las materias como parámetro y permite visualizarlas, seleccionarlas y moverlas
 export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   // Estados para manejar el día activo, todas las materias, materias seleccionadas, materia seleccionada y última vez guardada
-  const [activeDayIndex, setActiveDayIndex] = useState(0);
   const [allSubjects, setAllSubjects] = useState<Subject[]>(subjects);
   const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
-  const [lastSaved, setLastSaved] = useState<string | null>(null);
 
   // Efecto para inicializar las materias al montar el componente
   useEffect(() => {
@@ -64,76 +58,9 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   }, [subjects]);
 
   useEffect(() => {
+    // Initialize selected subjects with the provided subjects
     setSelectedSubjects(subjects);
   }, [subjects]);
-
-  // Efecto para cargar el timestamp de la última vez que se guardó el horario
-  useEffect(() => {
-    try {
-      const savedTimestamp = localStorage.getItem(LAST_SAVED_KEY);
-      if (savedTimestamp) {
-        setLastSaved(new Date(savedTimestamp).toLocaleString());
-      }
-    } catch (error) {
-      console.error('Error al cargar el timestamp:', error);
-    }
-  }, []);
-
-  // Función para guardar el horario en el almacenamiento local
-  // Convierte el formato de las materias al formato general y lo almacena
-  // También actualiza el timestamp de la última vez guardada
-  const saveScheduleToStorage = () => {
-    try {
-      const now = new Date();
-      
-      // Convert Subject format back to general schedule format for storage
-      const scheduleItems = [...subjects, ...selectedSubjects.filter(
-        selected => !subjects.some(s => s.id === selected.id)
-      )].map(subject => {
-        return subject.hours.map(hour => ({
-          teacher: subject.professor,
-          subject: subject.title,
-          classroom: subject.salon,
-          semester: subject.semester,
-          day: hour.day,
-          time: hour.time,
-          endTime: addOneHour(hour.time),
-          credits: subject.credits || 0
-        }));
-      }).flat();
-      
-      // Get existing schedule data
-      const existingDataStr = localStorage.getItem(GENERAL_SCHEDULE_KEY);
-      let existingData = existingDataStr ? JSON.parse(existingDataStr) : [];
-      
-      // Filter out items for current semester (to avoid duplicates)
-      const currentSemester = subjects.length > 0 ? subjects[0].semester : null;
-      if (currentSemester !== null) {
-        existingData = existingData.filter((item: any) => item.semester !== currentSemester);
-      }
-      
-      // Combine with new data
-      const combinedData = [...existingData, ...scheduleItems];
-      
-      localStorage.setItem(GENERAL_SCHEDULE_KEY, JSON.stringify(combinedData));
-      localStorage.setItem(LAST_SAVED_KEY, now.toISOString());
-      setLastSaved(now.toLocaleString());
-      toast.success('Horario guardado correctamente');
-    } catch (error) {
-      console.error('Error al guardar el horario:', error);
-      toast.error('No se pudo guardar el horario');
-    }
-  };
-
-  // Función auxiliar para sumar una hora a un string de tiempo
-  // Recibe un string de tiempo en formato HH:mm y retorna el tiempo incrementado en una hora
-  const addOneHour = (time: string): string => {
-    const [hours, minutes] = time.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    date.setHours(date.getHours() + 1);
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  };
 
   // Función para manejar la selección de una materia
   // Agrega la materia seleccionada al estado de materias seleccionadas si no está ya incluida
@@ -153,8 +80,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   // Busca en todas las materias y materias seleccionadas
   const findSubject = (day: string, time: string) => {
     const allDisplaySubjects = [
-      ...subjects,
-      ...selectedSubjects.filter(selected => !subjects.some(s => s.id === selected.id)),
+      ...selectedSubjects,
+      ...allSubjects.filter(s => !selectedSubjects.some(ss => ss.id === s.id)),
     ];
 
     return allDisplaySubjects.find((subject) => subject.hours.some(
@@ -162,15 +89,6 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     ));
   };
 
-  // Función para navegar entre los días de la semana
-  // Cambia el índice del día activo
-  const navigateDay = (direction: number) => {
-    const newIndex = (activeDayIndex + direction + daysOfWeek.length) % daysOfWeek.length;
-    setActiveDayIndex(newIndex);
-  };
-
-  // Función para normalizar los nombres de los días
-  // Convierte nombres en inglés o abreviados al formato completo en español
   function normalizeDay(day: string): string {
     switch (day.toLowerCase()) {
       case 'monday':
@@ -229,9 +147,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
       subject.hours.forEach(hour => {
         if (!hour?.time || !hour.day) return;
         const normalizedDay = normalizeDay(hour.day);
-        const endTime = addOneHour(hour.time);
         const start = timeToMinutes(hour.time);
-        const end = timeToMinutes(endTime);
+        const end = start + 60; // Assuming 1-hour classes
   
         for (let t = start; t < end; t += 30) {
           const slot = minutesToTime(t);
@@ -258,7 +175,6 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         return {
           ...s,
           hours: s.hours.map(hour =>
-            // update only the hour that matches the occurrence from the drag item
             (hour.day.toLowerCase() === occurrence.day.toLowerCase() && hour.time === occurrence.time)
               ? { day: toDay, time: toTime }
               : hour
@@ -374,23 +290,6 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     <DndProvider backend={HTML5Backend}>
       <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
         <div className="overflow-x-auto flex-1">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-2xl font-bold">Vista de Horario</p>
-            <div className="flex items-center gap-4">
-              {lastSaved && (
-                <div className="text-sm text-muted-foreground">
-                  Último guardado: {lastSaved}
-                </div>
-              )}
-              <Button
-                onClick={saveScheduleToStorage}
-                variant="outline"
-                className="border-red-700 text-red-700 hover:bg-red-50"
-              >
-                Guardar Horario
-              </Button>
-            </div>
-          </div>
           <div className="min-w-[800px]">
             <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
               <div className="h-10" />
@@ -452,21 +351,53 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         </div>
       </div>
 
-      {/* Render the IndividualSubject dialog when a subject on the grid is clicked */}
-      {selectedSubject && (
+      {/* Render the IndividualSubject dialog when a subject on the grid is clicked */}      {selectedSubject && (
         <IndividualSubject
-          subject={selectedSubject}
+          subject={{
+            IdHorarioGeneral: 1, // Default value
+            NombreCarrera: selectedSubject.title,
+            IdMateria: selectedSubject.id,
+            IdProfesor: parseInt(selectedSubject.professor.replace(/\D/g, '')) || 0,
+            IdCiclo: 1, // Default value
+            Dia: selectedSubject.hours[0]?.day || '',
+            HoraInicio: selectedSubject.hours[0]?.time || '',
+            HoraFin: (() => {
+              const time = selectedSubject.hours[0]?.time;
+              if (!time) return '';
+              const [h, m] = time.split(':').map(Number);
+              const date = new Date();
+              date.setHours(h, m, 0, 0);
+              date.setHours(date.getHours() + 1);
+              return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            })(),
+            Semestre: selectedSubject.semester
+          }}
           isOpen={!!selectedSubject}
           onClose={() => setSelectedSubject(null)}
-          onUpdate={(updatedSubject, originalSubject) => {
+          onUpdate={(updatedScheduleItem) => {
             setSelectedSubjects(prev =>
-              prev.map(s => s.id === originalSubject.id ? updatedSubject : s)
+              prev.map(s => {
+                if (s.id === selectedSubject.id) {
+                  return {
+                    ...s,
+                    title: updatedScheduleItem.NombreCarrera,
+                    professor: `Prof ${updatedScheduleItem.IdProfesor}`,
+                    salon: `Salon ${updatedScheduleItem.IdCiclo}`,
+                    semester: updatedScheduleItem.Semestre,
+                    hours: [{
+                      day: updatedScheduleItem.Dia,
+                      time: updatedScheduleItem.HoraInicio
+                    }]
+                  };
+                }
+                return s;
+              })
             );
             setSelectedSubject(null);
           }}
-          onDelete={(subjectToDelete) => {
+          onDelete={(scheduleItem) => {
             setSelectedSubjects(prev =>
-              prev.filter(s => s.id !== subjectToDelete.id)
+              prev.filter(s => s.id !== selectedSubject.id)
             );
             setSelectedSubject(null);
           }}

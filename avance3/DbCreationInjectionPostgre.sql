@@ -98,14 +98,29 @@ CREATE TABLE Solicitud (
     FOREIGN KEY (IdAlumno) REFERENCES Alumno(IdAlumno)
 );
 
-CREATE TABLE Horario (
-    idHorario INTEGER PRIMARY KEY, 
-    idAlumno VARCHAR(10) NOT NULL, 
-    idGrupo INTEGER NOT NULL,      
-    fecha DATE NOT NULL,           
-    FOREIGN KEY (idAlumno) REFERENCES Alumno(idAlumno),
-    FOREIGN KEY (idGrupo) REFERENCES Grupo(idGrupo)
+CREATE TABLE HorarioGeneral (
+    IdHorarioGeneral INTEGER NOT NULL,
+    NombreCarrera VARCHAR(100) NOT NULL,
+    IdMateria INTEGER NOT NULL,
+    IdProfesor INTEGER NOT NULL,
+    IdCiclo INTEGER NOT NULL,
+    Dia VARCHAR(10) NOT NULL,
+    HoraInicio TIME NOT NULL,
+    HoraFin TIME NOT NULL,
+    Semestre INTEGER NOT NULL,
+    CONSTRAINT chk_dia CHECK (Dia IN ('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes')),
+    CONSTRAINT chk_semestre CHECK (Semestre BETWEEN 1 AND 8),
+    CONSTRAINT fk_materia FOREIGN KEY (IdMateria) REFERENCES Materia(IdMateria),
+    CONSTRAINT fk_profesor FOREIGN KEY (IdProfesor) REFERENCES Profesor(IdProfesor),
+    CONSTRAINT fk_ciclo FOREIGN KEY (IdCiclo) REFERENCES Ciclo(IdCiclo),
+    PRIMARY KEY (IdHorarioGeneral, IdMateria, Dia, HoraInicio)
 );
+
+-- Add Clases column to Profesor table
+ALTER TABLE Profesor ADD COLUMN IF NOT EXISTS Clases TEXT DEFAULT '';
+
+-- Update existing records to have an empty string for Clases
+UPDATE Profesor SET Clases = '' WHERE Clases IS NULL;
 
 -- INSERCIÓN DE DATOS DE CLASIFICACIÓN (mínimo 10 registros)
 
@@ -472,6 +487,16 @@ INSERT INTO Solicitud (IdSolicitud, Fecha, Estado, Descripcion, IdAlumno) VALUES
 (449, '2025-02-22', 'Aprobada', 'Solicitud de duplicado de credencial', 'ALU100035'),
 (450, '2025-02-23', 'Pendiente', 'Solicitud de revisión de carga académica', 'ALU100036');
 
+-- Tabla Horario para horarios individuales de estudiantes
+CREATE TABLE Horario (
+    idHorario SERIAL PRIMARY KEY,
+    idAlumno VARCHAR(10) NOT NULL,
+    idGrupo INTEGER NOT NULL,
+    fecha DATE NOT NULL,
+    FOREIGN KEY (idAlumno) REFERENCES Alumno(IdAlumno),
+    FOREIGN KEY (idGrupo) REFERENCES Grupo(IdGrupo)
+);
+
 INSERT INTO Horario (idHorario, idAlumno, idGrupo, fecha) VALUES
 (1, 'ALU100027', 1001, '2025-03-01'),
 (2, 'ALU100027', 1002, '2025-03-02'),
@@ -493,5 +518,14 @@ INSERT INTO Horario (idHorario, idAlumno, idGrupo, fecha) VALUES
 (18, 'ALU100035', 1018, '2025-03-10'),
 (19, 'ALU100036', 1019, '2025-03-01'),
 (20, 'ALU100036', 1020, '2025-03-11');
+
+-- Insert sample data for different degree programs
+INSERT INTO HorarioGeneral (IdHorarioGeneral, NombreCarrera, IdMateria, IdProfesor, IdCiclo, Dia, HoraInicio, HoraFin, Semestre) VALUES
+(1, 'Ingeniería en Sistemas', 1, 300101, 1, 'Lunes', '07:00:00', '11:00:00', 1),
+(1, 'Ingeniería en Sistemas', 2, 300102, 1, 'Martes', '07:00:00', '11:00:00', 1),
+(1, 'Ingeniería en Sistemas', 3, 300103, 1, 'Miércoles', '07:00:00', '11:00:00', 1),
+(2, 'Diseño de Moda', 4, 300104, 1, 'Lunes', '13:00:00', '17:00:00', 1),
+(2, 'Diseño de Moda', 5, 300105, 1, 'Martes', '13:00:00', '17:00:00', 1),
+(2, 'Diseño de Moda', 6, 300106, 1, 'Miércoles', '13:00:00', '17:00:00', 1);
 
 -- FIN DE SCRIPT

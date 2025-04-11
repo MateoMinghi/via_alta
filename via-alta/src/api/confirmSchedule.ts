@@ -1,8 +1,9 @@
 // Este archivo maneja la confirmación de horarios por parte del estudiante
 import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 const Student = require('@/models/student');
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     const { studentId } = await request.json();
     
@@ -33,7 +34,7 @@ export async function POST(request) {
     return NextResponse.json({ 
       success: false, 
       message: 'Error al procesar la confirmación',
-      error: error.message 
+      error: error instanceof Error ? error.message : 'Error desconocido'
     }, { status: 500 });
   }
 }

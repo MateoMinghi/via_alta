@@ -1,4 +1,4 @@
-import { generateSchedule, ScheduleItem } from '../lib/schedule-generator';
+import { generateSchedule, ScheduleItem } from '../lib/utils/schedule-generator';
 
 // Mock para funciones aleatorias
 jest.mock('../lib/schedule-generator', () => {

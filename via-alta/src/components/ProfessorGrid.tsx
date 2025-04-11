@@ -8,18 +8,19 @@ import { cn } from '@/lib/utils';
 interface AvailabilityGridProps {
   selectedSlots: Record<string, boolean>
   setSelectedSlots: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
+  professorId?: number;
 }
 
 export default function AvailabilityGrid({ selectedSlots, setSelectedSlots }: AvailabilityGridProps) {
   const days = useMemo(() => ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'], []);
   const timeSlots = useMemo(
     () => [
-      '7:00',
-      '7:30',
-      '8:00',
-      '8:30',
-      '9:00',
-      '9:30',
+      '07:00',
+      '07:30',
+      '08:00',
+      '08:30',
+      '09:00',
+      '09:30',
       '10:00',
       '10:30',
       '11:00',
@@ -35,14 +36,6 @@ export default function AvailabilityGrid({ selectedSlots, setSelectedSlots }: Av
       '16:00',
       '16:30',
       '17:00',
-      '17:30',
-      '18:00',
-      '18:30',
-      '19:00',
-      '19:30',
-      '20:00',
-      '20:30',
-      '21:00',
     ],
     [],
   );
@@ -104,7 +97,7 @@ export default function AvailabilityGrid({ selectedSlots, setSelectedSlots }: Av
   const Cell = useCallback(
     ({ day, time }: { day: string; time: string }) => {
       const slotKey = `${day}-${time}`;
-      const isSelected = selectedSlots[slotKey];
+      const isSelected = Boolean(selectedSlots[slotKey]);
       const isTempSelected = tempSelectedSlots[slotKey];
 
       let cellState: 'selected' | 'unselected' | 'selecting' | 'unselecting' = 'unselected';

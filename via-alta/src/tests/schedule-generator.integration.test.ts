@@ -1,4 +1,4 @@
-import { generateSchedule, ScheduleItem } from '../lib/schedule-generator';
+import { generateSchedule, ScheduleItem } from '../lib/utils/schedule-generator';
 
 // Datos reales para realizar pruebas de integración
 describe('Generador de Horarios - Pruebas de Integración', () => {
