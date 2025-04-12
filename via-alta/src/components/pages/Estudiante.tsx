@@ -7,12 +7,9 @@ import { ResponseType } from "@/types/response";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import CoordinadorSchedule from '../CoordinadorSchedule';
 import { AlertCircle, CheckCircle, Calendar, AlertTriangle } from 'lucide-react';
-import { useParams } from 'next/navigation';
-import { Save } from 'lucide-react';
-import { mock } from 'node:test';
-import Cookies from 'js-cookie';
+import { useAuth } from '@/context/AuthContext';
+import EstudianteSchedule from '../EstudianteSchedule';
 
 interface Subject {
   id: number;
@@ -36,41 +33,37 @@ export default function Estudiante() {
     const [isModifyingStatus, setIsModifyingStatus] = useState(false);
     const [changeReason, setChangeReason] = useState('');
     const router = useRouter();
+    const [comentarios, setComentarios] = useState('');
 
- 
+    const { user, login } = useAuth();
+    // Create a user object with semester if it doesn't exist
+    const updatedUser = user ? { ...user, semester: user.semester || 3 } : null;
+    console.log('User from context:', updatedUser);
 
-    
-    // En un entorno real, obtendríamos estos datos del perfil del estudiante
-    // y lo manejaríamos con un estado global o contexto
-    const [studentData, setStudentData] = useState({
-        id: "00001",
-        nombre: "Juan Pérez",
-        semestre: 3, // Este semestre determinará qué materias se muestran
-        status: 'no-inscrito' as StudentStatus,
-        comentarios: ''
-    });
-    
-    // Verificar si el estudiante ya ha confirmado o solicitado cambios
+    // Verificar si el estudiante tiene comentarios guardados
     useEffect(() => {
-        // En un entorno real, esto vendría de una API
-        // Por ahora usamos localStorage para persistencia de la demo
-        const savedStatus = localStorage.getItem('studentStatus');
-        const savedComments = localStorage.getItem('studentComments');
-        
-        if (savedStatus) {
-            setStudentData(prev => ({
-                ...prev,
-                status: savedStatus as StudentStatus,
-                comentarios: savedComments || ''
-            }));
-        }
-    }, []);
+      // En un entorno real, esto vendría de una API
+      // Por ahora usamos localStorage para persistencia de la demo
+      const savedComments = localStorage.getItem('studentComments');
+      
+      if (savedComments) {
+          setComentarios(savedComments);
+      }
+  }, []);
+
+    // Set loading to false if there's no user semester after a delay
+    useEffect(() => {
+      if (!updatedUser?.semester) {
+        // If there's no semester, wait a bit and then set loading to false
+        const timer = setTimeout(() => {
+          setLoading(false);
+        }, 1000); // Give the user object a chance to load
+        return () => clearTimeout(timer);
+      }
+    }, [updatedUser]);
 
     // Effect para redireccionar si ya tiene un status definido
-    useEffect(() => {
-        // No redireccionamos automáticamente para permitir visualizar el horario
-        // con cualquier status y gestionarlo desde esta vista
-    }, [studentData.status, router]);
+
 
     // Fetch and filter subjects for the specific semester
     const fetchSubjects = async () => {
@@ -81,8 +74,8 @@ export default function Estudiante() {
         
         if (!result.success) {
           throw new Error(result.error || 'Failed to fetch schedule');
-        }      console.log('Raw data from API:', result.data);
-        console.log('Filtering for semester:', studentData.semestre);
+        }        console.log('Raw data from API:', result.data);
+        console.log('Filtering for semester:', user?.semester);
         
         // Filter subjects for the current semester and transform the data
         const subjectsForSemester = result.data
@@ -90,8 +83,8 @@ export default function Estudiante() {
             // Check for both uppercase and lowercase field names
             const itemSemester = item.Semestre || item.semestre;
             console.log('Item:', item);
-            console.log('Item semester:', itemSemester, 'Target semester:', studentData.semestre);
-            return itemSemester === studentData.semestre;
+            console.log('Item semester:', itemSemester, 'Target semester:', user?.semester);
+            return (itemSemester === updatedUser?.semester);
           })
           .reduce((acc: Subject[], item: any) => {
             // Find if we already have this subject in our accumulator
@@ -132,7 +125,7 @@ export default function Estudiante() {
         setFilteredSubjects(subjectsForSemester);
         
         if (subjectsForSemester.length === 0) {
-          toast.warning(`No hay materias disponibles para el semestre ${studentData.semestre}`);
+          toast.warning(`No hay materias disponibles para el semestre ${user?.semester}`);
         }
       } catch (err) {
         console.error('Error fetching subjects:', err);
@@ -144,10 +137,10 @@ export default function Estudiante() {
     };
   
     useEffect(() => {
-      if (studentData.semestre !== null) {
+      if (updatedUser?.semester !== null && updatedUser?.semester !== undefined) {
         fetchSubjects();
       }
-    }, [studentData.semestre]);
+    }, [updatedUser?.semester]);
 
   const handleConfirmSchedule = () => {
     // Cambiar el estado del estudiante a inscrito
@@ -155,9 +148,10 @@ export default function Estudiante() {
     setIsModifyingStatus(true);
     
     try {
-      setStudentData(prev => ({...prev, status: "inscrito"}));
+      // En un entorno real, aquí se haría una llamada a la API para actualizar el estado del usuario
       localStorage.setItem('studentStatus', 'inscrito');
       localStorage.removeItem('studentComments');
+      setComentarios('');
       toast.success('Horario confirmado correctamente');
       router.push('/estudiante/confirmacion');
     } catch (error) {
@@ -177,14 +171,10 @@ export default function Estudiante() {
         return;
       }
       
-      setStudentData(prev => ({
-        ...prev, 
-        status: "cambios-solicitados",
-        comentarios: changeReason
-      }));
-      
+      // En un entorno real, aquí se haría una llamada a la API para actualizar el estado del usuario
       localStorage.setItem('studentStatus', 'cambios-solicitados');
       localStorage.setItem('studentComments', changeReason);
+      setComentarios(changeReason);
       
       toast.success('Solicitud de cambios enviada correctamente');
       router.push('/estudiante/confirmacion');
@@ -212,15 +202,15 @@ export default function Estudiante() {
 
   return (
     <div className="p-4">
-      {studentData.status !== 'no-inscrito' && (
+      {user && user.status !== 'no-inscrito' && (
         <div className={`mb-6 p-4 rounded-lg border ${
-          studentData.status === 'inscrito' 
+          user.status === 'inscrito' 
             ? 'bg-green-50 border-green-200' 
             : 'bg-yellow-50 border-yellow-200'
         }`}>
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              {studentData.status === 'inscrito' ? (
+              {user.status === 'inscrito' ? (
                 <CheckCircle className="h-6 w-6 text-green-500" />
               ) : (
                 <AlertCircle className="h-6 w-6 text-yellow-500" />
@@ -228,12 +218,12 @@ export default function Estudiante() {
               
               <div>
                 <h2 className="text-lg font-semibold">
-                  {studentData.status === 'inscrito' 
+                  {user.status === 'inscrito' 
                     ? 'Horario Confirmado' 
                     : 'Cambios Solicitados'}
                 </h2>
                 <p className="text-sm">
-                  {studentData.status === 'inscrito'
+                  {user.status === 'inscrito'
                     ? 'Tu horario ha sido confirmado exitosamente.'
                     : 'Has solicitado cambios en tu horario.'}
                 </p>
@@ -241,7 +231,7 @@ export default function Estudiante() {
             </div>
             
             <div className="flex flex-wrap gap-2">
-              {studentData.status === 'inscrito' ? (
+              {user.status === 'inscrito' ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -274,10 +264,10 @@ export default function Estudiante() {
             </div>
           </div>
           
-          {studentData.status === 'cambios-solicitados' && studentData.comentarios && (
+          {user.status === 'cambios-solicitados' && comentarios && (
             <div className="mt-3 bg-white p-3 rounded border border-yellow-200">
               <p className="text-sm font-semibold mb-1">Motivo de tu solicitud:</p>
-              <p className="text-sm">{studentData.comentarios}</p>
+              <p className="text-sm">{comentarios}</p>
             </div>
           )}
         </div>
@@ -286,8 +276,8 @@ export default function Estudiante() {
       <div className="bg-white p-4 rounded-md mb-6 border border-gray-200">
         <h1 className="text-2xl font-bold text-red-700 mb-2">Propuesta de Horario</h1>
         <p className="text-gray-700">
-          Estudiante: <span className="font-semibold">{studentData.nombre}</span> | 
-          Semestre: <span className="font-semibold">{studentData.semestre}</span>
+          Estudiante: <span className="font-semibold">{user ? `${user.name} ${user.first_surname} ${user.second_surname || ''}` : 'Cargando...'}</span> | 
+          Semestre: <span className="font-semibold">{user?.semester || 'No disponible'}</span>
         </p>
         <p className="text-gray-700 mt-2">
           A continuación se muestra el horario propuesto para tu semestre.
@@ -297,7 +287,7 @@ export default function Estudiante() {
       </div>
       
       {filteredSubjects.length > 0 ? (
-        <CoordinadorSchedule subjects={filteredSubjects} />
+        <EstudianteSchedule subjects={filteredSubjects} />
       ) : (
         <p className="text-center py-4 bg-gray-50 rounded-md">
           No hay materias disponibles para tu semestre. Contacta al coordinador académico.
