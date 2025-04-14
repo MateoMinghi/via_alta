@@ -129,14 +129,19 @@ export async function POST(request: NextRequest) {
       // Create a response object
       const response = NextResponse.json({ user: userInfo });
       
-      // Set the cookie in the response object
+      // Set the cookie in the response object - with more secure settings and explicit expiration
+      const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+      const expiryDate = new Date(Date.now() + oneWeekInMs);
+      
       response.cookies.set({
         name: 'user',
         value: JSON.stringify(userInfo),
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 60 * 24 * 7, // 1 week
+        expires: expiryDate, // Explicitly set expiration date
         path: '/',
+        sameSite: 'lax', // Add sameSite for additional security
       });
       
       // Return the response with the cookie

@@ -61,13 +61,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        setIsLoading(true);
+        
+        // Try to get user from cookie first
         const storedUser = Cookies.get('user');
+        
         if (storedUser) {
+          // If user exists in cookies, parse and set it
           setUser(JSON.parse(storedUser));
+          setIsLoading(false);
+        } else {
+          // If no user in cookies, check with the server for a valid session
+          const response = await fetch('/api/auth/session', {
+            method: 'GET',
+            credentials: 'include', // Important for cookies
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.user) {
+              setUser(data.user);
+              
+              // Set client-side cookie with explicit expiration
+              const expiryDate = new Date();
+              expiryDate.setDate(expiryDate.getDate() + 7); // 7 days from now
+              
+              Cookies.set('user', JSON.stringify(data.user), { 
+                expires: expiryDate,
+                path: '/',
+                secure: window.location.protocol === 'https:'
+              }); // Refresh client-side cookie
+            }
+          }
+          setIsLoading(false);
         }
       } catch (err) {
         console.error('Error checking authentication:', err);
-      } finally {
         setIsLoading(false);
       }
     };
@@ -97,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ivdId, 
           password: password ? password : undefined 
         }),
+        credentials: 'include', // Important for receiving cookies
       });
       
       const data = await response.json();
@@ -121,9 +151,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('User not found');
       }
       
-      // Store the user in state and cookies
+      // Store the user in state, cookies and localStorage
       setUser(userData);
-      Cookies.set('user', JSON.stringify(userData), { expires: 7 }); // Expires in 7 days
+      
+      // Set client-side cookie with explicit expiration
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 7); // 7 days from now
+      
+      const userJson = JSON.stringify(userData);
+      
+      Cookies.set('user', userJson, { 
+        expires: expiryDate,
+        path: '/',
+        secure: window.location.protocol === 'https:'
+      }); // Expires in 7 days
+      
+      // Also store in localStorage as backup
+      localStorage.setItem('via_alta_user', userJson);
       
       // Redirect based on role
       if (userData.role.name === 'student') {
@@ -144,13 +188,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
+      setIsLoading(true);
+      
       // Call the API to remove the HTTP-only cookie
       await fetch('/api/auth', {
         method: 'DELETE',
+        credentials: 'include', // Important for cookies
       });
       
-      // Also remove the client-side cookie
+      // Remove client-side cookie
       Cookies.remove('user');
+      
+      // Remove from localStorage too
+      localStorage.removeItem('via_alta_user');
       
       // Clear user state
       setUser(null);
@@ -163,6 +213,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
     } catch (err) {
       console.error('Logout error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
