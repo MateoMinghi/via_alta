@@ -17,6 +17,14 @@ CREATE TABLE IF NOT EXISTS Materia (
     Semestre INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS Prerequisito (
+    IdMateria INTEGER,
+    IdPrerequisito INTEGER,
+    PRIMARY KEY (IdMateria, IdPrerequisito),
+    FOREIGN KEY (IdMateria) REFERENCES Materia(IdMateria),
+    FOREIGN KEY (IdPrerequisito) REFERENCES Materia(IdMateria)
+);
+
 CREATE TABLE IF NOT EXISTS Salon (
     IdSalon INTEGER PRIMARY KEY,
     Cupo INTEGER NOT NULL,
@@ -73,13 +81,6 @@ CREATE TABLE IF NOT EXISTS Disponibilidad (
     FOREIGN KEY (IdProfesor) REFERENCES Profesor(IdProfesor)
 );
 
-CREATE TABLE IF NOT EXISTS Prerequisito (
-    IdMateria INTEGER,
-    IdPrerequisito INTEGER,
-    PRIMARY KEY (IdMateria, IdPrerequisito),
-    FOREIGN KEY (IdMateria) REFERENCES Materia(IdMateria),
-    FOREIGN KEY (IdPrerequisito) REFERENCES Materia(IdMateria)
-);
 
 CREATE TABLE IF NOT EXISTS Ciclo (
     IdCiclo INTEGER PRIMARY KEY,
