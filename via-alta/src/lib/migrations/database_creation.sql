@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS Materia (
     IdMateria INTEGER PRIMARY KEY,
     Nombre VARCHAR(100) NOT NULL,
     HorasClase DECIMAL(3,1) NOT NULL,
-    Requisitos TEXT
+    Requisitos TEXT,
+    Carrera VARCHAR(100),
+    Semestre INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS Salon (
@@ -93,6 +95,7 @@ CREATE TABLE IF NOT EXISTS Grupo (
     IdProfesor VARCHAR(10),
     IdSalon INTEGER,
     IdCiclo INTEGER,
+    Semestre INTEGER,  
     FOREIGN KEY (IdMateria) REFERENCES Materia(IdMateria),
     FOREIGN KEY (IdProfesor) REFERENCES Profesor(IdProfesor),
     FOREIGN KEY (IdSalon) REFERENCES Salon(IdSalon),
@@ -119,17 +122,11 @@ CREATE TABLE IF NOT EXISTS Solicitud (
 CREATE TABLE IF NOT EXISTS HorarioGeneral (
     IdHorarioGeneral INTEGER NOT NULL,
     NombreCarrera VARCHAR(100) NOT NULL,
-    IdMateria INTEGER NOT NULL,
-    IdProfesor VARCHAR(10) NOT NULL,
-    IdCiclo INTEGER NOT NULL,
+    IdGrupo INTEGER NOT NULL,
     Dia VARCHAR(10) NOT NULL,
     HoraInicio TIME NOT NULL,
     HoraFin TIME NOT NULL,
-    Semestre INTEGER NOT NULL,
     CONSTRAINT chk_dia CHECK (Dia IN ('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes')),
-    CONSTRAINT chk_semestre CHECK (Semestre BETWEEN 1 AND 8),
-    CONSTRAINT fk_materia FOREIGN KEY (IdMateria) REFERENCES Materia(IdMateria),
-    CONSTRAINT fk_profesor FOREIGN KEY (IdProfesor) REFERENCES Profesor(IdProfesor),
-    CONSTRAINT fk_ciclo FOREIGN KEY (IdCiclo) REFERENCES Ciclo(IdCiclo),
-    PRIMARY KEY (IdHorarioGeneral, IdMateria, Dia, HoraInicio)
+    PRIMARY KEY (IdHorarioGeneral, IdGrupo, Dia, HoraInicio),
+    CONSTRAINT fk_grupo FOREIGN KEY (IdGrupo) REFERENCES Grupo(IdGrupo)
 );

@@ -4,13 +4,10 @@ import pool from "../../config/database";
 export interface GeneralScheduleItem {
   IdHorarioGeneral: number;
   NombreCarrera: string;
-  IdMateria: number;
-  IdProfesor: number;
-  IdCiclo: number;
+  IdGrupo: number;
   Dia: string;
   HoraInicio: string;
   HoraFin: string;
-  Semestre: number;
 }
 
 class GeneralSchedule {
@@ -20,19 +17,7 @@ class GeneralSchedule {
     try {
       await client.query('BEGIN');
       
-      // First, validate that all professor IDs exist
-      for (const item of scheduleItems) {
-        const professorCheck = await client.query(
-          'SELECT COUNT(*) FROM Profesor WHERE IdProfesor = $1',
-          [item.IdProfesor]
-        );
-        
-        if (professorCheck.rows[0].count === '0') {
-          throw new Error(`Professor with ID ${item.IdProfesor} does not exist in the database`);
-        }
-      }
-
-      // Then proceed with deletion if validation passes
+      // Delete existing schedule if there are new items
       if (scheduleItems.length > 0) {
         await client.query('DELETE FROM HorarioGeneral WHERE IdHorarioGeneral = $1', [scheduleItems[0].IdHorarioGeneral]);
       }
@@ -40,24 +25,22 @@ class GeneralSchedule {
       // Insert all new schedule items
       const insertQuery = `
         INSERT INTO HorarioGeneral 
-        (IdHorarioGeneral, NombreCarrera, IdMateria, IdProfesor, IdCiclo, Dia, HoraInicio, HoraFin, Semestre)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        (IdHorarioGeneral, NombreCarrera, IdGrupo, Dia, HoraInicio, HoraFin)
+        VALUES ($1, $2, $3, $4, $5, $6)
       `;
       
       for (const item of scheduleItems) {
         await client.query(insertQuery, [
           item.IdHorarioGeneral,
           item.NombreCarrera,
-          item.IdMateria,
-          item.IdProfesor,
-          item.IdCiclo,
+          item.IdGrupo,
           item.Dia,
           item.HoraInicio,
-          item.HoraFin,
-          item.Semestre
+          item.HoraFin
         ]);
       }
       
+      //transacciones :)
       await client.query('COMMIT');
       return true;
     } catch (error) {
@@ -68,16 +51,18 @@ class GeneralSchedule {
     }
   }
 
-  // Method to get the general schedule for a specific degree program
+  // Method to get the general schedule
   static async getGeneralSchedule(): Promise<GeneralScheduleItem[]> {
     const query = `
-      SELECT 
-        hg.*,
-        m.Nombre as MateriaNombre,
-        p.Nombre as ProfesorNombre
+      SELECT hg.*,
+             g.IdMateria,
+             m.Nombre as MateriaNombre,
+             g.IdProfesor,
+             p.Nombre as ProfesorNombre
       FROM HorarioGeneral hg
-      LEFT JOIN Materia m ON hg.IdMateria = m.IdMateria
-      LEFT JOIN Profesor p ON hg.IdProfesor = p.IdProfesor
+      JOIN Grupo g ON hg.IdGrupo = g.IdGrupo
+      LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
+      LEFT JOIN Profesor p ON g.IdProfesor = p.IdProfesor
       ORDER BY hg.Dia, hg.HoraInicio
     `;
     const result = await pool.query(query);
