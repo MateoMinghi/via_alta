@@ -13,7 +13,7 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: 'Via Alta',
-  description: 'Sistema de programación académica',
+  description: 'Sistema de Inscripción y Gestión de Cursos para Instituto Via Diseño',
 };
 
 export default function RootLayout({
