@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { studentId, schedule } = await request.json();
+    const { studentId, schedule, testMode } = await request.json();
     
     if (!studentId || !schedule || !Array.isArray(schedule)) {
       return NextResponse.json({ 
@@ -154,36 +154,64 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
+    console.log('Received confirmation request for student:', studentId);
+    console.log('Schedule items:', schedule.length);
+    console.log('Test mode:', testMode ? 'enabled' : 'disabled');
+    
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
       
-      // Primero, borrar el horario existente del estudiante
+      // Primero, verificamos si el estudiante existe en la tabla Alumno
+      const checkStudentQuery = 'SELECT * FROM Alumno WHERE IdAlumno = $1';
+      const studentExists = await client.query(checkStudentQuery, [studentId]);
+      
+      // Si no existe, lo creamos
+      if (studentExists.rows.length === 0) {
+        console.log('Creating new student record in Alumno table');
+        await client.query('INSERT INTO Alumno (IdAlumno, Confirmacion) VALUES ($1, FALSE)', [studentId]);
+      }
+      
+      // Borrar el horario existente del estudiante
       await client.query('DELETE FROM Horario WHERE idAlumno = $1', [studentId]);
       
       // Insertar el nuevo horario
       const currentDate = new Date();
       for (const item of schedule) {
+        // Handle case sensitivity in property names
+        const idGrupo = item.IdGrupo || item.idgrupo;
+        
+        if (!idGrupo) {
+          console.warn('Skipping item without group ID:', item);
+          continue;
+        }
+        
         const query = `
           INSERT INTO Horario (fecha, idGrupo, idAlumno)
           VALUES ($1, $2, $3)
         `;
-        await client.query(query, [currentDate, item.IdGrupo, studentId]);
+        await client.query(query, [currentDate, idGrupo, studentId]);
       }
       
-      // Aactualizar la confirmación del estudiante
-      await client.query('UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1', [studentId]);
+      // If in test mode, don't update confirmation status
+      if (!testMode) {
+        await client.query('UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1', [studentId]);
+      } else {
+        console.log('Test mode active: Not updating confirmation status');
+      }
       
       // Terminar la transacción
       await client.query('COMMIT');
       
       return NextResponse.json({ 
         success: true, 
-        message: 'Schedule confirmed successfully'
+        message: testMode ? 'Schedule saved in test mode' : 'Schedule confirmed successfully',
+        testMode
       });
     } catch (error) {
       await client.query('ROLLBACK');
+      console.error('Transaction error:', error);
       throw error;
     } finally {
       client.release();

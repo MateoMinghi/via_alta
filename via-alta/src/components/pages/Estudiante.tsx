@@ -164,17 +164,30 @@ export default function Estudiante() {
           throw new Error("No schedule data available to confirm");
         }
         
-        // Llamar a la función de confirmación del horario
-        await confirmSchedule(scheduleData);
+        if (!updatedUser?.id) {
+          throw new Error("ID de estudiante no disponible");
+        }
         
-        localStorage.setItem('studentStatus', 'inscrito');
-        localStorage.removeItem('studentComments');
-        setComentarios('');
-        toast.success('Horario confirmado correctamente');
-        router.push('/estudiante/confirmacion');
+        // Usar testMode para pruebas
+        // En producción, esto debería ser false
+        const result = await confirmSchedule(scheduleData, true);
+        
+        if (result?.success) {
+          if (result.testMode) {
+            toast.success('Horario guardado en modo de prueba (puedes seguir haciendo cambios)');
+          } else {
+            localStorage.setItem('studentStatus', 'inscrito');
+            localStorage.removeItem('studentComments');
+            setComentarios('');
+            toast.success('Horario confirmado correctamente');
+            router.push('/estudiante/confirmacion');
+          }
+        } else {
+          throw new Error(result?.message || "Error al confirmar horario");
+        }
       } catch (error) {
         console.error('Error confirming schedule:', error);
-        toast.error('Error al confirmar el horario');
+        toast.error(`Error al confirmar el horario: ${error instanceof Error ? error.message : 'Error desconocido'}`);
       } finally {
         setIsModifyingStatus(false);
       }

@@ -58,13 +58,30 @@ export function useGetStudentSchedule(studentId: string | undefined, semester: n
     fetchSchedule();
   }, [studentId, semester]);
 
-  
-  const confirmSchedule = async (schedule: ScheduleItem[]) => {
+  // Funcion para confirmar el horario
+  const confirmSchedule = async (schedule: ScheduleItem[], testMode = true) => {
     if (!studentId) {
       throw new Error("Student ID is required to confirm schedule");
     }
 
     try {
+      console.log('Confirming schedule for student:', studentId);
+      console.log('Schedule data being sent:', schedule);
+      
+    
+      const validScheduleItems = schedule.filter(item => {
+        const idGrupo = item.IdGrupo || item.idgrupo;
+        if (!idGrupo) {
+          console.warn('Skipping schedule item without IdGrupo:', item);
+          return false;
+        }
+        return true;
+      });
+      
+      if (validScheduleItems.length === 0) {
+        throw new Error("No valid schedule items to confirm");
+      }
+
       const response = await fetch('/api/student-schedule', {
         method: 'POST',
         headers: {
@@ -72,7 +89,8 @@ export function useGetStudentSchedule(studentId: string | undefined, semester: n
         },
         body: JSON.stringify({ 
           studentId,
-          schedule
+          schedule: validScheduleItems,
+          testMode // Add testMode flag
         }),
       });
 
@@ -80,6 +98,11 @@ export function useGetStudentSchedule(studentId: string | undefined, semester: n
       
       if (!data.success) {
         throw new Error(data.message || "Failed to confirm schedule");
+      }
+      
+      // Only update isIndividual if not in test mode
+      if (!testMode) {
+        setIsIndividual(true);
       }
 
       return data;
