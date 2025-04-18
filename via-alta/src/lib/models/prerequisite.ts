@@ -32,6 +32,13 @@ class Prerequisite {
     return result.rows as PrerequisiteWithDetails[];
   }
 
+  static async findUnique(subjectId: string, prerequisiteId: string) {
+    const query = 
+      "SELECT * FROM Prerequisito WHERE IdMateria = $1 AND IdPrerequisito = $2";
+    const result = await pool.query(query, [subjectId, prerequisiteId]);
+    return result.rows[0] as PrerequisiteData | undefined; // Return undefined if not found
+  }
+
   static async delete(subjectId: string, prerequisiteId: string) {
     const query =
       "DELETE FROM Prerequisito WHERE IdMateria = $1 AND IdPrerequisito = $2 RETURNING *";

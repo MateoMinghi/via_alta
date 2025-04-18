@@ -142,11 +142,20 @@ async function processPrerequisites(subjectId: number, rawRequisites: any[] | nu
                     IdMateria: subjectId.toString(),
                     IdPrerequisito: requisite.requisite_course_id.toString()
                 };
-                
-                // Crear la relación de prerequisito
-                const createdPrerequisite = await Prerequisite.create(prerequisiteData);
-                processedPrerequisites.push(createdPrerequisite);
-                console.log(`Added prerequisite: ${requisite.requisite_course.name} (ID: ${requisite.requisite_course_id}) for subject ${subjectId}`);
+
+                // Check if the prerequisite already exists using the new findUnique method
+                const existingPrerequisite = await Prerequisite.findUnique(prerequisiteData.IdMateria, prerequisiteData.IdPrerequisito);
+
+                if (!existingPrerequisite) {
+                    // Crear la relación de prerequisito only if it doesn't exist
+                    const createdPrerequisite = await Prerequisite.create(prerequisiteData);
+                    processedPrerequisites.push(createdPrerequisite);
+                    console.log(`Added prerequisite: ${requisite.requisite_course.name} (ID: ${requisite.requisite_course_id}) for subject ${subjectId}`);
+                } else {
+                    console.log(`Prerequisite relationship already exists for subject ${subjectId} and prerequisite ${requisite.requisite_course_id}. Skipping.`);
+                    // Optionally add the existing one to the processed list if needed elsewhere
+                    // processedPrerequisites.push(existingPrerequisite); 
+                }
             } catch (error) {
                 console.error(`Error creating prerequisite relationship for subject ${subjectId} with prerequisite ID ${requisite.requisite_course_id}`, error);
             }

@@ -33,41 +33,60 @@ export interface GroupValidationError {
  * @throws Error if validation fails
  */
 export async function generateGroup(params: GroupGenerationParams) {
+  console.log("Starting generateGroup with params:", params);
   // Synchronize subjects before creating a group
-  await syncCoursesFromAPI();
+  try {
+    console.log("Running syncCoursesFromAPI...");
+    await syncCoursesFromAPI();
+    console.log("syncCoursesFromAPI completed.");
+  } catch (syncError) {
+    console.error("Error during syncCoursesFromAPI:", syncError);
+    throw new Error(`Failed during course sync: ${syncError instanceof Error ? syncError.message : String(syncError)}`);
+  }
 
   // Find the professor to get their classes
+  console.log(`Finding professor with ID: ${params.idProfesor}`);
   const professor = await Professor.findById(params.idProfesor);
   if (!professor) {
+    console.error(`Professor with ID ${params.idProfesor} not found`);
     throw new Error(`Professor with ID ${params.idProfesor} not found`);
   }
+  console.log("Professor found:", professor);
 
   // Get the latest cycle if not provided
   let idCiclo = params.idCiclo;
   if (!idCiclo) {
+    console.log("No cycle ID provided, fetching latest cycle...");
     const latestCycle = await getLatestCycle();
     if (!latestCycle) {
+      console.error('No school cycles found in the database');
       throw new Error('No school cycles found in the database');
     }
     idCiclo = parseInt(latestCycle.IdCiclo);
+    console.log(`Using latest cycle ID: ${idCiclo}`);
   }
   // Find the subject based on professor's classes if not provided
   let idMateria = params.idMateria;
   if (!idMateria) {
+    console.log(`No subject ID provided, determining from professor classes: ${professor.Clases}`);
     if (!professor.Clases || professor.Clases.trim() === '') {
+      console.error(`Professor with ID ${params.idProfesor} does not have any assigned classes`);
       throw new Error(`Professor with ID ${params.idProfesor} does not have any assigned classes`);
     }
     
     // Find a subject that matches the professor's classes
     const matchingSubject = await findSubjectByName(professor.Clases);
     if (!matchingSubject) {
+      console.error(`No subject found matching professor's classes: ${professor.Clases}`);
       throw new Error(`No subject found matching professor's classes: ${professor.Clases}`);
     }
     idMateria = matchingSubject.IdMateria;
+    console.log(`Determined subject ID: ${idMateria}`);
   }
   
   // At this point, idMateria must be defined
   if (!idMateria) {
+    console.error('Failed to determine a valid subject ID after checks.');
     throw new Error('Failed to determine a valid subject ID');
   }
 
@@ -77,29 +96,36 @@ export async function generateGroup(params: GroupGenerationParams) {
     idMateria,
     idCiclo
   };
+  console.log("Updated params for validation:", updatedParams);
 
   // Validate input parameters
+  console.log("Validating group parameters...");
   const validationErrors = await validateGroupParams(updatedParams);
   if (validationErrors.length > 0) {
+    console.error("Group validation failed:", validationErrors);
     throw new Error(`Group validation failed: ${JSON.stringify(validationErrors)}`);
   }
-  // At this point, both idMateria and idCiclo must be defined
-  if (!idMateria) {
-    throw new Error('Failed to determine a valid subject ID');
-  }
+  console.log("Validation successful.");
 
-  if (!idCiclo) {
-    throw new Error('Failed to determine a valid cycle ID');
+  // At this point, both idMateria and idCiclo must be defined
+  // Redundant check, but good for sanity
+  if (!idMateria || !idCiclo) {
+      console.error('Critical error: idMateria or idCiclo became undefined before fetching subject.');
+      throw new Error('Critical error: idMateria or idCiclo became undefined.');
   }
 
   // Get the subject to extract its semester
+  console.log(`Fetching subject details for ID: ${idMateria}`);
   const subject = await Subject.findById(idMateria);
   if (!subject) {
+    console.error(`Subject with ID ${idMateria} not found after validation.`);
     throw new Error(`Subject with ID ${idMateria} not found`);
   }
+  console.log("Subject found:", subject);
 
   // Generate a group ID if not provided
   const groupId = params.idGrupo || await generateUniqueGroupId();
+  console.log(`Using Group ID: ${groupId}`);
 
   // Create the group with the subject's semester
   const groupData = {
@@ -110,9 +136,18 @@ export async function generateGroup(params: GroupGenerationParams) {
     IdCiclo: idCiclo,
     Semestre: subject.Semestre // Use the subject's semester as required
   };
+  console.log("Prepared group data for creation:", groupData);
 
   // Create the group in the database
-  return await Group.create(groupData);
+  try {
+    console.log("Attempting to create group in database...");
+    const createdGroup = await Group.create(groupData);
+    console.log("Group created successfully:", createdGroup);
+    return createdGroup;
+  } catch (creationError) {
+    console.error("Error during Group.create:", creationError);
+    throw new Error(`Failed to create group in database: ${creationError instanceof Error ? creationError.message : String(creationError)}`);
+  }
 }
 
 /**

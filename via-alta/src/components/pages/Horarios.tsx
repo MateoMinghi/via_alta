@@ -34,48 +34,54 @@ export default function HorariosSlug() {
     result.reduce((acc: Record<string, number>, student: Student) => {
       acc[student.semestre] = (acc[student.semestre] || 0) + 1;
       return acc;
-    }, {})
-  ).map(([id, numberStudents]) => ({ id, numberStudents: numberStudents as number })) : [];
-    // Función para generar grupos
+    }, {})  ).map(([id, numberStudents]) => ({ id, numberStudents: numberStudents as number })) : [];
+  
+  // Función para generar grupos
   const generateGroups = async () => {
     try {
       setIsGenerating(true);
-      toast.info("Iniciando la generación de grupos...");
+      toast.info("Iniciando la generación de grupos para todos los profesores...");
       
-      // Solo enviamos los parámetros requeridos (idProfesor, idSalon)
-      // El idMateria se determinará a partir de las clases del profesor
-      // El idCiclo se configurará automáticamente con el ciclo más reciente
-      const paramsList = [
-        {
-          idProfesor: "PROF001",
-          idSalon: 101
-        },
-        {
-          idProfesor: "PROF002",
-          idSalon: 102
-        }
-      ];
+      // Usar un ID de salón predeterminado
+      // En una versión mejorada, esto podría ser seleccionado por el usuario
+      const defaultSalonId = 101;
       
+      // Usar el modo 'all-professors' que busca automáticamente todos los profesores válidos
       const response = await fetch('/api/generate-groups', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ paramsList }),
+        body: JSON.stringify({ 
+          mode: 'all-professors',
+          idSalon: defaultSalonId,
+          // idCiclo es opcional, si no se proporciona se usará el ciclo más reciente
+        }),
       });
       
       const data = await response.json();
       
       if (response.ok) {
-        toast.success(`Grupos generados exitosamente: ${data.createdGroups.length} grupos creados`);
+        const createdCount = data.createdGroups?.length || 0;
         
-        if (data.errors.length > 0) {
-          toast.warning(`${data.errors.length} grupos no pudieron ser creados`);
+        if (createdCount > 0) {
+          toast.success(`Se generaron ${createdCount} grupos exitosamente`);
+        } else {
+          toast.info("No se crearon nuevos grupos");
+        }
+        
+        if (data.errors && data.errors.length > 0) {
+          const errorCount = data.errors.length;
+          toast.warning(`${errorCount} grupos no pudieron ser creados. Revise que los profesores tengan clases asignadas.`);
+          
+          // Loguear detalles de errores para depuración
+          console.warn("Errores al generar grupos:", data.errors);
         }
       } else {
         toast.error(`Error: ${data.error || 'No se pudieron generar los grupos'}`);
       }
     } catch (error) {
+      console.error("Error en la generación de grupos:", error);
       toast.error(`Error: ${error instanceof Error ? error.message : 'No se pudieron generar los grupos'}`);
     } finally {
       setIsGenerating(false);
