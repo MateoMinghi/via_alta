@@ -7,14 +7,15 @@ import Professor from '../models/professor';
 import Classroom from '../models/classroom';
 import Cycle from '../models/cycle';
 import pool from '../../config/database';
+import { syncCoursesFromAPI } from './subject-handler';
 
 // Interface for input parameters when generating a group
 export interface GroupGenerationParams {
   idGrupo?: number; // Optional - if not provided, will be auto-generated
-  idMateria: number; // Required - the subject for which to create a group
+  idMateria?: number; // Optional - will be determined from professor's classes if not provided
   idProfesor: string; // Required - the professor who will teach the group
   idSalon: number; // Required - the classroom where the group will be held
-  idCiclo: number; // Required - the school cycle for the group
+  idCiclo?: number; // Optional - will use the latest cycle if not provided
 }
 
 // Interface for group validation errors
@@ -32,16 +33,69 @@ export interface GroupValidationError {
  * @throws Error if validation fails
  */
 export async function generateGroup(params: GroupGenerationParams) {
+  // Synchronize subjects before creating a group
+  await syncCoursesFromAPI();
+
+  // Find the professor to get their classes
+  const professor = await Professor.findById(params.idProfesor);
+  if (!professor) {
+    throw new Error(`Professor with ID ${params.idProfesor} not found`);
+  }
+
+  // Get the latest cycle if not provided
+  let idCiclo = params.idCiclo;
+  if (!idCiclo) {
+    const latestCycle = await getLatestCycle();
+    if (!latestCycle) {
+      throw new Error('No school cycles found in the database');
+    }
+    idCiclo = parseInt(latestCycle.IdCiclo);
+  }
+  // Find the subject based on professor's classes if not provided
+  let idMateria = params.idMateria;
+  if (!idMateria) {
+    if (!professor.Clases || professor.Clases.trim() === '') {
+      throw new Error(`Professor with ID ${params.idProfesor} does not have any assigned classes`);
+    }
+    
+    // Find a subject that matches the professor's classes
+    const matchingSubject = await findSubjectByName(professor.Clases);
+    if (!matchingSubject) {
+      throw new Error(`No subject found matching professor's classes: ${professor.Clases}`);
+    }
+    idMateria = matchingSubject.IdMateria;
+  }
+  
+  // At this point, idMateria must be defined
+  if (!idMateria) {
+    throw new Error('Failed to determine a valid subject ID');
+  }
+
+  // Update params with the determined values
+  const updatedParams = {
+    ...params,
+    idMateria,
+    idCiclo
+  };
+
   // Validate input parameters
-  const validationErrors = await validateGroupParams(params);
+  const validationErrors = await validateGroupParams(updatedParams);
   if (validationErrors.length > 0) {
     throw new Error(`Group validation failed: ${JSON.stringify(validationErrors)}`);
   }
+  // At this point, both idMateria and idCiclo must be defined
+  if (!idMateria) {
+    throw new Error('Failed to determine a valid subject ID');
+  }
+
+  if (!idCiclo) {
+    throw new Error('Failed to determine a valid cycle ID');
+  }
 
   // Get the subject to extract its semester
-  const subject = await Subject.findById(params.idMateria);
+  const subject = await Subject.findById(idMateria);
   if (!subject) {
-    throw new Error(`Subject with ID ${params.idMateria} not found`);
+    throw new Error(`Subject with ID ${idMateria} not found`);
   }
 
   // Generate a group ID if not provided
@@ -50,10 +104,10 @@ export async function generateGroup(params: GroupGenerationParams) {
   // Create the group with the subject's semester
   const groupData = {
     IdGrupo: groupId,
-    IdMateria: params.idMateria,
+    IdMateria: idMateria,
     IdProfesor: params.idProfesor,
     IdSalon: params.idSalon,
-    IdCiclo: params.idCiclo,
+    IdCiclo: idCiclo,
     Semestre: subject.Semestre // Use the subject's semester as required
   };
 
@@ -87,12 +141,14 @@ async function validateGroupParams(params: GroupGenerationParams): Promise<Group
   const errors: GroupValidationError[] = [];
 
   // Check if the subject exists
-  const subject = await Subject.findById(params.idMateria);
-  if (!subject) {
-    errors.push({
-      field: 'idMateria',
-      message: `Subject with ID ${params.idMateria} not found`
-    });
+  if (params.idMateria !== undefined) {
+    const subject = await Subject.findById(params.idMateria);
+    if (!subject) {
+      errors.push({
+        field: 'idMateria',
+        message: `Subject with ID ${params.idMateria} not found`
+      });
+    }
   }
 
   // Check if the professor exists
@@ -119,21 +175,22 @@ async function validateGroupParams(params: GroupGenerationParams): Promise<Group
       message: `Error finding classroom: ${error instanceof Error ? error.message : String(error)}`
     });
   }
-
   // Check if the cycle exists
-  try {
-    const cycle = await Cycle.findById(params.idCiclo.toString());
-    if (!cycle) {
+  if (params.idCiclo !== undefined) {
+    try {
+      const cycle = await Cycle.findById(params.idCiclo.toString());
+      if (!cycle) {
+        errors.push({
+          field: 'idCiclo',
+          message: `Cycle with ID ${params.idCiclo} not found`
+        });
+      }
+    } catch (error) {
       errors.push({
         field: 'idCiclo',
-        message: `Cycle with ID ${params.idCiclo} not found`
+        message: `Error finding cycle: ${error instanceof Error ? error.message : String(error)}`
       });
     }
-  } catch (error) {
-    errors.push({
-      field: 'idCiclo',
-      message: `Error finding cycle: ${error instanceof Error ? error.message : String(error)}`
-    });
   }
 
   // If a group ID is provided, check if it's already in use
@@ -373,4 +430,74 @@ export async function generateGroupsBatch(paramsList: GroupGenerationParams[]) {
     createdGroups,
     errors
   };
+}
+
+/**
+ * Gets the latest school cycle based on start date
+ * 
+ * @returns The latest school cycle or null if none exists
+ */
+async function getLatestCycle() {
+  const query = `
+    SELECT * FROM Ciclo 
+    ORDER BY FechaInicio DESC 
+    LIMIT 1
+  `;
+  const result = await pool.query(query);
+  return result.rows[0] || null;
+}
+
+/**
+ * Finds a subject by matching its name against the given text
+ * Used to match a professor's classes with a subject
+ * 
+ * @param subjectName The name to search for
+ * @returns The matching subject or null if none is found
+ */
+async function findSubjectByName(subjectName: string) {
+  // We'll use a case-insensitive search to find the best match
+  const query = `
+    SELECT * FROM Materia 
+    WHERE LOWER(Nombre) = LOWER($1)
+    LIMIT 1
+  `;
+  const result = await pool.query(query, [subjectName.trim()]);
+  
+  // If no exact match, try partial match
+  if (result.rows.length === 0) {
+    const partialQuery = `
+      SELECT * FROM Materia 
+      WHERE LOWER(Nombre) LIKE LOWER($1)
+      LIMIT 1
+    `;
+    const partialResult = await pool.query(partialQuery, [`%${subjectName.trim()}%`]);
+    return partialResult.rows[0] || null;
+  }
+  
+  return result.rows[0] || null;
+}
+
+/**
+ * Generates groups for all professors in the database.
+ * Creates one group per professor based on their assigned classes.
+ * 
+ * @param idSalon - The classroom ID to be used for all groups
+ * @param idCiclo - Optional cycle ID (will use latest if not provided)
+ * @returns Object containing created groups and any errors that occurred
+ */
+export async function generateGroupsForAllProfessors(idSalon: number, idCiclo?: number) {
+  // Get all professors from the database
+  const query = 'SELECT * FROM Profesor WHERE Clases IS NOT NULL AND Clases != \'\'';
+  const result = await pool.query(query);
+  const professors = result.rows;
+
+  // Prepare parameters for each professor
+  const groupParams: GroupGenerationParams[] = professors.map(professor => ({
+    idProfesor: professor.idprofesor,
+    idSalon: idSalon,
+    idCiclo: idCiclo
+  }));
+
+  // Generate groups using the existing batch function
+  return await generateGroupsBatch(groupParams);
 }
