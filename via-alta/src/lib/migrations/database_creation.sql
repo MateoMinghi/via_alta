@@ -116,6 +116,15 @@ CREATE TABLE IF NOT EXISTS Solicitud (
     FOREIGN KEY (IdAlumno) REFERENCES Alumno(IdAlumno)
 );
 
+CREATE TABLE IF NOT EXISTS Horario (
+    idHorario SERIAL PRIMARY KEY,
+    fecha DATE NOT NULL,
+    idGrupo INTEGER NOT NULL,
+    idAlumno VARCHAR(10) NOT NULL,
+    CONSTRAINT fk_grupo FOREIGN KEY (idGrupo) REFERENCES Grupo(IdGrupo),
+    CONSTRAINT fk_alumno FOREIGN KEY (idAlumno) REFERENCES Alumno(IdAlumno)
+);
+
 CREATE TABLE IF NOT EXISTS HorarioGeneral (
     IdHorarioGeneral INTEGER NOT NULL,
     NombreCarrera VARCHAR(100) NOT NULL,
