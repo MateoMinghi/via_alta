@@ -34,7 +34,15 @@ class Professor {
     const trimmedId = id.trim(); // Trim whitespace
     const query = "SELECT * FROM Profesor WHERE LOWER(IdProfesor) = LOWER($1)"; // Case-insensitive search
     const result = await pool.query(query, [trimmedId]);
-    return result.rows[0] as ProfessorData || null; // Retorna null si no se encuentra el profesor
+    if (!result.rows.length) return null;
+    const row = result.rows[0];
+    // Map lower-case properties to match ProfessorData interface
+    const professor: ProfessorData = {
+      IdProfesor: row.idprofesor,
+      Nombre: row.nombre,
+      Clases: row.clases,
+    };
+    return professor;
   }
 
   /**

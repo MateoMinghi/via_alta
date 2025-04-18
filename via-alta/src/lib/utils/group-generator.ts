@@ -8,7 +8,7 @@ import Classroom from '../models/classroom';
 import Cycle from '../models/cycle';
 import pool from '../../config/database';
 import { syncCoursesFromAPI } from './subject-handler';
-
+import stringSimilarity from 'string-similarity';
 // Interface for input parameters when generating a group
 export interface GroupGenerationParams {
   idGrupo?: number; // Optional - if not provided, will be auto-generated
@@ -62,7 +62,8 @@ export async function generateGroup(params: GroupGenerationParams) {
       console.error('No school cycles found in the database');
       throw new Error('No school cycles found in the database');
     }
-    idCiclo = parseInt(latestCycle.IdCiclo);
+    // Use the correct property name from the DB row (lowercase)
+    idCiclo = parseInt(latestCycle.idciclo);
     console.log(`Using latest cycle ID: ${idCiclo}`);
   }
   // Find the subject based on professor's classes if not provided
@@ -70,7 +71,7 @@ export async function generateGroup(params: GroupGenerationParams) {
   if (!idMateria) {
     console.log(`No subject ID provided, determining from professor classes: ${professor.Clases}`);
     if (!professor.Clases || professor.Clases.trim() === '') {
-      console.error(`Professor with ID ${params.idProfesor} does not have any assigned classes`);
+      console.warn(`Professor with ID ${params.idProfesor} has empty assigned classes`); // Changed to warn
       throw new Error(`Professor with ID ${params.idProfesor} does not have any assigned classes`);
     }
     
@@ -80,7 +81,7 @@ export async function generateGroup(params: GroupGenerationParams) {
       console.error(`No subject found matching professor's classes: ${professor.Clases}`);
       throw new Error(`No subject found matching professor's classes: ${professor.Clases}`);
     }
-    idMateria = matchingSubject.IdMateria;
+    idMateria = matchingSubject.idmateria; // <-- use lowercase
     console.log(`Determined subject ID: ${idMateria}`);
   }
   
@@ -490,26 +491,39 @@ async function getLatestCycle() {
  * @returns The matching subject or null if none is found
  */
 async function findSubjectByName(subjectName: string) {
-  // We'll use a case-insensitive search to find the best match
-  const query = `
-    SELECT * FROM Materia 
-    WHERE LOWER(Nombre) = LOWER($1)
-    LIMIT 1
-  `;
-  const result = await pool.query(query, [subjectName.trim()]);
-  
-  // If no exact match, try partial match
-  if (result.rows.length === 0) {
-    const partialQuery = `
-      SELECT * FROM Materia 
-      WHERE LOWER(Nombre) LIKE LOWER($1)
-      LIMIT 1
-    `;
-    const partialResult = await pool.query(partialQuery, [`%${subjectName.trim()}%`]);
-    return partialResult.rows[0] || null;
+  const classNames = subjectName.split(',').map(name => name.trim());
+
+  for (const className of classNames) {
+    // 1. Exact match
+    let query = `SELECT * FROM Materia WHERE LOWER(Nombre) = LOWER($1) LIMIT 1`;
+    let result = await pool.query(query, [className]);
+    if (result.rows.length > 0) return result.rows[0];
+
+    // 2. Improved Partial Match (all words must be present)
+    const words = className.split(/\s+/); // Split into words
+    if (words.length > 0) {
+      let partialQuery = `SELECT * FROM Materia WHERE `;
+      const conditions = words.map((word, index) => `LOWER(Nombre) LIKE LOWER($${index + 1})`);
+      partialQuery += conditions.join(' AND ');
+      partialQuery += ` LIMIT 1`;
+      const partialValues = words.map(word => `%${word}%`);
+      const partialResult = await pool.query(partialQuery, partialValues);
+      if (partialResult.rows.length > 0) return partialResult.rows[0];
+    }
+
+    // 3. Fuzzy Matching (if no other match is found)
+    const allSubjectsQuery = `SELECT IdMateria, Nombre FROM Materia`;
+    const allSubjectsResult = await pool.query(allSubjectsQuery);
+    const subjectNames = allSubjectsResult.rows.map(row => row.nombre);
+
+    const matches = stringSimilarity.findBestMatch(className, subjectNames);
+    if (matches.bestMatch.rating > 0.7) { // Adjust threshold as needed
+      const bestMatchSubject = allSubjectsResult.rows.find(row => row.nombre === matches.bestMatch.target);
+      return bestMatchSubject || null;
+    }
   }
-  
-  return result.rows[0] || null;
+
+  return null;
 }
 
 /**
