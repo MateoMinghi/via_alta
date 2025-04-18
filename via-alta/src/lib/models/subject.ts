@@ -7,6 +7,8 @@ interface SubjectData {
   Requisitos: string | null;
   Carrera: string | null;
   Semestre: number;
+  // Add a getter for 'semestre' for compatibility
+  readonly semestre?: number;
 }
 
 interface SubjectWithGroup extends SubjectData {
@@ -14,6 +16,14 @@ interface SubjectWithGroup extends SubjectData {
 }
 
 class Subject {
+  // Add a static helper to map 'semestre' to 'Semestre' if needed
+  static normalize(subject: any): SubjectData {
+    if (subject && subject.Semestre !== undefined && subject.semestre === undefined) {
+      subject.semestre = subject.Semestre;
+    }
+    return subject as SubjectData;
+  }
+
   static async create(subject: SubjectData) {
     const query = `
       INSERT INTO Materia (IdMateria, Nombre, HorasClase, Requisitos, Carrera, Semestre) 
@@ -34,13 +44,13 @@ class Subject {
   static async findById(id: number) {
     const query = "SELECT * FROM Materia WHERE IdMateria = $1";
     const result = await pool.query(query, [id]);
-    return result.rows[0] as SubjectData;
+    return Subject.normalize(result.rows[0]);
   }
 
   static async findAll() {
     const query = "SELECT * FROM Materia ORDER BY Semestre, Nombre";
     const result = await pool.query(query);
-    return result.rows as SubjectData[];
+    return result.rows.map(Subject.normalize);
   }
 
   static async update(id: number, subject: SubjectData) {

@@ -128,6 +128,11 @@ export async function generateGroup(params: GroupGenerationParams) {
   const groupId = params.idGrupo || await generateUniqueGroupId();
   console.log(`Using Group ID: ${groupId}`);
 
+  // Ensure subject.semestre is defined
+  if (typeof subject.semestre !== 'number') {
+    throw new Error(`Subject with ID ${idMateria} does not have a valid 'semestre' value.`);
+  }
+
   // Create the group with the subject's semester
   const groupData = {
     IdGrupo: groupId,
@@ -135,7 +140,7 @@ export async function generateGroup(params: GroupGenerationParams) {
     IdProfesor: params.idProfesor,
     IdSalon: params.idSalon,
     IdCiclo: idCiclo,
-    Semestre: subject.Semestre // Use the subject's semester as required
+    Semestre: subject.semestre // Use the subject's semester as required (lowercase)
   };
   console.log("Prepared group data for creation:", groupData);
 
@@ -527,23 +532,43 @@ async function findSubjectByName(subjectName: string) {
 }
 
 /**
+ * Deletes all groups from the database.
+ *
+ * @returns void
+ */
+async function deleteAllGroups(): Promise<void> {
+  const query = 'DELETE FROM Grupo';
+  await pool.query(query);
+}
+
+/**
  * Generates groups for all professors in the database.
  * Creates one group per professor based on their assigned classes.
  * 
- * @param idSalon - The classroom ID to be used for all groups
+ * @param idSalon - The classroom ID to be used for all groups (ignored, will use all classrooms)
  * @param idCiclo - Optional cycle ID (will use latest if not provided)
  * @returns Object containing created groups and any errors that occurred
  */
 export async function generateGroupsForAllProfessors(idSalon: number, idCiclo?: number) {
+  // First, delete all existing groups
+  console.log("Deleting all existing groups...");
+  await deleteAllGroups();
+  console.log("Existing groups deleted.");
   // Get all professors from the database
-  const query = 'SELECT * FROM Profesor WHERE Clases IS NOT NULL AND Clases != \'\'';
+  const query = 'SELECT * FROM Profesor WHERE Clases IS NOT NULL AND Clases <> \'\'';
   const result = await pool.query(query);
   const professors = result.rows;
 
-  // Prepare parameters for each professor
-  const groupParams: GroupGenerationParams[] = professors.map(professor => ({
+  // Get all classrooms from the database
+  const classrooms = await Classroom.findAll();
+  if (!classrooms || classrooms.length === 0) {
+    throw new Error('No classrooms available in the database');
+  }
+
+  // Prepare parameters for each professor, assign classrooms in round-robin
+  const groupParams: GroupGenerationParams[] = professors.map((professor, idx) => ({
     idProfesor: professor.idprofesor,
-    idSalon: idSalon,
+    idSalon: classrooms[idx % classrooms.length].idsalon,
     idCiclo: idCiclo
   }));
 
