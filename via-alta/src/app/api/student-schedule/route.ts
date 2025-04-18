@@ -106,6 +106,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Si no hay horario individual, obtener el horario general
+    console.log('Fetching schedule for student:', studentId, 'semester:', semester);
+
     const generalScheduleQuery = `
       SELECT hg.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon
       FROM HorarioGeneral hg
@@ -116,7 +118,15 @@ export async function GET(request: NextRequest) {
       WHERE g.Semestre = $1
       ORDER BY hg.Dia, hg.HoraInicio
     `;
+    
+    console.log('Running query with semester:', semester);
     const generalScheduleResult = await pool.query(generalScheduleQuery, [semester]);
+    
+    console.log('Query result rows:', generalScheduleResult.rows.length);
+    
+    if (generalScheduleResult.rows.length > 0) {
+      console.log('Sample data:', generalScheduleResult.rows[0]);
+    }
 
     return NextResponse.json({ 
       success: true, 

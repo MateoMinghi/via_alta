@@ -67,40 +67,92 @@ export default function Estudiante() {
       }
     }, []);
 
+    useEffect(() => {
+      if (scheduleData) {
+        console.log('Schedule Data:', scheduleData);
+        console.log('Semester:', updatedUser?.semester);
+        console.log('Data length:', scheduleData.length);
+        
+        if (scheduleData.length > 0) {
+          console.log('First item sample:', scheduleData[0]);
+          console.log('First item Dia:', scheduleData[0].dia);
+          console.log('First item MateriaNombre:', scheduleData[0].materianombre);
+          console.log('First item HoraInicio:', scheduleData[0].horainicio);
+          console.log('Property names:', Object.keys(scheduleData[0]));
+        }
+      }
+    }, [scheduleData, updatedUser?.semester]);
+
     // Convertir los datos del horario a un formato más manejable
     const convertToSubjects = (scheduleItems: ScheduleItem[] | null): Subject[] => {
       if (!scheduleItems) return [];
+      
+      console.log('Converting schedule items to subjects:', scheduleItems);
       
       // Agrupar los items por materia y profesor
       const groupedItems: Record<string, ScheduleItem[]> = {};
       
       scheduleItems.forEach(item => {
-        const key = `${item.MateriaNombre}-${item.ProfesorNombre}`;
+        // Check for property case sensitivity issues
+        console.log('Processing item:', item);
+        
+        // PostgreSQL can return column names in lowercase
+        const materiaNombre = item.MateriaNombre || item.materianombre;
+        const profesorNombre = item.ProfesorNombre || item.profesornombre;
+        
+        if (!materiaNombre) {
+          console.warn('Missing material name for item:', item);
+          return;
+        }
+        
+        const key = `${materiaNombre}-${profesorNombre || 'Unknown'}`;
         if (!groupedItems[key]) {
           groupedItems[key] = [];
         }
         groupedItems[key].push(item);
       });
       
+      console.log('Grouped items:', Object.keys(groupedItems));
+      
       // Crear un nuevo array de objetos Subject
       return Object.entries(groupedItems).map(([key, items], index) => {
         const firstItem = items[0];
+        console.log('Creating subject from:', firstItem);
+        
+        // Handle case sensitivity in property names
+        const idGrupo = firstItem.IdGrupo || firstItem.idgrupo;
+        const materiaNombre = firstItem.MateriaNombre || firstItem.materianombre;
+        const profesorNombre = firstItem.ProfesorNombre || firstItem.profesornombre;
+        const tipoSalon = firstItem.TipoSalon || firstItem.tiposalon;
+        const idSalon = firstItem.idsalon;
+        const semestre = firstItem.Semestre || firstItem.semestre;
+        
+        // Handle day and time which might be in HorarioGeneral properties
+        const day = firstItem.Dia || firstItem.dia;
+        const timeStart = firstItem.HoraInicio || firstItem.horainicio;
+        
         return {
-          id: firstItem.IdGrupo || index,
-          title: firstItem.MateriaNombre || `Asignatura ${index + 1}`,
-          professor: firstItem.ProfesorNombre || `Profesor No Asignado`,
-          salon: firstItem.TipoSalon ? `${firstItem.TipoSalon} ${firstItem.idsalon || ''}` : 'Por asignar',
-          semester: firstItem.Semestre || 1,
+          id: idGrupo || index,
+          title: materiaNombre || `Asignatura ${index + 1}`,
+          professor: profesorNombre || `Profesor No Asignado`,
+          salon: tipoSalon ? `${tipoSalon} ${idSalon || ''}` : 'Por asignar',
+          semester: semestre || 1,
           credits: 0, // Créditos no disponibles en la API
-          hours: items.map(item => ({
-            day: item.Dia,
-            time: item.HoraInicio
-          }))
+          hours: items.map(item => {
+            const itemDay = item.Dia || item.dia;
+            const itemTime = item.HoraInicio || item.horainicio;
+            console.log(`Hour for ${materiaNombre}: day=${itemDay}, time=${itemTime}`);
+            return {
+              day: itemDay || '',
+              time: itemTime || ''
+            };
+          })
         };
       });
     };
     
     const filteredSubjects = convertToSubjects(scheduleData);
+    console.log('Filtered Subjects:', filteredSubjects);
 
     const handleConfirmSchedule = async () => {
       // Cambiar el estado del estudiante a inscrito

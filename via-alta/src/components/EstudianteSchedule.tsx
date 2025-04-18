@@ -439,8 +439,8 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
             </div>
             <div className="text-xs w-full truncate mb-1">
               {subject.hours.map((hour, index) => (
-                <span key={`${hour.day}-${hour.time}`} className="mr-1">
-                  {hour.day.substring(0, 3)} {hour.time}
+                <span key={`${subject.id}-${index}`} className="mr-1">
+                  {hour?.day ? hour.day.substring(0, 3) : ''} {hour?.time || ''}
                   {index < subject.hours.length - 1 ? ',' : ''}
                 </span>
               ))}
@@ -540,7 +540,7 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
           isOpen={!!selectedSubject}
           onClose={() => setSelectedSubject(null)}
           onUpdate={(updatedScheduleItem) => {
-            setSelectedSubjects(prev =>
+            setScheduledSubjects(prev =>
               prev.map(s => {
                 if (s.id === selectedSubject.id) {
                   return {
@@ -561,7 +561,7 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
             setSelectedSubject(null);
           }}
           onDelete={(scheduleItem) => {
-            setSelectedSubjects(prev =>
+            setScheduledSubjects(prev =>
               prev.filter(s => s.id !== selectedSubject.id)
             );
             setSelectedSubject(null);
