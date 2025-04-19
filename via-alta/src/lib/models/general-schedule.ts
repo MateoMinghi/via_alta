@@ -18,9 +18,9 @@ class GeneralSchedule {
       await client.query('BEGIN');
       
       // Delete existing schedule if there are new items
-      if (scheduleItems.length > 0) {
-        await client.query('DELETE FROM HorarioGeneral WHERE IdHorarioGeneral = $1', [scheduleItems[0].IdHorarioGeneral]);
-      }
+      //if (scheduleItems.length > 0) {
+        //await client.query('DELETE FROM HorarioGeneral WHERE IdHorarioGeneral = $1', [scheduleItems[0].IdHorarioGeneral]);
+      //}
         // Insert all new schedule items
       const insertQuery = `
         INSERT INTO HorarioGeneral 

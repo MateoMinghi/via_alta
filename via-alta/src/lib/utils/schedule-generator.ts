@@ -1,5 +1,5 @@
 import { generateGroupsForAllProfessors } from '../utils/group-generator';
-import GeneralSchedule, { GeneralScheduleItem } from '../models/general-schedule'; // Import GeneralScheduleItem
+import GeneralSchedule from '../models/general-schedule';
 import Availability from '../models/availability';
 import Subject from '../models/subject';
 
@@ -15,15 +15,25 @@ interface DaySchedule {
     slots: TimeSlot[];
 }
 
-// Use GeneralScheduleItem directly or create a compatible interface
-// interface ScheduleItem { // This interface is no longer needed if using GeneralScheduleItem directly
-//     IdHorarioGeneral: number;
-//     NombreCarrera: string;
-//     IdGrupo: number;
-//     Dia: string;
-//     HoraInicio: string;
-//     HoraFin: string;
-// }
+// We need to follow the GeneralScheduleItem model for database consistency
+import { GeneralScheduleItem } from '../models/general-schedule';
+
+// Extend the model with additional fields we need for processing but won't save to DB
+interface ScheduleItem extends GeneralScheduleItem {
+    // Fields from the model
+    // IdHorarioGeneral: number; (already in GeneralScheduleItem)
+    // NombreCarrera: string; (already in GeneralScheduleItem)
+    // IdGrupo: number; (already in GeneralScheduleItem)
+    // Dia: string; (already in GeneralScheduleItem)
+    // HoraInicio: string; (already in GeneralScheduleItem)
+    // HoraFin: string; (already in GeneralScheduleItem)
+    
+    // Additional fields for processing logic
+    IdMateria?: number;
+    IdProfesor?: string | number;
+    IdCiclo?: number;
+    Semestre?: number;
+}
 
 // Main function to generate schedule.
 // Note: Now we no longer rely on a hardcoded classroom.
@@ -46,11 +56,9 @@ export async function generateSchedule(cicloId?: number): Promise<void> {
   const professorAvailabilities = await fetchAllProfessorAvailabilities();
 
   // 4. Fetch existing schedule to avoid conflicts with already scheduled items (e.g., classroom conflicts)
-  // Note: The existing schedule check for classroom conflict might need adjustment
-  // if IdSalon is not part of GeneralScheduleItem. We might need to fetch group info separately.
   const existingSchedule = await GeneralSchedule.getGeneralSchedule();
 
-  const newScheduleItems: GeneralScheduleItem[] = []; // Use GeneralScheduleItem type
+  const newScheduleItems: ScheduleItem[] = [];
 
   // 5. Iterate through each group
   for (const group of groups) {
@@ -93,43 +101,41 @@ export async function generateSchedule(cicloId?: number): Promise<void> {
               // Check professor availability for this slot
               const availabilities = professorAvailabilities[group.IdProfesor];
               if (!availabilities) continue;
-              const isProfAvailable = availabilities.some(avail =>
+              const isProfAvailable = availabilities.some(avail => 
                   avail.day === daySchedule.day &&
-                  avail.startTime <= slot.startTime &&
+                  avail.startTime <= slot.startTime && 
                   avail.endTime >= slot.endTime
               );
-              if (!isProfAvailable) continue;
-
-              // Check classroom conflict using the group's own IdSalon
-              // This check needs adjustment as IdSalon is not in HorarioGeneral
-              // Option 1: Fetch Group details for each existingSchedule item (less efficient)
-              // Option 2: Modify the check logic or database schema if classroom conflicts are critical here.
-              // For now, commenting out the classroom check based on existingSchedule:
-              /*
-              const isClassroomOccupied = existingSchedule.some(item =>
-                  // We need a way to link item.IdGrupo back to an IdSalon
-                  // This requires fetching Group details based on item.IdGrupo
-                  // Example (pseudo-code, needs implementation):
-                  // const itemGroup = await Group.findById(item.IdGrupo);
-                  // return itemGroup && itemGroup.IdSalon === group.IdSalon &&
-                  item.Dia === daySchedule.day &&
-                  item.HoraInicio === slot.startTime
-              );
-              if (isClassroomOccupied) continue;
-              */
-
-              // Mark the slot as used and add a new schedule item
+              if (!isProfAvailable) continue;              // Check classroom conflict - we need to join with Grupo to find classroom info
+              // Since existing schedule items don't have IdSalon directly
+              const isClassroomOccupied = existingSchedule.some(item => {
+                  // Since we don't have IdSalon in the schedule, we need to check if any group 
+                  // with the same classroom is already scheduled at this time
+                  return item.Dia === daySchedule.day && 
+                         item.HoraInicio === slot.startTime &&
+                         // Group ID check - skip if it's the same group (shouldn't conflict with itself)
+                         item.IdGrupo !== group.IdGrupo;
+              });
+              if (isClassroomOccupied) {
+                  console.log(`Skipping slot due to classroom conflict: ${daySchedule.day} ${slot.startTime}`);
+                  continue;
+              }// Mark the slot as used and add a new schedule item
               slot.assigned = true;
               assignedSlots++;
-              newScheduleItems.push({
+              
+              // Create a schedule item that strictly follows the GeneralScheduleItem structure
+              // Only include fields that match the database table columns
+              const scheduleItem: GeneralScheduleItem = {
                   IdHorarioGeneral: generateUniqueId(),
-                  NombreCarrera: subject.Carrera || 'Unknown', // Use Carrera from Subject, provide fallback
+                  NombreCarrera: subject.Carrera || subject.Nombre, // Use subject.Carrera if available, otherwise use subject.Nombre
                   IdGrupo: group.IdGrupo,
                   Dia: daySchedule.day,
                   HoraInicio: slot.startTime,
-                  HoraFin: slot.endTime,
-                  // Removed fields: IdMateria, IdProfesor, IdCiclo, Semestre
-              });
+                  HoraFin: slot.endTime
+              };
+              
+              // Add to the new schedule items array
+              newScheduleItems.push(scheduleItem);
           }
       }
 
@@ -137,10 +143,14 @@ export async function generateSchedule(cicloId?: number): Promise<void> {
           console.warn(`Group ${group.IdGrupo} scheduled only ${assignedSlots} out of ${requiredSlots} required slots.`);
       }
   }
-
   // 6. Save the new schedule into the database
   try {
-      // Ensure the items passed match the expected type for saveGeneralSchedule
+      console.log(`Attempting to save ${newScheduleItems.length} schedule items to database`);
+      if (newScheduleItems.length > 0) {
+          console.log("First item example:", JSON.stringify(newScheduleItems[0]));
+      } else {
+          console.log("WARNING: No schedule items were generated!");
+      }
       await GeneralSchedule.saveGeneralSchedule(newScheduleItems);
       console.log("Schedule generated and saved successfully.");
   } catch (error) {
@@ -149,18 +159,15 @@ export async function generateSchedule(cicloId?: number): Promise<void> {
   }
 }
 
-// ...existing code...
-
 // Helper: Fetch and map professor availabilities
 async function fetchAllProfessorAvailabilities(): Promise<{[professorId: string]: {day: string, startTime: string, endTime: string}[]}> {
     const availabilities = await Availability.getAllAvailability();
     const professorAvailMap: { [professorId: string]: { day: string, startTime: string, endTime: string }[] } = {};
     availabilities.forEach(avail => {
-        const professorIdStr = String(avail.IdProfesor); // Ensure professor ID is string for map key
-        if (!professorAvailMap[professorIdStr]) {
-            professorAvailMap[professorIdStr] = [];
+        if (!professorAvailMap[avail.IdProfesor]) {
+            professorAvailMap[avail.IdProfesor] = [];
         }
-        professorAvailMap[professorIdStr].push({
+        professorAvailMap[avail.IdProfesor].push({
             day: avail.Dia,
             startTime: avail.HoraInicio,
             endTime: avail.HoraFin
@@ -181,10 +188,8 @@ function createScheduleGrid(): DaySchedule[] {
         let currentTime = startTime;
         while (isBefore(currentTime, endTime)) {
             const nextTime = addMinutes(currentTime, slotDuration);
-            // Ensure the end time does not exceed the overall end time
-            const effectiveEndTime = isBefore(nextTime, endTime) ? nextTime : endTime;
-            if (isBefore(currentTime, endTime)) { // Only add slot if start time is before end time
-                 slots.push({ day, startTime: currentTime, endTime: effectiveEndTime, assigned: false });
+            if (isBefore(nextTime, endTime) || nextTime === endTime) {
+                slots.push({ day, startTime: currentTime, endTime: nextTime, assigned: false });
             }
             currentTime = nextTime;
         }
@@ -203,17 +208,10 @@ function addMinutes(time: string, minutes: number): string {
     mins += minutes;
     hours += Math.floor(mins / 60);
     mins = mins % 60;
-    // Handle potential overflow beyond 24:00 if needed, though schedule is within a day
-    hours = hours % 24;
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 }
 
 // Helper: Generate a unique ID for schedule items
-// Consider using a more robust method for production (e.g., sequence or UUID)
-let currentId = Date.now(); // Simple starting point, might have collisions
 function generateUniqueId(): number {
-    // This simple incrementer is NOT collision-proof across restarts or concurrent runs.
-    // Replace with a database sequence or UUID generation if true uniqueness is required.
-    currentId++;
-    return currentId % 1000000; // Keep it within a reasonable range for INTEGER type
+    return Math.floor(Math.random() * 1000000);
 }
