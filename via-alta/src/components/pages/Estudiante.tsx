@@ -1,102 +1,87 @@
 'use client';
 
+// --- IMPORTACIONES ---
 import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { toast } from 'sonner';
+import { toast } from 'sonner'; 
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CheckCircle, Calendar, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import EstudianteSchedule from '../EstudianteSchedule';
 import { useGetStudentSchedule, ScheduleItem } from '@/api/useGetStudentSchedule';
 import { useScheduleChangeRequest } from '@/api/useScheduleChangeRequest';
+import EstudianteStatusBanner from '../EstudianteStatusBanner';
+import EstudianteHeader from '../EstudianteHeader';
 
+/**
+ * Interfaz que define la estructura de una materia en el horario
+ * Representa una materia con sus datos principales y horarios
+ */
 interface Subject {
-  id: number;
-  title: string;
-  professor: string;
-  credits: number;
-  salon: string;
-  semester: number;
-  hours: { day: string; time: string }[];
+  id: number;          // ID único de la materia
+  title: string;       // Nombre de la materia
+  professor: string;   // Nombre del profesor
+  credits: number;     // Número de créditos
+  salon: string;       // Ubicación/salón
+  semester: number;    // Semestre al que pertenece
+  hours: { day: string; time: string }[]; // Días y horas de clase
 }
 
-// Posibles estados del estudiante
-type StudentStatus = 'no-inscrito' | 'inscrito' | 'cambios-solicitados' | 'cancelado';
-
 export default function Estudiante() {
-    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
-    const [isChangesDialogOpen, setIsChangesDialogOpen] = useState(false);
-    const [isModifyingStatus, setIsModifyingStatus] = useState(false);
-    const [changeReason, setChangeReason] = useState('');
+    // --- ESTADOS ---
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);    // Control para diálogo de confirmación
+    const [isChangesDialogOpen, setIsChangesDialogOpen] = useState(false);    // Control para diálogo de solicitud de cambios
+    const [isModifyingStatus, setIsModifyingStatus] = useState(false);        // Indicador de operación en proceso
+    const [changeReason, setChangeReason] = useState('');                     // Razón de la solicitud de cambios
+    const [comentarios, setComentarios] = useState('');                       // Comentarios guardados del estudiante
+    
+    // --- HOOKS Y CONTEXTO ---
     const router = useRouter();
-    const [comentarios, setComentarios] = useState('');
-
     const { user } = useAuth();
-    // Crear un nuevo objeto de usuario con el semestre por defecto
+    
+    // Aseguramos que el usuario siempre tenga un semestre asignado (valor por defecto: 3)
     const updatedUser = user ? { ...user, semester: user.semester || 3 } : null;
-    console.log('User from context:', updatedUser);
 
-    // Obtener el horario del estudiante
+    // Obtenemos el horario del estudiante desde la API
     const { 
-      result: scheduleData, 
-      loading, 
-      error, 
-      isIndividual,
-      confirmSchedule
+      result: scheduleData,      // Datos del horario
+      loading,                   // Indicador de carga
+      error,                     // Error (si existe)
+      isIndividual,              // Indica si es un horario individual
+      confirmSchedule            // Función para confirmar el horario
     } = useGetStudentSchedule(
-      updatedUser?.id?.toString(), 
+      updatedUser?.id?.toString(),
       updatedUser?.semester
     );
 
+    // Hook para manejar solicitudes de cambios en el horario
     const { 
-      submitChangeRequest, 
-      loading: changeRequestLoading,
-      success: changeRequestSuccess,
-      error: changeRequestError
+      submitChangeRequest,        // Función para enviar solicitud
+      loading: changeRequestLoading,    // Indicador de carga
+      success: changeRequestSuccess,    // Indicador de éxito
+      error: changeRequestError         // Error (si existe)
     } = useScheduleChangeRequest();
 
-    // Verificar si el estudiante tiene comentarios guardados
+    // Al iniciar, recuperamos los comentarios guardados en localStorage
     useEffect(() => {
-      // En un entorno real, esto vendría de una API
-      // Por ahora usamos localStorage para persistencia de la demo
       const savedComments = localStorage.getItem('studentComments');
-      
       if (savedComments) {
-          setComentarios(savedComments);
+        setComentarios(savedComments);
       }
     }, []);
 
-    useEffect(() => {
-      if (scheduleData) {
-        console.log('Schedule Data:', scheduleData);
-        console.log('Semester:', updatedUser?.semester);
-        console.log('Data length:', scheduleData.length);
-        
-        if (scheduleData.length > 0) {
-          console.log('First item sample:', scheduleData[0]);
-          console.log('First item Dia:', scheduleData[0].dia);
-          console.log('First item MateriaNombre:', scheduleData[0].materianombre);
-          console.log('First item HoraInicio:', scheduleData[0].horainicio);
-          console.log('Property names:', Object.keys(scheduleData[0]));
-        }
-      }
-    }, [scheduleData, updatedUser?.semester]);
-
-    // Convertir los datos del horario a un formato más manejable
+    /**
+     * Convierte los datos de la API a un formato más limpio y agrupado 
+     * para mostrar en el horario
+     */
     const convertToSubjects = (scheduleItems: ScheduleItem[] | null): Subject[] => {
       if (!scheduleItems) return [];
       
-      console.log('Converting schedule items to subjects:', scheduleItems);
-      
-      // Agrupar los items por materia y profesor
+      // Agrupamos clases por materia y profesor
       const groupedItems: Record<string, ScheduleItem[]> = {};
       
       scheduleItems.forEach(item => {
-        // Check for property case sensitivity issues
-        console.log('Processing item:', item);
-        
-        // PostgreSQL can return column names in lowercase
+      
         const materiaNombre = item.MateriaNombre || item.materianombre;
         const profesorNombre = item.ProfesorNombre || item.profesornombre;
         
@@ -105,21 +90,19 @@ export default function Estudiante() {
           return;
         }
         
+        // Creamos una clave única para agrupar la misma materia con el mismo profesor
         const key = `${materiaNombre}-${profesorNombre || 'Unknown'}`;
         if (!groupedItems[key]) {
           groupedItems[key] = [];
         }
         groupedItems[key].push(item);
       });
-      
-      console.log('Grouped items:', Object.keys(groupedItems));
-      
-      // Crear un nuevo array de objetos Subject
+
+      // Convertimos los grupos a objetos Subject
       return Object.entries(groupedItems).map(([key, items], index) => {
         const firstItem = items[0];
         console.log('Creating subject from:', firstItem);
         
-        // Handle case sensitivity in property names
         const idGrupo = firstItem.IdGrupo || firstItem.idgrupo;
         const materiaNombre = firstItem.MateriaNombre || firstItem.materianombre;
         const profesorNombre = firstItem.ProfesorNombre || firstItem.profesornombre;
@@ -127,17 +110,17 @@ export default function Estudiante() {
         const idSalon = firstItem.idsalon;
         const semestre = firstItem.Semestre || firstItem.semestre;
         
-        // Handle day and time which might be in HorarioGeneral properties
         const day = firstItem.Dia || firstItem.dia;
         const timeStart = firstItem.HoraInicio || firstItem.horainicio;
         
         return {
           id: idGrupo || index,
           title: materiaNombre || `Asignatura ${index + 1}`,
-          professor: profesorNombre || `Profesor No Asignado`,
+          professor: profesorNombre || 'Profesor No Asignado',
           salon: tipoSalon ? `${tipoSalon} ${idSalon || ''}` : 'Por asignar',
           semester: semestre || 1,
-          credits: 0, // Créditos no disponibles en la API
+          credits: 0, 
+          // Mapeamos todos los horarios para esta materia
           hours: items.map(item => {
             const itemDay = item.Dia || item.dia;
             const itemTime = item.HoraInicio || item.horainicio;
@@ -151,31 +134,34 @@ export default function Estudiante() {
       });
     };
     
+    // Convertimos los datos de la API a nuestro formato Subject
     const filteredSubjects = convertToSubjects(scheduleData);
-    console.log('Filtered Subjects:', filteredSubjects);
 
+    /**
+     * Maneja la confirmación del horario por parte del estudiante
+     */
     const handleConfirmSchedule = async () => {
-      // Cambiar el estado del estudiante a inscrito
       setIsConfirmDialogOpen(false);
       setIsModifyingStatus(true);
       
       try {
         if (!scheduleData) {
-          throw new Error("No schedule data available to confirm");
+          throw new Error("No hay datos de horario disponibles para confirmar");
         }
         
         if (!updatedUser?.id) {
           throw new Error("ID de estudiante no disponible");
         }
         
-        // Usar testMode para pruebas
-        // En producción, esto debería ser false
+        // Llamamos a la API para confirmar el horario
         const result = await confirmSchedule(scheduleData, true);
         
         if (result?.success) {
           if (result.testMode) {
+            // Si es modo de prueba (desarrollo)
             toast.success('Horario guardado en modo de prueba (puedes seguir haciendo cambios)');
           } else {
+            // Confirmación exitosa en producción
             localStorage.setItem('studentStatus', 'inscrito');
             localStorage.removeItem('studentComments');
             setComentarios('');
@@ -186,18 +172,22 @@ export default function Estudiante() {
           throw new Error(result?.message || "Error al confirmar horario");
         }
       } catch (error) {
-        console.error('Error confirming schedule:', error);
+        console.error('Error al confirmar horario:', error);
         toast.error(`Error al confirmar el horario: ${error instanceof Error ? error.message : 'Error desconocido'}`);
       } finally {
         setIsModifyingStatus(false);
       }
     };
 
+    /**
+     * Maneja el envío de solicitud de cambios al coordinador
+     */
     const handleRequestChanges = async () => {
       setIsChangesDialogOpen(false);
       setIsModifyingStatus(true);
       
       try {
+        // Validamos que haya un motivo para el cambio
         if (!changeReason.trim()) {
           toast.error('Debes proporcionar un motivo para solicitar cambios');
           setIsModifyingStatus(false);
@@ -208,7 +198,7 @@ export default function Estudiante() {
           throw new Error("ID de estudiante no disponible");
         }
         
-        // Subir la solicitud de cambios
+        // Enviamos la solicitud a la API
         const result = await submitChangeRequest(
           updatedUser.id.toString(),
           changeReason
@@ -218,19 +208,20 @@ export default function Estudiante() {
           throw new Error("Error al enviar la solicitud de cambios");
         }
         
-        // Aactualizar el estado del estudiante
+        // Guardamos los comentarios para mostrarlos en el banner
         setComentarios(changeReason);
         
         toast.success('Solicitud de cambios enviada correctamente');
         router.push('/estudiante/confirmacion');
       } catch (error) {
-        console.error('Error requesting changes:', error);
+        console.error('Error al solicitar cambios:', error);
         toast.error(error instanceof Error ? error.message : 'Error al enviar la solicitud de cambios');
       } finally {
         setIsModifyingStatus(false);
       }
     };
 
+    // --- RENDERIZADO CONDICIONAL: CARGA Y ERROR ---
     if (loading) {
       return (
         <div className="p-4">
@@ -247,95 +238,30 @@ export default function Estudiante() {
       );
     }
 
+    // --- COMPONENTE PRINCIPAL ---
     return (
       <div className="p-4">
-        {user && user.status !== 'no-inscrito' && (
-          <div className={`mb-6 p-4 rounded-lg border ${
-            user.status === 'inscrito' 
-              ? 'bg-green-50 border-green-200' 
-              : 'bg-yellow-50 border-yellow-200'
-          }`}>
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                {user.status === 'inscrito' ? (
-                  <CheckCircle className="h-6 w-6 text-green-500" />
-                ) : (
-                  <AlertCircle className="h-6 w-6 text-yellow-500" />
-                )}
-                
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    {user.status === 'inscrito' 
-                      ? 'Horario Confirmado' 
-                      : 'Cambios Solicitados'}
-                  </h2>
-                  <p className="text-sm">
-                    {user.status === 'inscrito'
-                      ? 'Tu horario ha sido confirmado exitosamente.'
-                      : 'Has solicitado cambios en tu horario.'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {user.status === 'inscrito' ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
-                    onClick={() => setIsChangesDialogOpen(true)}
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Solicitar Cambios
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-green-500 text-green-600 hover:bg-green-50"
-                    onClick={() => setIsConfirmDialogOpen(true)}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Confirmar Horario
-                  </Button>
-                )}
-                
-                <Button
-                  size="sm"
-                  className="bg-red-700 hover:bg-red-800"
-                  onClick={() => router.push('/estudiante/confirmacion')}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Ver Confirmación
-                </Button>
-              </div>
-            </div>
-            
-            {user.status === 'cambios-solicitados' && comentarios && (
-              <div className="mt-3 bg-white p-3 rounded border border-yellow-200">
-                <p className="text-sm font-semibold mb-1">Motivo de tu solicitud:</p>
-                <p className="text-sm">{comentarios}</p>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Encabezado con información del estudiante */}
+        <EstudianteHeader />
+        
+        {/* Banner que muestra el estado de inscripción */}
+        {user && <EstudianteStatusBanner status={user.status} comments={comentarios}/>}
 
+        {/* Sección informativa */}
         <div className="bg-white p-4 rounded-md mb-6 border border-gray-200">
           <h1 className="text-2xl font-bold text-red-700 mb-2">
-            {isIndividual ? 'Tu Horario Confirmado' : 'Propuesta de Horario'}
+            Propuesta de Horario
           </h1>
           <p className="text-gray-700">
             Estudiante: <span className="font-semibold">{user ? `${user.name} ${user.first_surname} ${user.second_surname || ''}` : 'Cargando...'}</span> | 
-            Semestre: <span className="font-semibold">{user?.semester || 'No disponible'}</span>
-            {isIndividual && <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">Confirmado</span>}
+            Semestre: <span className="font-semibold">{updatedUser?.semester || 'No disponible'}</span>
           </p>
           <p className="text-gray-700 mt-2">
-            {isIndividual 
-              ? 'Este es tu horario confirmado para el semestre actual.' 
-              : 'A continuación se muestra el horario propuesto para tu semestre. Por favor, revísalo cuidadosamente y confírmalo si estás de acuerdo. Si requieres cambios, utiliza la opción "Solicitar Cambios".'}
+            A continuación se muestra el horario propuesto para tu semestre. Por favor, revísalo cuidadosamente y confírmalo si estás de acuerdo. Si requieres cambios, utiliza la opción "Solicitar Cambios"
           </p>
         </div>
-        
+
+        {/* Horario del estudiante o mensaje si no hay materias */}
         {filteredSubjects.length > 0 ? (
           <EstudianteSchedule subjects={filteredSubjects} />
         ) : (
@@ -343,9 +269,11 @@ export default function Estudiante() {
             No hay materias disponibles para tu semestre. Contacta al coordinador académico.
           </p>
         )}
-        
-        {!isIndividual && (
-          <div className="flex flex-col sm:flex-row justify-between gap-8 py-8">
+
+        {/* Botones de acción */}
+        <div className="flex flex-col sm:flex-row justify-between gap-8 py-8">
+          {/* Botón de confirmar o mensaje de confirmado */}
+          {user && !(user.status === 'inscrito') ? (
             <Button 
               className="w-full font-bold bg-red-700 hover:bg-red-800"
               onClick={() => setIsConfirmDialogOpen(true)}
@@ -353,18 +281,26 @@ export default function Estudiante() {
             >
               Confirmar Horario
             </Button>
-            
-            <Button 
-              className="w-full border-2 border-red-700 text-red-700 hover:bg-red-50 font-bold" 
-              variant="outline"
-              onClick={() => setIsChangesDialogOpen(true)}
-              disabled={filteredSubjects.length === 0 || isModifyingStatus}
-            >
-              Solicitar Cambios
-            </Button>
-          </div>
-        )}
-        
+          ) : (
+            <div className="w-full text-center p-2 bg-green-50 border-2 border-green-700 rounded-full">
+              <p className="text-green-700 font-semibold">
+                Ya has confirmado tu horario.
+              </p>
+            </div>
+          )}
+          
+          {/* Botón para solicitar cambios */}
+          <Button 
+            className="w-full border-2 border-red-700 text-red-700 hover:bg-red-50 font-bold" 
+            variant="outline"
+            onClick={() => setIsChangesDialogOpen(true)}
+            disabled={filteredSubjects.length === 0 || isModifyingStatus}
+          >
+            Solicitar Cambios
+          </Button>
+        </div>
+  
+        {/* Diálogo de confirmación */}
         <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -389,6 +325,7 @@ export default function Estudiante() {
           </DialogContent>
         </Dialog>
         
+        {/* Diálogo para solicitar cambios */}
         <Dialog open={isChangesDialogOpen} onOpenChange={setIsChangesDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>

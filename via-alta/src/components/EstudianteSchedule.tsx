@@ -1,82 +1,89 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Lock, Plus, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import SubjectSearch from './SubjectSearch';
 import { toast } from 'sonner';
-import { IndividualSubject } from '@/components/pages/horario-general/IndividualSubject';
 
-// Define la interfaz para una materia
-// Una materia incluye id, título, salón, profesor, créditos, semestre, horarios y si es obligatoria
+/**
+ * Interfaz que define la estructura de una materia
+ */
 interface Subject {
-  id: number;
-  title: string;
-  salon: string;
-  professor: string;
-  credits: number;
-  semester: number;
-  hours: { day: string; time: string }[];
-  isObligatory?: boolean; // Bandera para indicar si la materia es obligatoria (no se puede mover)
+  id: number;                            // Identificador único de la materia
+  title: string;                         // Nombre de la materia
+  salon: string;                         // Salón donde se imparte
+  professor: string;                     // Profesor que la imparte
+  credits: number;                       // Créditos que vale la materia
+  semester: number;                      // Semestre al que pertenece
+  hours: { day: string; time: string }[];// Horarios de la materia (día y hora)
+  isObligatory?: boolean;                // Indica si es obligatoria
 }
 
-// Define las propiedades que recibe el componente EstudianteSchedule
-// Recibe un arreglo de materias (subjects)
+/**
+ * Props para el componente principal
+ */
 interface SubjectsProps {
-  subjects: Subject[];
+  subjects: Subject[];                   // Lista de materias disponibles
+  isRegular?: boolean;                   // Indica si el estudiante es regular
 }
 
+/**
+ * Props para celdas arrastrables en el horario
+ */
 interface DraggableCellProps {
-  subject: Subject;
-  occurrence: { day: string; time: string };
-  widthClass?: string;
+  subject: Subject;                      // Materia a mostrar en la celda
+  occurrence: { day: string; time: string }; // Día y hora específicos
+  widthClass?: string;                   // Clase CSS para el ancho
 }
 
-// Interfaz para tarjeta de materia arrastrable
+/**
+ * Props para tarjetas de materias arrastrables
+ */
 interface DraggableSubjectCardProps {
-  subject: Subject;
-  onAdd: (subject: Subject) => void;
+  subject: Subject;                      // Materia a mostrar en la tarjeta
+  onAdd: (subject: Subject) => void;     // Función para agregar la materia
 }
 
-// Constantes para los días de la semana y los intervalos de tiempo
+// Días de la semana para mostrar en el horario
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+// Franjas horarias disponibles en el horario (formato 24h)
 const timeSlots = [
   '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00',
   '14:30', '15:00', '15:30', '16:00'
-];
+];  
 
-// Componente principal para gestionar el horario del estudiante
-// Recibe las materias como parámetro y permite visualizarlas, seleccionarlas y moverlas
-export default function EstudianteSchedule({ subjects }: SubjectsProps) {
-  // Divide las materias de entrada en obligatorias y disponibles
-  const [obligatorySubjects, setObligatorySubjects] = useState<Subject[]>([]);
-  const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
-  const [scheduledSubjects, setScheduledSubjects] = useState<Subject[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+export default function EstudianteSchedule({ subjects, isRegular = false }: SubjectsProps) {
+  // Estados para manejar los diferentes tipos de materias
+  const [obligatorySubjects, setObligatorySubjects] = useState<Subject[]>([]); // Materias obligatorias
+  const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);   // Materias disponibles para elegir
+  const [scheduledSubjects, setScheduledSubjects] = useState<Subject[]>([]);   // Materias en horario actual
+  const [isIrregularStudent, setIsIrregularStudent] = useState<boolean>(!isRegular); // Estado de estudiante (regular/irregular)
 
-  // Inicializa las materias cuando se monta el componente
+  // Inicializar datos cuando cambian las materias recibidas
   useEffect(() => {
-    // Marca algunas materias como obligatorias (lógica de ejemplo - puedes personalizarla)
-    const obligatory = subjects.filter((s, i) => i % 3 === 0).map(s => ({...s, isObligatory: true}));
-    const available = subjects.filter((s, i) => i % 3 !== 0);
+    // Separar materias obligatorias (primeras 4) y disponibles (resto)
+    const obligatory = subjects.slice(0, 4).map(s => ({...s, isObligatory: true}));
+    const available = subjects.slice(4);
     
     setObligatorySubjects(obligatory);
     setAvailableSubjects(available);
-    // Inicialmente, todas las materias obligatorias están programadas
-    setScheduledSubjects([...obligatory]);
+    setScheduledSubjects([...obligatory]); // Iniciar horario con materias obligatorias
+    
+    // Si hay materias disponibles, el estudiante es irregular
+    setIsIrregularStudent(available.length > 0);
   }, [subjects]);
 
-  // Función para manejar la selección de una materia disponible y agregarla al horario
-  // Las materias deben mantener sus horas originales cuando se agregan al horario
+  /**
+   * Agrega una materia al horario si no está ya incluida
+   */
   const handleSubjectSelect = (subject: Subject) => {
-    // Verifica si la materia ya está programada
     if (!scheduledSubjects.some((s) => s.id === subject.id)) {
-      // Nos aseguramos de mantener las horas originales de la materia
       setScheduledSubjects([...scheduledSubjects, subject]);
       toast.success(`Materia "${subject.title}" agregada al horario`);
     } else {
@@ -84,11 +91,12 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
     }
   };
 
-  // Función para eliminar una materia del horario (solo las no obligatorias)
+  /**
+   * Elimina una materia del horario, excepto si es obligatoria
+   */
   const removeScheduledSubject = (subjectId: number) => {
     const subjectToRemove = scheduledSubjects.find(s => s.id === subjectId);
     
-    // Si la materia es obligatoria, muestra un mensaje y no la elimina
     if (subjectToRemove?.isObligatory) {
       toast.error("No se pueden eliminar las materias obligatorias");
       return;
@@ -97,54 +105,67 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
     setScheduledSubjects(scheduledSubjects.filter(s => s.id !== subjectId));
   };
 
-  // Función para encontrar una materia en un día y hora específicos
-  // Busca en todas las materias programadas (obligatorias y seleccionadas)
+  /**
+   * Encuentra una materia programada en un día y hora específicos
+   */
   const findSubject = (day: string, time: string) => {
     return scheduledSubjects.find((subject) => subject.hours.some(
       (hour) => hour.day.toLowerCase() === day.toLowerCase() && hour.time === time,
     ));
   };
 
+  /**
+   * Normaliza los nombres de los días para manejar diferentes formatos
+   */
   function normalizeDay(day: string): string {
     switch (day.toLowerCase()) {
       case 'monday':
-      case 'Lun':
+      case 'lun':
       case 'lun': 
         return 'Lunes';
       case 'tuesday':
-      case 'Mar':
+      case 'mar':
         return 'Martes';
       case 'wednesday':
-      case 'Mié':
+      case 'mié':
         return 'Miércoles';
       case 'thursday':
-      case 'Jue':
+      case 'jue':
         return 'Jueves';
       case 'friday':
-      case 'Vie':
+      case 'vie':
         return 'Viernes';    
       default:
         return day;
     }
   }
 
-  // Funciones auxiliares para convertir tiempo a minutos y viceversa
+  /**
+   * Convierte una hora en formato HH:MM a minutos para cálculos
+   */
   function timeToMinutes(time: string): number {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
   }
   
+  /**
+   * Convierte minutos a formato de hora HH:MM
+   */
   function minutesToTime(minutes: number): string {
     const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
     const mm = String(minutes % 60).padStart(2, '0');
     return `${hh}:${mm}`;
   }
 
-  // Crea una representación matricial del horario
-  // Agrupa las materias por día y hora en una estructura de matriz
+  /**
+   * Crea y mantiene actualizada la matriz que representa el horario
+   * La estructura es: [hora][día] = [lista de materias]
+   */
   const scheduleMatrix = useMemo(() => {
+    // Inicializar matriz vacía
     const matrix: { [key: string]: { [key: string]: Subject[] } } = {};
   
+    // Crear estructura de la matriz para todos los horarios y días
     timeSlots.forEach(time => {
       matrix[time] = {};
       daysOfWeek.forEach(day => {
@@ -152,15 +173,16 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
       });
     });
   
-    // Usa las scheduledSubjects que incluyen tanto materias obligatorias como disponibles seleccionadas
+    // Llenar la matriz con las materias programadas
     scheduledSubjects.forEach(subject => {
       if (!subject?.hours) return;
       subject.hours.forEach(hour => {
         if (!hour?.time || !hour.day) return;
         const normalizedDay = normalizeDay(hour.day);
         const start = timeToMinutes(hour.time);
-        const end = start + 60; // Asumiendo clases de 1 hora
+        const end = start + 60; // Duración de una clase (1 hora)
   
+        // Agregar la materia a cada slot de 30 minutos que ocupa
         for (let t = start; t < end; t += 30) {
           const slot = minutesToTime(t);
           if (matrix[slot]?.[normalizedDay]) {
@@ -173,21 +195,24 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
     return matrix;
   }, [scheduledSubjects]);
 
-  // Función para mover una materia a un nuevo día y hora
-  // Actualiza el estado de las materias seleccionadas y muestra un mensaje de éxito
+  /**
+   * Mueve una materia de un horario a otro
+   * Solo permite mover materias que no son obligatorias
+   */
   const moveSubject = (
     dragItem: { subject: Subject; occurrence: { day: string; time: string } },
     toDay: string,
     toTime: string
   ) => {
     const { subject, occurrence } = dragItem;
-    
-    // Verifica si la materia es obligatoria - no se pueden mover materias obligatorias
+
+    // No permitir mover materias obligatorias
     if (subject.isObligatory) {
       toast.error(`No se puede mover "${subject.title}" porque es una materia obligatoria`);
       return;
     }
     
+    // Actualizar el horario de la materia
     const updatedSubjects = scheduledSubjects.map(s => {
       if (s.id === subject.id) {
         return {
@@ -203,34 +228,62 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
     });
     setScheduledSubjects(updatedSubjects);
     
-    toast.success(`Moved ${subject.title} from ${occurrence.day} ${occurrence.time} to ${toDay} at ${toTime}`);
+    toast.success(`Movida ${subject.title} de ${occurrence.day} ${occurrence.time} a ${toDay} a las ${toTime}`);
   };
 
-  const getSubjectColor = (subjectTitle: string): string => {
-    const subjectColors: { [key: string]: string } = {
-        'Matemáticas': 'text-blue-500',
-        'Inglés': 'text-green-500',
-        'Ciencias': 'text-yellow-500',
-        'Historia': 'text-purple-500',
-        'Arte': 'text-pink-500',
-    };
-    return subjectColors[subjectTitle] || 'text-red-700'; // default color
-};
+  /**
+   * Asigna colores consistentes a cada materia basado en su título
+   * Usa un algoritmo hash para garantizar que cada materia tenga siempre el mismo color
+   */
+  const getSubjectColor = (subjectTitle: string): { text: string, border: string, bg: string } => {
+    const colorOptions = [
+      { text: 'text-blue-700', border: 'border-blue-400', bg: 'bg-blue-50' },
+      { text: 'text-green-700', border: 'border-green-400', bg: 'bg-green-50' },
+      { text: 'text-amber-700', border: 'border-amber-400', bg: 'bg-amber-50' },
+      { text: 'text-purple-700', border: 'border-purple-400', bg: 'bg-purple-50' },
+      { text: 'text-pink-700', border: 'border-pink-400', bg: 'bg-pink-50' },
+      { text: 'text-indigo-700', border: 'border-indigo-400', bg: 'bg-indigo-50' },
+      { text: 'text-rose-700', border: 'border-rose-400', bg: 'bg-rose-50' },
+      { text: 'text-teal-700', border: 'border-teal-400', bg: 'bg-teal-50' },
+      { text: 'text-cyan-700', border: 'border-cyan-400', bg: 'bg-cyan-50' },
+      { text: 'text-orange-700', border: 'border-orange-400', bg: 'bg-orange-50' },
+      { text: 'text-lime-700', border: 'border-lime-400', bg: 'bg-lime-50' },
+      { text: 'text-emerald-700', border: 'border-emerald-400', bg: 'bg-emerald-50' },
+      { text: 'text-sky-700', border: 'border-sky-400', bg: 'bg-sky-50' },
+      { text: 'text-violet-700', border: 'border-violet-400', bg: 'bg-violet-50' },
+      { text: 'text-fuchsia-700', border: 'border-fuchsia-400', bg: 'bg-fuchsia-50' },
+      { text: 'text-red-700', border: 'border-red-400', bg: 'bg-red-50' },
+    ];
+    
+    // Crear un hash único basado en el título de la materia
+    let hashCode = 0;
+    for (let i = 0; i < subjectTitle.length; i++) {
+      hashCode = ((hashCode << 5) - hashCode) + subjectTitle.charCodeAt(i);
+      hashCode = hashCode & hashCode; 
+    }
+    
+    // Usar el hash para seleccionar un color
+    const colorIndex = Math.abs(hashCode) % colorOptions.length;
+    return colorOptions[colorIndex];
+  };
 
-  // Componente para celdas arrastrables
-  // Permite arrastrar materias dentro del horario
+  /**
+   * Celda arrastrable que representa una materia en el horario
+   * Permite mover las materias no obligatorias
+   */
   const DraggableCell = ({ subject, occurrence, widthClass }: DraggableCellProps) => {
+    // Configurar funcionalidad de arrastre con react-dnd
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'subject',
-      // send both the subject and the occurrence details for this cell
       item: { subject, occurrence },
-      // Disable dragging for obligatory subjects
-      canDrag: !subject.isObligatory,
+      canDrag: !subject.isObligatory, // Solo se pueden arrastrar materias no obligatorias
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
     }));
 
+    const colors = getSubjectColor(subject.title);
+    
     return (
       <div
         ref={(node) => {
@@ -240,18 +293,30 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
         }}
         className={cn(
           'p-1 text-xs rounded-md border shadow-sm h-full',
-          'flex justify-center items-center',
-          'border-l-4 border-blue-400 bg-blue-50',
-          !subject.isObligatory && 'cursor-pointer hover:shadow-md transition-shadow bg-opacity-90',
-          subject.isObligatory && 'opacity-60',
-          isDragging && 'opacity-50',
+          'flex justify-between items-center',
+          `border-l-4 ${colors.border}`,
+          !subject.isObligatory && `${colors.bg} cursor-grab hover:shadow-md transition-all bg-opacity-90 hover:bg-opacity-100`,
+          subject.isObligatory && isIrregularStudent && `${colors.bg} opacity-70`,
+          subject.isObligatory && !isIrregularStudent && `${colors.bg}`,
+          isDragging && 'opacity-50 cursor-grabbing scale-[0.97]',
           widthClass
         )}
-        onClick={() => setSelectedSubject(subject)}
       >
+        {/* Icono de arrastre para materias no obligatorias */}
+        {!subject.isObligatory && (
+          <div className="flex-shrink-0 mr-1" title="Arrastra para mover o remover">
+            <GripVertical className="h-3 w-3 text-gray-400" />
+          </div>
+        )}
+        {/* Icono de candado para materias obligatorias */}
+        {subject.isObligatory && isIrregularStudent && (
+          <div className="flex-shrink-0 mr-1" title="Materia obligatoria">
+            <Lock className="h-3 w-3 text-gray-400" />
+          </div>
+        )}
         <div className={cn(
-          'truncate font-medium pl-1', 
-          getSubjectColor(subject.title)
+          'truncate font-medium flex-1', 
+          colors.text
         )}>
           {subject.title}
         </div>
@@ -259,32 +324,33 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
     );  
   };
 
-  // Componente para celdas dropeables
-  // Permite soltar materias en un día y hora específicos, pero respeta las horas fijas
+  /**
+   * Celda del horario que puede recibir materias arrastradas
+   * Muestra las materias programadas en ese horario específico
+   */
   const Cell = ({ day, time }: { day: string; time: string }) => {
+    // Obtener materias programadas en este horario
     const items = scheduleMatrix[time][day];
+    
+    // Configurar funcionalidad para recibir elementos arrastrados
     const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
       accept: ['subject', 'available-subject'],
       canDrop: (dragItem: { subject: Subject; occurrence?: { day: string; time: string }; type?: string }) => {
-        // For available subjects, check if the time matches any of the subject's predefined hours
         if (dragItem.type === 'available-subject') {
-          // If the subject has predefined hours, only allow dropping in those time slots
-          return true; // We'll handle this in the drop function
+          return true; // Siempre se pueden agregar materias disponibles
         }
-        
-        // For subjects already on the schedule
         return true;
       },
       drop: (dragItem: { subject: Subject; occurrence?: { day: string; time: string }; type?: string }) => {
+        // Si arrastramos desde la lista de disponibles, agregamos la materia
         if (dragItem.type === 'available-subject') {
-          // When dropping an available subject onto the schedule, add it with its original hours
           const subject = dragItem.subject;
           handleSubjectSelect(subject);
           
-          // Show a message explaining the fixed hours
           toast.info(`La materia "${subject.title}" se ha agregado con sus horarios predefinidos`);
-        } else if (dragItem.occurrence) {
-          // When moving a subject already on the schedule
+        } 
+        // Si arrastramos desde otra celda, movemos la materia
+        else if (dragItem.occurrence) {
           moveSubject(dragItem as { subject: Subject; occurrence: { day: string; time: string } }, day, time);
         }
       },
@@ -294,7 +360,9 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
       }),
     }));
 
-    // Calculate width class based on number of items in the cell
+    /**
+     * Calcula el ancho de cada materia según cuántas hay en la misma celda
+     */
     const getWidthClass = (total: number, index: number) => {
       switch(total) {
         case 1: return 'w-full';
@@ -318,11 +386,12 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
         )}
       >
         <div className="flex flex-row gap-0.5 h-full">
+          {/* Renderizar cada materia en esta celda */}
           {items.map((item, index) => (
             <DraggableCell 
               key={`${item.professor}-${item.title}-${index}`}
               subject={item}
-              occurrence={{ day, time }} // pass the cell's day/time as the occurrence
+              occurrence={{ day, time }}
               widthClass={getWidthClass(items.length, index)}
             />
           ))}
@@ -331,7 +400,96 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
     );
   };
 
-  // Component for draggable subject card - allows subjects to be dragged from the available list
+  /**
+   * Componente que muestra una tarjeta para las materias programadas en el horario
+   * Permite arrastrar materias no obligatorias para eliminarlas o modificar su horario
+   */
+  const DraggableScheduledSubjectCard = ({ subject, onRemove }: { subject: Subject, onRemove: (id: number) => void }) => {
+    // Configurar la funcionalidad de arrastre
+    const [{ isDragging }, dragRef] = useDrag(() => ({
+      type: 'scheduled-subject',
+      item: { subject, type: 'scheduled-subject' },
+      canDrag: !subject.isObligatory, // Solo materias no obligatorias
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging(),
+      }),
+    }));
+
+    const colors = getSubjectColor(subject.title);
+    
+    return (
+      <div 
+        ref={(node) => {
+          if (typeof dragRef === 'function' && !subject.isObligatory) {
+            dragRef(node);
+          }
+        }}
+        className={cn(
+          "flex flex-col items-center p-3 border rounded-lg border-l-4 bg-white",
+          subject.isObligatory && isIrregularStudent ? `opacity-70 ${colors.border}` : `${colors.border}`,
+          !subject.isObligatory && "hover:shadow-md transition-all cursor-grab",
+          isDragging && "opacity-50 cursor-grabbing scale-[0.97]"
+        )}
+      >
+        <div className="flex flex-row justify-between w-full">
+          <div className="flex items-center gap-2">
+            {/* Icono de arrastre o candado según corresponda */}
+            {!subject.isObligatory && (
+              <GripVertical className="h-4 w-4 text-gray-400" />
+            )}
+            {subject.isObligatory && isIrregularStudent && (
+              <Lock className="h-4 w-4 text-gray-500" />
+            )}
+            <div className="pb-1 w-full">
+              <p className={cn("font-bold text-base truncate", colors.text)}>{subject.title}</p>
+              <p className="text-sm font-medium truncate mt-1">{subject.professor}</p>
+              <p className="text-xs text-gray-600 mt-0.5"><span className="font-medium">Salón:</span> {subject.salon}</p>
+            </div>
+          </div>
+          {/* Botón para eliminar materias no obligatorias */}
+          {!subject.isObligatory && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(subject.id)}
+              className="h-6 w-6 text-red-500"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+        
+        {/* Sección de horarios de la materia */}
+        <div className="text-xs w-full pt-1 border-t border-gray-200">
+          <div className="font-medium text-gray-700 mb-0.5">Horarios de clase:</div>
+          <div className="flex flex-wrap gap-1">
+            {subject.hours.map((hour, index) => (
+              <span 
+                key={`${hour.day}-${hour.time}`} 
+                className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs"
+              >
+                <span className="font-medium">{hour.day.substring(0, 3)}</span>&nbsp;&nbsp;{hour.time}
+              </span>
+            ))}
+          </div>
+        </div>
+        
+        {/* Información adicional sobre la materia */}
+        <div className="w-full flex flex-wrap gap-1 mt-2 pt-2 border-t border-gray-200">
+          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs inline-flex items-center">
+            <span className="font-medium mr-1">Créditos:</span> {subject.credits}
+          </span>
+          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs inline-flex items-center">
+            <span className="font-medium mr-1">Semestre:</span> {subject.semester}º
+          </span>
+          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs inline-flex items-center">
+            <span className="font-medium mr-1">Horas/Semana:</span> {subject.hours.length}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   const DraggableSubjectCard = ({ subject, onAdd }: DraggableSubjectCardProps) => {
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'available-subject',
@@ -341,51 +499,151 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
       }),
     }));
 
+    const colors = getSubjectColor(subject.title);
+
     return (
       <Card 
-        ref={dragRef}
+        ref={(node) => {
+          if (typeof dragRef === 'function') {
+            dragRef(node);
+          }
+        }}
         className={cn(
-          "p-3 flex justify-between items-center cursor-move",
-          isDragging && "opacity-50"
+          `p-3 border-l-4 ${colors.border} bg-white`,
+          !subject.isObligatory && "cursor-grab hover:shadow-md transition-all",
+          subject.isObligatory && "opacity-70",
+          isDragging && "opacity-50 cursor-grabbing",
         )}
       >
-        <div className="flex items-center gap-2">
-          <GripVertical className="h-4 w-4 text-gray-400" />
-          <div>
-            <p className="font-medium">{subject.title}</p>
-            <p className="text-xs text-muted-foreground">
-              {subject.professor} • {subject.credits} créditos
-            </p>
+        <div className="flex justify-between">
+          <div className="flex items-center gap-2">
+            {subject.isObligatory ? (
+              <Lock className="h-4 w-4 text-gray-500" />
+            ) : (
+              <GripVertical className="h-4 w-4 text-gray-400" />
+            )}
+            <div className="pb-1 w-full">
+              <p className={cn("font-bold text-base truncate", colors.text)}>{subject.title}</p>
+              <p className="text-sm font-medium truncate mt-1">{subject.professor}</p>
+              <p className="text-xs text-gray-600 mt-0.5"><span className="font-medium">Salón:</span> {subject.salon}</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleSubjectSelect(subject)}
+            className="h-8 w-8 text-green-500 -mr-1"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <div className="text-xs w-full pt-1 border-t border-gray-200 mt-2">
+          <div className="font-medium text-gray-700 mb-0.5">Horarios disponibles:</div>
+          <div className="flex flex-wrap gap-1">
+            {subject.hours.map((hour, index) => (
+              <span 
+                key={`${hour.day}-${hour.time}`} 
+                className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs"
+              >
+                <span className="font-medium">{hour.day.substring(0, 3)}</span>&nbsp;&nbsp;{hour.time}
+              </span>
+            ))}
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => handleSubjectSelect(subject)}
-          className="h-8 w-8 text-green-500"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        
+        <div className="w-full flex flex-wrap gap-1 mt-2 pt-2 border-t border-gray-200">
+          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs inline-flex items-center">
+            <span className="font-medium mr-1">Créditos:</span> {subject.credits}
+          </span>
+          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs inline-flex items-center">
+            <span className="font-medium mr-1">Semestre:</span> {subject.semester}º
+          </span>
+          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs inline-flex items-center">
+            <span className="font-medium mr-1">Horas/Semana:</span> {subject.hours.length}
+          </span>
+        </div>
       </Card>
     );
   };
 
-  // Droppable component for the subject list that accepts dragged subjects
-  const DroppableSubjectList = ({ 
+  const ScheduledSubjectsDropArea = ({ 
     subjects,
-    onRemove,
     onAddSubject
   }: { 
     subjects: Subject[],
-    onRemove: (id: number) => void,
     onAddSubject: (subject: Subject) => void
   }) => {
-    // Make the list area droppable for available subjects
+    // Configurar el área para recibir materias arrastradas
     const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
-      accept: 'available-subject',
-      drop: (item: { subject: Subject, type: string }) => {
-        if (item.type === 'available-subject') {
-          onAddSubject(item.subject);
+      accept: 'available-subject', 
+      drop: (item: { subject: Subject; type?: string }) => {
+        onAddSubject(item.subject);
+        toast.success(`Materia "${item.subject.title}" agregada al horario`);
+      },
+      collect: (monitor) => ({
+        isOver: monitor.isOver(),
+        canDrop: monitor.canDrop(),
+      }),
+    }));
+
+    return (
+      <div 
+        ref={(node) => {
+          if (typeof dropRef === 'function') {
+            dropRef(node);
+          }
+        }}
+        className={cn(
+          "space-y-2",
+          isOver && canDrop && "bg-blue-50 rounded-lg border-2 border-dashed border-blue-300 animate-pulse-green p-2",
+          !subjects.length && "flex items-center justify-center h-[100px] text-gray-400 p-2"
+        )}
+      >
+        {/* Mensajes informativos según el estado */}
+        {!subjects.length && isOver && canDrop && (
+          <p>Suelta aquí para agregar al horario</p>
+        )}
+        {!subjects.length && !isOver && (
+          <p>No hay materias en el horario</p>
+        )}
+        {isOver && canDrop && subjects.length > 0 && (
+          <div className="py-2 text-xs text-blue-600 text-center">
+            Suelta aquí para agregar esta materia al horario
+          </div>
+        )}
+        {/* Lista de materias programadas */}
+        {subjects.map((subject) => (
+          <DraggableScheduledSubjectCard key={subject.id} subject={subject} onRemove={removeScheduledSubject} />
+        ))}
+      </div>
+    );
+  };
+
+  /**
+   * Área donde se muestran las materias disponibles para elegir
+   */
+  const AvailableSubjectsDropArea = ({ 
+    subjects,
+    onAddSubject,
+    onRemoveFromSchedule
+  }: {
+    subjects: Subject[],
+    onAddSubject: (subject: Subject) => void,
+    onRemoveFromSchedule: (id: number) => void
+  }) => {
+    // Configurar el área para recibir materias arrastradas desde el horario
+    const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
+      accept: ['subject', 'scheduled-subject'], 
+      canDrop: (item: { subject: Subject; type?: string }) => {
+        return !item.subject.isObligatory;
+      },
+      drop: (item: { subject: Subject; occurrence?: { day: string; time: string }; type?: string }) => {
+        if (!item.subject.isObligatory) {
+          onRemoveFromSchedule(item.subject.id);
+          toast.success(`Materia "${item.subject.title}" removida del horario`);
+        } else {
+          toast.error(`No se puede mover "${item.subject.title}" porque es una materia obligatoria`);
         }
       },
       collect: (monitor) => ({
@@ -396,83 +654,45 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
 
     return (
       <div 
-        ref={dropRef}
+        ref={(node) => {
+          if (typeof dropRef === 'function') {
+            dropRef(node);
+          }
+        }}
         className={cn(
-          "max-h-[400px] overflow-y-auto p-1",
-          isOver && canDrop && "bg-green-50 rounded-lg",
+          "space-y-2 ",
+          isOver && canDrop && "bg-green-50 rounded-lg border-2 border-dashed border-green-300 animate-pulse-green",
           !subjects.length && "flex items-center justify-center h-[100px] text-gray-400"
         )}
       >
-        {!subjects.length && (
-          <p>Arrastra materias disponibles aquí</p>
+        {!subjects.length && isOver && canDrop && (
+          <p>Suelta aquí para remover del horario</p>
+        )}
+         {/* Mostrar mensaje si no hay materias disponibles */}
+        {!subjects.length && !isOver && (
+          <p>No hay materias adicionales disponibles</p>
+        )}
+        {isOver && canDrop && subjects.length > 0 && (
+          <div className="py-2 text-xs text-green-600 text-center">
+            Suelta aquí para remover esta materia del horario
+          </div>
         )}
         {subjects.map((subject) => (
-          <div 
-            key={subject.id} 
-            className={cn(
-              "flex flex-col items-center p-2 border rounded-lg my-2 bg-blue-50 border-l-4 border-blue-400",
-              subject.isObligatory ? "opacity-60" : ""
-            )}
-          >
-            <div className="flex flex-row justify-between w-full">
-              <div className="flex items-center gap-2">
-                <div className="pb-1">
-                  <p className="font-bold text-sm truncate">{subject.title}</p>
-                  <p className="text-xs truncate">{subject.professor}</p>
-                </div>
-              </div>
-              {!subject.isObligatory && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemove(subject.id)}
-                  className="h-6 w-6 text-red-500"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
-            <div className="pb-1 flex flex-row justify-between w-full text-xs font-semibold">
-              <p className="truncate">
-                Salón: {subject.salon}
-              </p>
-            </div>
-            <div className="text-xs w-full truncate mb-1">
-              {subject.hours.map((hour, index) => (
-                <span key={`${subject.id}-${index}`} className="mr-1">
-                  {hour?.day ? hour.day.substring(0, 3) : ''} {hour?.time || ''}
-                  {index < subject.hours.length - 1 ? ',' : ''}
-                </span>
-              ))}
-            </div>
-            <div className="flex flex-row justify-between w-full items-end h-full text-xs">
-              <div className="flex flex-row gap-1">
-                <p className="text-neutral-500">Cr:</p>
-                <p className="font-bold">{subject.credits}</p>
-              </div>
-              <div className="flex flex-row gap-1">
-                <p className="text-neutral-500">Hrs:</p>
-                <p className="font-bold">{subject.hours.length}</p>
-              </div>
-              <div className="flex flex-row gap-1">
-                <p className="text-neutral-500">Sem:</p>
-                <p className="font-bold">{subject.semester}</p>
-              </div>
-            </div>
-          </div>
+          <DraggableSubjectCard key={subject.id} subject={subject} onAdd={onAddSubject} />
         ))}
       </div>
     );
   };
 
+  // Estructura principal del componente de horario
   return (
-    // Renderiza el horario, lista de materias y funcionalidades de arrastrar y soltar
-    // Incluye botones para guardar el horario y mostrar la última vez guardada
     <DndProvider backend={HTML5Backend}>
       <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
+        {/* Cuadrícula del horario semanal con horas */}
         <div className="overflow-x-auto flex-1">
           <div className="min-w-[800px]">
             <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
+              {/* Encabezados con días de la semana */}
               <div className="h-10" />
               {daysOfWeek.map((day) => (
                 <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
@@ -480,11 +700,14 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
                 </div>
               ))}
 
+              {/* Filas de horarios para cada franja horaria */}
               {timeSlots.map((time) => (
                 <React.Fragment key={time}>
+                  {/* Columna de horas */}
                   <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
                     {time}
                   </div>
+                  {/* Celdas para cada día en esa franja horaria */}
                   {daysOfWeek.map((day) => (
                     <Cell key={`${day}-${time}`} day={day} time={time} />
                   ))}
@@ -494,80 +717,30 @@ export default function EstudianteSchedule({ subjects }: SubjectsProps) {
           </div>
         </div>
 
+        {/* Panel lateral con materias programadas y disponibles */}
         <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
-          <p className="text-2xl font-bold">Lista de Materias</p>
-          <DroppableSubjectList 
-            subjects={scheduledSubjects} 
-            onRemove={removeScheduledSubject} 
+          {/* Sección de materias en el horario actual */}
+          <p className="text-2xl font-bold mb-2">Lista de Materias</p>
+          <ScheduledSubjectsDropArea 
+            subjects={scheduledSubjects}
             onAddSubject={handleSubjectSelect}
           />
-          <div className="mt-4 mb-4">
-            <p className="text-lg font-semibold mb-2">Materias Disponibles</p>
-            <div className="space-y-2">
-              {availableSubjects.filter(subject => 
-                !scheduledSubjects.some(s => s.id === subject.id)
-              ).map((subject) => (
-                <DraggableSubjectCard key={subject.id} subject={subject} onAdd={handleSubjectSelect} />
-              ))}
+          
+          {/* Sección de materias disponibles (solo para estudiantes irregulares) */}
+          {isIrregularStudent && (
+            <div className="mt-6 mb-4">
+              <p className="text-lg font-semibold mb-2">Materias Disponibles</p>
+              <AvailableSubjectsDropArea 
+                subjects={availableSubjects.filter(subject => 
+                  !scheduledSubjects.some(s => s.id === subject.id)
+                )}
+                onAddSubject={handleSubjectSelect}
+                onRemoveFromSchedule={removeScheduledSubject}
+              />
             </div>
-          </div>
-
-
+          )}
         </div>
       </div>
-
-      {/* Render the IndividualSubject dialog when a subject on the grid is clicked */}      {selectedSubject && (
-        <IndividualSubject
-          subject={{
-            IdHorarioGeneral: 1, // Default value
-            NombreCarrera: selectedSubject.title,
-            IdMateria: selectedSubject.id,
-            IdProfesor: parseInt(selectedSubject.professor.replace(/\D/g, '')) || 0,
-            IdCiclo: 1, // Default value
-            Dia: selectedSubject.hours[0]?.day || '',
-            HoraInicio: selectedSubject.hours[0]?.time || '',
-            HoraFin: (() => {
-              const time = selectedSubject.hours[0]?.time;
-              if (!time) return '';
-              const [h, m] = time.split(':').map(Number);
-              const date = new Date();
-              date.setHours(h, m, 0, 0);
-              date.setHours(date.getHours() + 1);
-              return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-            })(),
-            Semestre: selectedSubject.semester
-          }}
-          isOpen={!!selectedSubject}
-          onClose={() => setSelectedSubject(null)}
-          onUpdate={(updatedScheduleItem) => {
-            setScheduledSubjects(prev =>
-              prev.map(s => {
-                if (s.id === selectedSubject.id) {
-                  return {
-                    ...s,
-                    title: updatedScheduleItem.NombreCarrera,
-                    professor: `Prof ${updatedScheduleItem.IdProfesor}`,
-                    salon: `Salon ${updatedScheduleItem.IdCiclo}`,
-                    semester: updatedScheduleItem.Semestre,
-                    hours: [{
-                      day: updatedScheduleItem.Dia,
-                      time: updatedScheduleItem.HoraInicio
-                    }]
-                  };
-                }
-                return s;
-              })
-            );
-            setSelectedSubject(null);
-          }}
-          onDelete={(scheduleItem) => {
-            setScheduledSubjects(prev =>
-              prev.filter(s => s.id !== selectedSubject.id)
-            );
-            setSelectedSubject(null);
-          }}
-        />
-      )}
     </DndProvider>
   );
 }

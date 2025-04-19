@@ -16,7 +16,7 @@ export default function EstudianteHeader() {
   const studentId = user ? user.ivd_id : '';
 
   return (
-    <div className="bg-black text-white m-4 rounded-lg flex flex-row justify-between items-center p-4">
+    <div className="bg-black text-white my-4 rounded-lg flex flex-row justify-between items-center p-4">
       <Image src="/logo.svg" alt="logo" width={50} height={50} className="cursor-pointer" onClick={() => router.push('/estudiante')} />
       
       <div className="text-xl hidden sm:block">
@@ -30,7 +30,7 @@ export default function EstudianteHeader() {
       </div>
       
       <div className="flex items-center gap-2">
-        <LogoutButton variant="outline" className="text-white border-white hover:text-white" />
+        <LogoutButton variant="outline" className="bg-black text-white border-white hover:text-black" onClick={() => router.push('/')}  />
       </div>
     </div>
   );

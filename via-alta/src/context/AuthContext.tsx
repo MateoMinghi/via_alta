@@ -127,7 +127,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Redirect based on role
       if (userData.role.name === 'student') {
-        router.push('/estudiante');
+        if(userData.status === 'inscrito' || userData.status === 'requiere-cambios') { //redirige a confirmacion
+          router.push('/estudiante/confirmacion');
+        }
+        else { //redirige a su horario, si todavia no confirma el horario
+          router.push('/estudiante');
+        }
       } else if (['admin', 'coordinator'].includes(userData.role.name)) {
         router.push('/dashboard');
       } else {
