@@ -28,93 +28,111 @@ interface ScheduleItem {
 // Main function to generate schedule.
 // Note: Now we no longer rely on a hardcoded classroom.
 export async function generateSchedule(cicloId?: number): Promise<void> {
-    // 1. Generate Groups first
-    // (Assumes each group already has its own IdSalon)
-    // Use a type assertion so that undefined becomes acceptable.
-    const groupResult = await generateGroupsForAllProfessors(undefined as unknown as number, cicloId);
-    if (groupResult.errors && groupResult.errors.length > 0) {
-        console.error("Group generation errors:", groupResult.errors);
-        throw new Error("Failed to generate groups");
-    }
+  // 1. Generate Groups first
+  // (Assumes each group already has its own IdSalon)
+  // Use a type assertion so that undefined becomes acceptable.
+  const groupResult = await generateGroupsForAllProfessors(undefined as unknown as number, cicloId);
+  if (groupResult.errors && groupResult.errors.length > 0) {
+      console.error("Group generation errors:", groupResult.errors);
+      throw new Error("Failed to generate groups");
+  }
 
-    const groups = groupResult.createdGroups;
+  const groups = groupResult.createdGroups;
 
-    // 2. Create a schedule grid: Monday to Friday from 07:00 to 16:00 in 30-minute slots
-    const scheduleGrid = createScheduleGrid();
+  // 2. Create a schedule grid: Monday to Friday from 07:00 to 16:00 in 30-minute slots
+  const scheduleGrid = createScheduleGrid();
 
-    // 3. Fetch professor availabilities and create a map [professorId -> availabilities]
-    const professorAvailabilities = await fetchAllProfessorAvailabilities();
+  // 3. Fetch professor availabilities and create a map [professorId -> availabilities]
+  const professorAvailabilities = await fetchAllProfessorAvailabilities();
 
-    // 4. Fetch existing schedule to avoid conflicts with already scheduled items (e.g., classroom conflicts)
-    const existingSchedule = await GeneralSchedule.getGeneralSchedule();
+  // 4. Fetch existing schedule to avoid conflicts with already scheduled items (e.g., classroom conflicts)
+  const existingSchedule = await GeneralSchedule.getGeneralSchedule();
 
-    const newScheduleItems: ScheduleItem[] = [];
+  const newScheduleItems: ScheduleItem[] = [];
 
-    // 5. Iterate through each group
-    for (const group of groups) {
-        // Get the subject details to know how many hours per week are needed
-        const subject = await Subject.findById(group.IdMateria);
-        if (!subject) {
-            console.warn(`Subject with Id ${group.IdMateria} not found, skipping group ${group.IdGrupo}`);
-            continue;
-        }
-        // Convert HorasClase (in hours) to number of 30-minute slots
-        const requiredSlots = Math.ceil(subject.HorasClase * 2);
-        let assignedSlots = 0;
+  // 5. Iterate through each group
+  for (const group of groups) {
+      // Log the entire group object to inspect its properties
+      console.log("Current group:", group);
 
-        // Loop over each day in the grid
-        for (const daySchedule of scheduleGrid) {
-            if (assignedSlots >= requiredSlots) break;
-            // Loop over time slots of the day
-            for (const slot of daySchedule.slots) {
-                if (assignedSlots >= requiredSlots) break;
-                if (slot.assigned) continue;
+      // Get the subject details to know how many hours per week are needed
+      const subjectId = group.IdMateria;
 
-                // Check professor availability for this slot
-                const availabilities = professorAvailabilities[group.IdProfesor];
-                if (!availabilities) continue;
-                const isProfAvailable = availabilities.some(avail => 
-                    avail.day === daySchedule.day &&
-                    avail.startTime <= slot.startTime && 
-                    avail.endTime >= slot.endTime
-                );
-                if (!isProfAvailable) continue;
+      // Check if subjectId is undefined or null
+      if (subjectId === undefined || subjectId === null) {
+          console.warn(`Subject ID is undefined or null for group ${group.IdGrupo}. Skipping.`);
+          continue; // Skip to the next group
+      }
 
-                // Check classroom conflict using the group's own IdSalon
-                const isClassroomOccupied = existingSchedule.some(item =>
-                    (item as any).IdSalon === group.IdSalon &&
-                    item.Dia === daySchedule.day &&
-                    item.HoraInicio === slot.startTime
-                );
-                if (isClassroomOccupied) continue;
+      // Ensure subjectId is a number
+      const subjectIdNumber = Number(subjectId);
+      if (isNaN(subjectIdNumber)) {
+          console.warn(`Subject ID is not a number for group ${group.IdGrupo}. Skipping.`);
+          continue; // Skip to the next group
+      }
 
-                // Mark the slot as used and add a new schedule item
-                slot.assigned = true;
-                assignedSlots++;
-                newScheduleItems.push({
-                    IdHorarioGeneral: generateUniqueId(),
-                    NombreCarrera: "Example Carrera", // Replace with actual degree/career name as needed
-                    IdGrupo: group.IdGrupo,
-                    Dia: daySchedule.day,
-                    HoraInicio: slot.startTime,
-                    HoraFin: slot.endTime
-                });
-            }
-        }
+      const subject = await Subject.findById(subjectIdNumber);
+      if (!subject) {
+          console.warn(`Subject with Id ${subjectIdNumber} not found, skipping group ${group.IdGrupo}`);
+          continue;
+      }
+      // Convert HorasClase (in hours) to number of 30-minute slots
+      const requiredSlots = Math.ceil(subject.HorasClase * 2);
+      let assignedSlots = 0;
 
-        if (assignedSlots < requiredSlots) {
-            console.warn(`Group ${group.IdGrupo} scheduled only ${assignedSlots} out of ${requiredSlots} required slots.`);
-        }
-    }
+      // Loop over each day in the grid
+      for (const daySchedule of scheduleGrid) {
+          if (assignedSlots >= requiredSlots) break;
+          // Loop over time slots of the day
+          for (const slot of daySchedule.slots) {
+              if (assignedSlots >= requiredSlots) break;
+              if (slot.assigned) continue;
 
-    // 6. Save the new schedule into the database
-    try {
-        await GeneralSchedule.saveGeneralSchedule(newScheduleItems);
-        console.log("Schedule generated and saved successfully.");
-    } catch (error) {
-        console.error("Error saving the schedule:", error);
-        throw error;
-    }
+              // Check professor availability for this slot
+              const availabilities = professorAvailabilities[group.IdProfesor];
+              if (!availabilities) continue;
+              const isProfAvailable = availabilities.some(avail => 
+                  avail.day === daySchedule.day &&
+                  avail.startTime <= slot.startTime && 
+                  avail.endTime >= slot.endTime
+              );
+              if (!isProfAvailable) continue;
+
+              // Check classroom conflict using the group's own IdSalon
+              const isClassroomOccupied = existingSchedule.some(item =>
+                  (item as any).IdSalon === group.IdSalon &&
+                  item.Dia === daySchedule.day &&
+                  item.HoraInicio === slot.startTime
+              );
+              if (isClassroomOccupied) continue;
+
+              // Mark the slot as used and add a new schedule item
+              slot.assigned = true;
+              assignedSlots++;
+              newScheduleItems.push({
+                  IdHorarioGeneral: generateUniqueId(),
+                  NombreCarrera: "Example Carrera", // Replace with actual degree/career name as needed
+                  IdGrupo: group.IdGrupo,
+                  Dia: daySchedule.day,
+                  HoraInicio: slot.startTime,
+                  HoraFin: slot.endTime
+              });
+          }
+      }
+
+      if (assignedSlots < requiredSlots) {
+          console.warn(`Group ${group.IdGrupo} scheduled only ${assignedSlots} out of ${requiredSlots} required slots.`);
+      }
+  }
+
+  // 6. Save the new schedule into the database
+  try {
+      await GeneralSchedule.saveGeneralSchedule(newScheduleItems);
+      console.log("Schedule generated and saved successfully.");
+  } catch (error) {
+      console.error("Error saving the schedule:", error);
+      throw error;
+  }
 }
 
 // Helper: Fetch and map professor availabilities
