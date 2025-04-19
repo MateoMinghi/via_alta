@@ -96,30 +96,27 @@ export async function generateSchedule(cicloId?: number): Promise<void> {
           // Loop over time slots of the day
           for (const slot of daySchedule.slots) {
               if (assignedSlots >= requiredSlots) break;
-              if (slot.assigned) continue;
-
-              // Check professor availability for this slot
+              if (slot.assigned) continue;              // Check professor availability for this slot
               const availabilities = professorAvailabilities[group.IdProfesor];
-              if (!availabilities) continue;
+              if (!availabilities) {
+                  console.log(`No availabilities found for professor ${group.IdProfesor}`);
+                  continue;
+              }
+              
               const isProfAvailable = availabilities.some(avail => 
                   avail.day === daySchedule.day &&
                   avail.startTime <= slot.startTime && 
                   avail.endTime >= slot.endTime
               );
-              if (!isProfAvailable) continue;              // Check classroom conflict - we need to join with Grupo to find classroom info
-              // Since existing schedule items don't have IdSalon directly
-              const isClassroomOccupied = existingSchedule.some(item => {
-                  // Since we don't have IdSalon in the schedule, we need to check if any group 
-                  // with the same classroom is already scheduled at this time
-                  return item.Dia === daySchedule.day && 
-                         item.HoraInicio === slot.startTime &&
-                         // Group ID check - skip if it's the same group (shouldn't conflict with itself)
-                         item.IdGrupo !== group.IdGrupo;
-              });
-              if (isClassroomOccupied) {
-                  console.log(`Skipping slot due to classroom conflict: ${daySchedule.day} ${slot.startTime}`);
+              
+              if (!isProfAvailable) {
+                  console.log(`Professor ${group.IdProfesor} not available for ${daySchedule.day} at ${slot.startTime}`);
                   continue;
-              }// Mark the slot as used and add a new schedule item
+              }
+              
+              // Removed classroom conflict check as requested
+
+              // Mark the slot as used and add a new schedule item
               slot.assigned = true;
               assignedSlots++;
               

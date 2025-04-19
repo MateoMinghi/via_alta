@@ -10,11 +10,19 @@ export interface GeneralScheduleItem {
   HoraFin: string;
 }
 
-class GeneralSchedule {
-  // Method to save the general schedule
+class GeneralSchedule {  // Method to save the general schedule
   static async saveGeneralSchedule(scheduleItems: GeneralScheduleItem[]) {
+    console.log(`SaveGeneralSchedule called with ${scheduleItems.length} items`);
+    
+    // If no items to save, just return success
+    if (scheduleItems.length === 0) {
+      console.log("No schedule items to save, returning early");
+      return true;
+    }
+    
     const client = await pool.connect();
     try {
+      console.log("Connected to database, beginning transaction");
       await client.query('BEGIN');
       
       // Delete existing schedule if there are new items
@@ -28,7 +36,10 @@ class GeneralSchedule {
         VALUES ($1, $2, $3, $4, $5, $6)
       `;
       
-      for (const item of scheduleItems) {        await client.query(insertQuery, [
+      console.log(`Preparing to insert ${scheduleItems.length} schedule items`);
+      for (const item of scheduleItems) {
+        console.log(`Inserting item: ${JSON.stringify(item)}`);
+        await client.query(insertQuery, [
           item.IdHorarioGeneral,
           item.NombreCarrera,
           item.IdGrupo,
