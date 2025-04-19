@@ -98,8 +98,27 @@ export async function generateSchedule(cicloId?: number): Promise<void> {
               if (assignedSlots >= requiredSlots) break;
               if (slot.assigned) continue;              // Check professor availability for this slot
               const availabilities = professorAvailabilities[group.IdProfesor];
+              
+              // If we don't have availability data for this professor, 
+              // let's assume they're available at all times
               if (!availabilities) {
-                  console.log(`No availabilities found for professor ${group.IdProfesor}`);
+                  console.log(`No availabilities found for professor ${group.IdProfesor} - assuming always available`);
+                  
+                  // Mark the slot as used and add a new schedule item
+                  slot.assigned = true;
+                  assignedSlots++;
+                    // Create a schedule item that strictly follows the GeneralScheduleItem structure
+                  const scheduleItem: GeneralScheduleItem = {
+                      IdHorarioGeneral: generateUniqueId(),
+                      NombreCarrera: subject.Carrera || "Carrera Predeterminada", // Provide a default value if Carrera is undefined
+                      IdGrupo: group.IdGrupo,
+                      Dia: daySchedule.day,
+                      HoraInicio: slot.startTime,
+                      HoraFin: slot.endTime
+                  };
+                  
+                  // Add to the new schedule items array
+                  newScheduleItems.push(scheduleItem);
                   continue;
               }
               
@@ -119,12 +138,11 @@ export async function generateSchedule(cicloId?: number): Promise<void> {
               // Mark the slot as used and add a new schedule item
               slot.assigned = true;
               assignedSlots++;
-              
-              // Create a schedule item that strictly follows the GeneralScheduleItem structure
+                // Create a schedule item that strictly follows the GeneralScheduleItem structure
               // Only include fields that match the database table columns
               const scheduleItem: GeneralScheduleItem = {
                   IdHorarioGeneral: generateUniqueId(),
-                  NombreCarrera: subject.Carrera || subject.Nombre, // Use subject.Carrera if available, otherwise use subject.Nombre
+                  NombreCarrera: subject.Carrera || "Carrera Predeterminada", // Provide a default value
                   IdGrupo: group.IdGrupo,
                   Dia: daySchedule.day,
                   HoraInicio: slot.startTime,
@@ -159,17 +177,33 @@ export async function generateSchedule(cicloId?: number): Promise<void> {
 // Helper: Fetch and map professor availabilities
 async function fetchAllProfessorAvailabilities(): Promise<{[professorId: string]: {day: string, startTime: string, endTime: string}[]}> {
     const availabilities = await Availability.getAllAvailability();
+    console.log(`Fetched ${availabilities.length} total availability records`);
+    
+    // Log a few availability records to check format
+    if (availabilities.length > 0) {
+        console.log("Sample availability record:", JSON.stringify(availabilities[0]));
+    }
+    
     const professorAvailMap: { [professorId: string]: { day: string, startTime: string, endTime: string }[] } = {};
+    
     availabilities.forEach(avail => {
+        // Debug log for each availability
+        console.log(`Processing availability for professor: ${avail.IdProfesor}, day: ${avail.Dia}`);
+        
         if (!professorAvailMap[avail.IdProfesor]) {
             professorAvailMap[avail.IdProfesor] = [];
         }
+        
         professorAvailMap[avail.IdProfesor].push({
             day: avail.Dia,
             startTime: avail.HoraInicio,
             endTime: avail.HoraFin
         });
     });
+    
+    // Log all professor IDs we have availabilities for
+    console.log("Professor IDs with availability:", Object.keys(professorAvailMap));
+    
     return professorAvailMap;
 }
 
