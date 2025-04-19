@@ -97,31 +97,22 @@ export async function generateSchedule(cicloId?: number): Promise<void> {
           for (const slot of daySchedule.slots) {
               if (assignedSlots >= requiredSlots) break;
               if (slot.assigned) continue;              // Check professor availability for this slot
-              const availabilities = professorAvailabilities[group.IdProfesor];
+              // Normalize group.IdProfesor for lookup
+              const normalizedProfId = String(group.IdProfesor).trim().toLowerCase();
+              // Debug log to show the lookup and available keys
+              console.log("Looking up professor:", normalizedProfId, "in", Object.keys(professorAvailabilities));
+              const availabilities = professorAvailabilities[normalizedProfId];
               
               // If we don't have availability data for this professor, 
-              // let's assume they're available at all times
+              // let's skip scheduling for this group and log a warning
               if (!availabilities) {
-                  console.log(`No availabilities found for professor ${group.IdProfesor} - assuming always available`);
-                  
-                  // Mark the slot as used and add a new schedule item
-                  slot.assigned = true;
-                  assignedSlots++;
-                    // Create a schedule item that strictly follows the GeneralScheduleItem structure
-                  const scheduleItem: GeneralScheduleItem = {
-                      IdHorarioGeneral: generateUniqueId(),
-                      NombreCarrera: subject.Carrera || "Carrera Predeterminada", // Provide a default value if Carrera is undefined
-                      IdGrupo: group.IdGrupo,
-                      Dia: daySchedule.day,
-                      HoraInicio: slot.startTime,
-                      HoraFin: slot.endTime
-                  };
-                  
-                  // Add to the new schedule items array
-                  newScheduleItems.push(scheduleItem);
-                  continue;
+                  console.warn(`No availabilities found for professor ${group.IdProfesor} (normalized: ${normalizedProfId}) - skipping group ${group.IdGrupo}`);
+                  break; // Stop scheduling for this group
               }
               
+              // Debug log to show availabilities being considered
+              console.log(`Availabilities for professor ${normalizedProfId}:`, availabilities);
+
               const isProfAvailable = availabilities.some(avail => 
                   avail.day === daySchedule.day &&
                   avail.startTime <= slot.startTime && 
@@ -187,17 +178,28 @@ async function fetchAllProfessorAvailabilities(): Promise<{[professorId: string]
     const professorAvailMap: { [professorId: string]: { day: string, startTime: string, endTime: string }[] } = {};
     
     availabilities.forEach(avail => {
-        // Debug log for each availability
-        console.log(`Processing availability for professor: ${avail.IdProfesor}, day: ${avail.Dia}`);
-        
-        if (!professorAvailMap[avail.IdProfesor]) {
-            professorAvailMap[avail.IdProfesor] = [];
+        const rawProfId = avail.IdProfesor;
+        const rawDia = avail.Dia;
+        const rawHoraInicio = avail.HoraInicio;
+        const rawHoraFin = avail.HoraFin;
+        if (!rawProfId) {
+            console.warn("Availability record missing professor ID, skipping:", avail);
+            return; // Skip this record
         }
-        
-        professorAvailMap[avail.IdProfesor].push({
-            day: avail.Dia,
-            startTime: avail.HoraInicio,
-            endTime: avail.HoraFin
+        if (!rawDia || !rawHoraInicio || !rawHoraFin) {
+            console.warn("Availability record missing day or time, skipping:", avail);
+            return; // Skip this record
+        }
+        const profId = String(rawProfId).trim().toLowerCase();
+        // Debug log for each availability
+        console.log(`Processing availability for professor: ${profId}, day: ${rawDia}`);
+        if (!professorAvailMap[profId]) {
+            professorAvailMap[profId] = [];
+        }
+        professorAvailMap[profId].push({
+            day: rawDia,
+            startTime: rawHoraInicio,
+            endTime: rawHoraFin
         });
     });
     

@@ -120,7 +120,8 @@ class Availability {
     try {
       const query = "SELECT * FROM Disponibilidad";
       const result = await pool.query(query);
-      return result.rows as AvailabilityData[]; // Retorna todas las disponibilidades
+      // Normalize each row to ensure consistent field names
+      return result.rows.map(normalizeAvailabilityData); // Retorna todas las disponibilidades normalizadas
     } catch (error) {
       console.error("Error fetching availability:", (error as Error).message);
       throw error; // Lanza el error si falla la consulta
