@@ -1,7 +1,5 @@
 'use client';
 
-//importaciones
-
 import React, { useState } from 'react';
 import SemesterGrid from '../SemesterGrid';
 import StudentSearch from '../StudentSearch';
@@ -11,8 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-
-//interfaces
 interface Student {
   id: string;
   name: string;
@@ -25,69 +21,51 @@ interface Semester {
   numberStudents: number;
 }
 
-//componente
 export default function HorariosSlug() {
   const { result, loading }: ResponseType = useGetStudents();
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const semesters: Semester[] = result ? Object.entries(
-    result.reduce((acc: Record<string, number>, student: Student) => {
-      acc[student.semestre] = (acc[student.semestre] || 0) + 1;
-      return acc;
-    }, {})  ).map(([id, numberStudents]) => ({ id, numberStudents: numberStudents as number })) : [];
-  
-  // Función para generar grupos
-  const generateGroups = async () => {
+  const semesters: Semester[] = result
+    ? Object.entries(
+        result.reduce((acc: Record<string, number>, student: Student) => {
+          acc[student.semestre] = (acc[student.semestre] || 0) + 1;
+          return acc;
+        }, {})
+      ).map(([id, numberStudents]) => ({ id, numberStudents: numberStudents as number }))
+    : [];
+
+  // Función para generar el horario general sin usar un salón predeterminado,
+  // ya que each group uses its own IdSalon.
+  const generateScheduleHandler = async () => {
     try {
       setIsGenerating(true);
-      toast.info("Iniciando la generación de grupos para todos los profesores...");
+      toast.info("Iniciando la generación del horario general...");
       
-      // Usar un ID de salón predeterminado
-      // En una versión mejorada, esto podría ser seleccionado por el usuario
-      const defaultSalonId = 101;
-      
-      // Usar el modo 'all-professors' que busca automáticamente todos los profesores válidos
-      const response = await fetch('/api/generate-groups', {
+      // Simply trigger the schedule generation API.
+      const response = await fetch('/api/schedule', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          mode: 'all-professors',
-          idSalon: defaultSalonId,
-          // idCiclo es opcional, si no se proporciona se usará el ciclo más reciente
-        }),
+        // Send an empty payload or other necessary parameters
+        body: JSON.stringify({}),
       });
       
       const data = await response.json();
       
       if (response.ok) {
-        const createdCount = data.createdGroups?.length || 0;
-        
-        if (createdCount > 0) {
-          toast.success(`Se generaron ${createdCount} grupos exitosamente`);
-        } else {
-          toast.info("No se crearon nuevos grupos");
-        }
-        
-        if (data.errors && data.errors.length > 0) {
-          const errorCount = data.errors.length;
-          toast.warning(`${errorCount} grupos no pudieron ser creados. Revise que los profesores tengan clases asignadas.`);
-          
-          // Loguear detalles de errores para depuración
-          console.warn("Errores al generar grupos:", data.errors);
-        }
+        toast.success("Horario general generado correctamente");
       } else {
-        toast.error(`Error: ${data.error || 'No se pudieron generar los grupos'}`);
+        toast.error(`Error: ${data.error || 'No se pudo generar el horario'}`);
       }
     } catch (error) {
-      console.error("Error en la generación de grupos:", error);
-      toast.error(`Error: ${error instanceof Error ? error.message : 'No se pudieron generar los grupos'}`);
+      console.error("Error en la generación del horario:", error);
+      toast.error(`Error: ${error instanceof Error ? error.message : 'No se pudo generar el horario'}`);
     } finally {
       setIsGenerating(false);
     }
   };
-  //retorno
+
   return (
     <div className="text-center">
       {loading && <p>cargando...</p>}
@@ -101,7 +79,7 @@ export default function HorariosSlug() {
 
           <div className="mt-8 mb-4">
             <Button 
-              onClick={generateGroups} 
+              onClick={generateScheduleHandler} 
               disabled={isGenerating} 
               size="lg"
               className="bg-green-600 hover:bg-green-700 text-white"
@@ -109,10 +87,10 @@ export default function HorariosSlug() {
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generando grupos...
+                  Generando Horario...
                 </>
               ) : (
-                'Generar Grupos'
+                'Generar Horario'
               )}
             </Button>
           </div>
