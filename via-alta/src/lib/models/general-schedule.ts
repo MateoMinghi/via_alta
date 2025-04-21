@@ -82,3 +82,4 @@ class GeneralSchedule {
 }
 
 export default GeneralSchedule;
+
