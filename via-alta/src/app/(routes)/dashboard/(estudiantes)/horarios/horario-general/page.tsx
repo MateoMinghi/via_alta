@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
@@ -97,69 +97,7 @@ export default function HorarioGeneralPage() {
     } finally {
       setIsLoading(false);
     }
-  };  // Helper to find schedule item in a cell
-  const findScheduleItem = (day: string, time: string) => {
-    // Add debugging to see what schedule data we're working with
-    if (day === 'Lunes' && time === '09:00') {
-      console.log('All schedule items:', schedule);
-    }
-    
-    // Format the time for comparison (remove leading zeros)
-    const formattedTime = time.replace(/^0/, '');
-    
-    // Find items where the day matches and the HoraInicio contains the time we're looking for
-    const item = schedule.find((item) => {
-      if (!item || !item.Dia || !item.HoraInicio) return false;
-      
-      // Check if the day matches exactly
-      const dayMatches = item.Dia === day;
-      
-      // For time, we need to handle different formats:
-      // The database might store it as "9:00-10:00" but UI is looking for "09:00"
-      const timeMatches = 
-        // First try exact match with possible leading zero stripped
-        item.HoraInicio.replace(/^0/, '') === formattedTime ||
-        // Then try checking if it's the start of a range (e.g., "9:00-10:00")
-        item.HoraInicio.replace(/^0/, '').startsWith(formattedTime) ||
-        // Finally try checking if it's part of a time range
-        item.HoraInicio.includes(formattedTime);
-      
-      return dayMatches && timeMatches;
-    });
-    
-    // Detailed debug for specific cells
-    if (day === 'Lunes' && (time === '09:00' || time === '10:00' || time === '11:00')) {
-      console.log(`Debug cell ${day} ${time}:`, { 
-        lookingFor: { day, time, formattedTime },
-        foundItem: item,
-        matchingItems: schedule.filter(i => 
-          i && i.Dia === day && i.HoraInicio && 
-          (i.HoraInicio.includes(formattedTime.substring(0, 4)) || 
-           i.HoraInicio.replace(/^0/, '').includes(formattedTime.substring(0, 4)))
-        )
-      });
-    }
-    
-    return item;
   };
-
-  // Merge consecutive slots of the same group into single items for spanning
-  const mergedSchedule = useMemo(() => {
-    const map = new Map<string, GeneralScheduleItem & {HoraInicio: string; HoraFin: string}>();
-    schedule.forEach(item => {
-      const key = `${item.Dia}-${item.IdGrupo}`;
-      const start = item.HoraInicio;
-      const end = item.HoraFin;
-      if (!map.has(key)) {
-        map.set(key, { ...item });
-      } else {
-        const cur = map.get(key)!;
-        if (start < cur.HoraInicio) cur.HoraInicio = start;
-        if (end > cur.HoraFin) cur.HoraFin = end;
-      }
-    });
-    return Array.from(map.values());
-  }, [schedule]);
 
   return (
     <div className="w-full pb-8 flex flex-col gap-4">
@@ -186,38 +124,30 @@ export default function HorarioGeneralPage() {
             </tr>
           </thead>
           <tbody>
-            {(() => {
-              const skipCount: Record<string, number> = {};
-              daysOfWeek.forEach(day => { skipCount[day] = 0; });
-              return timeSlots.map(time => (
-                <tr key={time}>
-                  <th className="border p-2 text-right text-sm">{time}</th>
-                  {daysOfWeek.map(day => {
-                    if (skipCount[day] > 0) {
-                      skipCount[day]--;
-                      return null;
-                    }
-                    const item = mergedSchedule.find(i => i.Dia === day && i.HoraInicio === time);
-                    if (item) {
-                      const [sh, sm] = item.HoraInicio.split(':').map(Number);
-                      const [eh, em] = item.HoraFin.split(':').map(Number);
-                      const spanCount = ((eh * 60 + em) - (sh * 60 + sm)) / 30;
-                      skipCount[day] = spanCount - 1;
-                      return (
-                        <td
-                          key={`${day}-${time}`}
-                          rowSpan={spanCount}
-                          className="border p-2 align-top bg-blue-50">
-                          <div className="text-xs font-medium text-blue-500 truncate">{item.MateriaNombre}</div>
-                          <div className="text-xs text-gray-500 truncate">{item.ProfesorNombre}</div>
-                        </td>
-                      );
-                    }
-                    return <td key={`${day}-${time}`} className="border p-2"></td>;
-                  })}
-                </tr>
-              ));
-            })()}
+            {timeSlots.map(time => (
+              <tr key={time}>
+                <th className="border p-2 text-right text-sm">{time}</th>
+                {daysOfWeek.map(day => {
+                  // Find all schedule items that start at this day and time
+                  const items = schedule.filter(i => i.Dia === day && i.HoraInicio === time);
+                  return (
+                    <td key={`${day}-${time}`} className="border p-2 align-top">
+                      {items.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {items.map(item => (
+                            <div key={item.IdGrupo} className="bg-blue-50 rounded p-1 mb-1">
+                              <div className="text-xs font-medium text-blue-500 truncate">{item.MateriaNombre}</div>
+                              <div className="text-xs text-gray-500 truncate">{item.ProfesorNombre}</div>
+                              <div className="text-[10px] text-gray-400">Grupo {item.IdGrupo}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
