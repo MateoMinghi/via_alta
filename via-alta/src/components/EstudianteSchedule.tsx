@@ -734,7 +734,7 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
           />
           
           {/* Sección de materias disponibles (solo para estudiantes irregulares) */}
-          {isIrregularStudent && (
+          {!isRegular && isIrregularStudent && availableSubjects.length > 0 && (
             <div className="mt-6 mb-4">
               <p className="text-lg font-semibold mb-2">Materias Disponibles</p>
               <AvailableSubjectsDropArea 
