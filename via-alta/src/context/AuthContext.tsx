@@ -180,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Check if student is regular or irregular
           if (userData.regular === false) {
             // Irregular student
-            router.push('/estudiante/irregular');
+            router.push('/estudiante');
           } else {
             // Regular student (default case when regular is undefined or true)
             router.push('/estudiante');
