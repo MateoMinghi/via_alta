@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
@@ -143,6 +143,24 @@ export default function HorarioGeneralPage() {
     return item;
   };
 
+  // Merge consecutive slots of the same group into single items for spanning
+  const mergedSchedule = useMemo(() => {
+    const map = new Map<string, GeneralScheduleItem & {HoraInicio: string; HoraFin: string}>();
+    schedule.forEach(item => {
+      const key = `${item.Dia}-${item.IdGrupo}`;
+      const start = item.HoraInicio;
+      const end = item.HoraFin;
+      if (!map.has(key)) {
+        map.set(key, { ...item });
+      } else {
+        const cur = map.get(key)!;
+        if (start < cur.HoraInicio) cur.HoraInicio = start;
+        if (end > cur.HoraFin) cur.HoraFin = end;
+      }
+    });
+    return Array.from(map.values());
+  }, [schedule]);
+
   return (
     <div className="w-full pb-8 flex flex-col gap-4">
       <div className="flex justify-end mb-2">
@@ -154,43 +172,54 @@ export default function HorarioGeneralPage() {
           {isLoading ? 'Generando...' : 'Generar horario general'}
         </button>
       </div>
+      {/* Replace grid with table for rowSpan support */}
       <div className="overflow-x-auto w-full">
-        <div className="w-full">
-          <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)] w-full">
-            <div className="h-10" />
-            {daysOfWeek.map((day) => (
-              <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
-                {day}
-              </div>
-            ))}
-            {timeSlots.map((time) => (
-              <React.Fragment key={time}>
-                <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
-                  {time}
-                </div>
-                {daysOfWeek.map((day) => {
-                  const item = findScheduleItem(day, time);
-                  return (
-                    <div
-                      key={`${day}-${time}`}
-                      className={cn(
-                        'border border-gray-200 p-1 relative h-full',
-                        item ? 'bg-blue-50/50' : 'bg-white'
-                      )}
-                    >
-                      {item && (
-                        <div className="p-1 text-xs rounded-md border border-gray-200 bg-white shadow-sm h-full flex flex-col justify-center items-center">
-                          <div className="truncate font-medium text-blue-500">{item.MateriaNombre || 'Materia'}</div>
-                          <div className="truncate text-xs text-gray-500">{item.ProfesorNombre || ''}</div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
+        <table className="table-fixed w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="w-20 border p-2"></th>
+              {daysOfWeek.map(day => (
+                <th key={day} className="border p-2 text-center font-medium">
+                  {day}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {(() => {
+              const skipCount: Record<string, number> = {};
+              daysOfWeek.forEach(day => { skipCount[day] = 0; });
+              return timeSlots.map(time => (
+                <tr key={time}>
+                  <th className="border p-2 text-right text-sm">{time}</th>
+                  {daysOfWeek.map(day => {
+                    if (skipCount[day] > 0) {
+                      skipCount[day]--;
+                      return null;
+                    }
+                    const item = mergedSchedule.find(i => i.Dia === day && i.HoraInicio === time);
+                    if (item) {
+                      const [sh, sm] = item.HoraInicio.split(':').map(Number);
+                      const [eh, em] = item.HoraFin.split(':').map(Number);
+                      const spanCount = ((eh * 60 + em) - (sh * 60 + sm)) / 30;
+                      skipCount[day] = spanCount - 1;
+                      return (
+                        <td
+                          key={`${day}-${time}`}
+                          rowSpan={spanCount}
+                          className="border p-2 align-top bg-blue-50">
+                          <div className="text-xs font-medium text-blue-500 truncate">{item.MateriaNombre}</div>
+                          <div className="text-xs text-gray-500 truncate">{item.ProfesorNombre}</div>
+                        </td>
+                      );
+                    }
+                    return <td key={`${day}-${time}`} className="border p-2"></td>;
+                  })}
+                </tr>
+              ));
+            })()}
+          </tbody>
+        </table>
       </div>
       {isLoading && <div className="text-center text-gray-500 mt-4">Cargando horario...</div>}
     </div>
