@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import SubjectList from '@/components/SubjectList';
 import SubjectSearch from '@/components/SubjectSearch';
+import GroupInfoDialog from '@/components/GroupInfoDialog';
 
 // Dummy data for UI demonstration
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -44,6 +45,8 @@ export default function HorarioGeneralPage() {
   });
   const [schedule, setSchedule] = useState<GeneralScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   // Fetch the general schedule from the API
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -128,17 +131,21 @@ export default function HorarioGeneralPage() {
               <tr key={time}>
                 <th className="border p-2 text-right text-sm">{time}</th>
                 {daysOfWeek.map(day => {
-                  // Find all schedule items that start at this day and time
                   const items = schedule.filter(i => i.Dia === day && i.HoraInicio === time);
                   return (
                     <td key={`${day}-${time}`} className="border p-2 align-top">
                       {items.length > 0 ? (
                         <div className="flex flex-col gap-1">
                           {items.map(item => (
-                            <div key={item.IdGrupo} className="bg-blue-50 rounded p-1 mb-1">
+                            <div
+                              key={item.IdGrupo}
+                              className="bg-blue-50 rounded p-1 mb-1 cursor-pointer hover:bg-blue-100"
+                              onClick={() => {
+                                setSelectedGroup(item);
+                                setDialogOpen(true);
+                              }}
+                            >
                               <div className="text-xs font-medium text-blue-500 truncate">{item.MateriaNombre}</div>
-                              <div className="text-xs text-gray-500 truncate">{item.ProfesorNombre}</div>
-                              <div className="text-[10px] text-gray-400">Grupo {item.IdGrupo}</div>
                             </div>
                           ))}
                         </div>
@@ -151,6 +158,7 @@ export default function HorarioGeneralPage() {
           </tbody>
         </table>
       </div>
+      <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
       {isLoading && <div className="text-center text-gray-500 mt-4">Cargando horario...</div>}
     </div>
   );
