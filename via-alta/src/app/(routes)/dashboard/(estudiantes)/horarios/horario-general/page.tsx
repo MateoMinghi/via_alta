@@ -33,10 +33,10 @@ export default function HorarioGeneralPage() {
   };
 
   return (
-    <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
-      <div className="overflow-x-auto flex-1">
-        <div className="min-w-[800px]">
-          <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
+    <div className="w-full pb-8 flex flex-col gap-4">
+      <div className="overflow-x-auto w-full">
+        <div className="w-full">
+          <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)] w-full">
             <div className="h-10" />
             {daysOfWeek.map((day) => (
               <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
@@ -70,36 +70,6 @@ export default function HorarioGeneralPage() {
             ))}
           </div>
         </div>
-      </div>
-      <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
-        <p className="text-2xl font-bold">Lista de Materias</p>
-        <SubjectList subjects={dummySubjects} />
-        {selectedSubjects.length > 0 && (
-          <div className="mt-4 mb-4">
-            <p className="text-lg font-semibold mb-2">Materias Seleccionadas</p>
-            <div className="space-y-2">
-              {selectedSubjects.map((subject) => (
-                <Card key={subject.id} className="p-3 flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{subject.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {subject.professor} • {subject.credits} créditos
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-red-500"
-                    // No remove logic for now
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-        <SubjectSearch subjects={dummySubjects} onSubjectSelect={() => {}} />
       </div>
     </div>
   );
