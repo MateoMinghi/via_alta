@@ -29,6 +29,7 @@ interface Semester {
 export default function HorariosSlug() {
   const { result, loading }: ResponseType = useGetStudents();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingSchedule, setIsGeneratingSchedule] = useState(false);
 
   const semesters: Semester[] = result ? Object.entries(
     result.reduce((acc: Record<string, number>, student: Student) => {
@@ -87,6 +88,37 @@ export default function HorariosSlug() {
       setIsGenerating(false);
     }
   };
+
+  // Función para generar horario general
+  const generateGeneralSchedule = async () => {
+    try {
+      setIsGeneratingSchedule(true);
+      toast.info("Iniciando la generación del horario general...");
+      
+      const response = await fetch('/api/schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          // idCiclo es opcional, si no se proporciona se usará el ciclo más reciente
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        toast.success('Horario general generado exitosamente');
+      } else {
+        toast.error(`Error: ${data.error || 'No se pudo generar el horario general'}`);
+      }
+    } catch (error) {
+      console.error("Error en la generación del horario general:", error);
+      toast.error(`Error: ${error instanceof Error ? error.message : 'No se pudo generar el horario general'}`);
+    } finally {
+      setIsGeneratingSchedule(false);
+    }
+  };
   //retorno
   return (
     <div className="text-center">
@@ -104,7 +136,7 @@ export default function HorariosSlug() {
               onClick={generateGroups} 
               disabled={isGenerating} 
               size="lg"
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white mr-4"
             >
               {isGenerating ? (
                 <>
@@ -113,6 +145,22 @@ export default function HorariosSlug() {
                 </>
               ) : (
                 'Generar Grupos'
+              )}
+            </Button>
+
+            <Button 
+              onClick={generateGeneralSchedule} 
+              disabled={isGeneratingSchedule} 
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isGeneratingSchedule ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generando horario general...
+                </>
+              ) : (
+                'Generar Horario General'
               )}
             </Button>
           </div>
