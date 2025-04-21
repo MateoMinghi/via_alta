@@ -30,6 +30,18 @@ interface GeneralScheduleItem {
 }
 
 export default function HorarioGeneralPage() {
+  // Map raw API schedule items (lowercase keys, include seconds) to proper UI types (PascalCase, HH:MM)
+  const mapRawScheduleItem = (raw: any): GeneralScheduleItem => ({
+    IdHorarioGeneral: raw.IdHorarioGeneral ?? raw.idhorariogeneral,
+    NombreCarrera: raw.NombreCarrera ?? raw.nombrecarrera,
+    IdGrupo: raw.IdGrupo ?? raw.idgrupo,
+    Dia: raw.Dia ?? raw.dia,
+    HoraInicio: (raw.HoraInicio ?? raw.horainicio ?? '').slice(0,5),
+    HoraFin: (raw.HoraFin ?? raw.horafin ?? '').slice(0,5),
+    Semestre: raw.Semestre ?? raw.semestre,
+    MateriaNombre: raw.MateriaNombre ?? raw.materianombre,
+    ProfesorNombre: raw.ProfesorNombre ?? raw.profesornombre,
+  });
   const [schedule, setSchedule] = useState<GeneralScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // Fetch the general schedule from the API
@@ -41,7 +53,7 @@ export default function HorarioGeneralPage() {
         const data = await res.json();
         if (data.success) {
           console.log('Schedule data received:', data.data);
-          setSchedule(data.data);
+          setSchedule(data.data.map(mapRawScheduleItem));
         } else {
           console.log('No schedule data received:', data);
           setSchedule([]);
@@ -73,7 +85,7 @@ export default function HorarioGeneralPage() {
         
         if (data2.success) {
           console.log('Schedule data received, count:', data2.data?.length || 0);
-          setSchedule(data2.data);
+          setSchedule(data2.data.map(mapRawScheduleItem));
         } else {
           console.log('Failed to fetch updated schedule:', data2);
           setSchedule([]);
