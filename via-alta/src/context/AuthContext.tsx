@@ -27,6 +27,7 @@ export interface User {
   semester?: number | null;
   role: UserRole;
   has_password?: boolean;
+  regular?: boolean; // Added regular property to identify regular vs irregular students
 }
 
 interface AuthContextType {
@@ -171,11 +172,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Redirect based on role
       if (userData.role.name === 'student') {
-        if(userData.status === 'inscrito' || userData.status === 'requiere-cambios') { //redirige a confirmacion
+        if(userData.status === 'inscrito' || userData.status === 'requiere-cambios') { 
+          // Already confirmed schedule, redirect to confirmation page
           router.push('/estudiante/confirmacion');
         }
-        else { //redirige a su horario, si todavia no confirma el horario
-          router.push('/estudiante');
+        else {
+          // Check if student is regular or irregular
+          if (userData.regular === false) {
+            // Irregular student
+            router.push('/estudiante/irregular');
+          } else {
+            // Regular student (default case when regular is undefined or true)
+            router.push('/estudiante');
+          }
         }
       } else if (['admin', 'coordinator'].includes(userData.role.name)) {
         router.push('/dashboard');

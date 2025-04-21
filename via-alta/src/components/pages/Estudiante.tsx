@@ -263,7 +263,7 @@ export default function Estudiante() {
 
         {/* Horario del estudiante o mensaje si no hay materias */}
         {filteredSubjects.length > 0 ? (
-          <EstudianteSchedule subjects={filteredSubjects} />
+          <EstudianteSchedule subjects={filteredSubjects} isRegular={updatedUser?.regular !== false} />
         ) : (
           <p className="text-center py-4 bg-gray-50 rounded-md">
             No hay materias disponibles para tu semestre. Contacta al coordinador académico.

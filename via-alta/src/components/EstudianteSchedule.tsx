@@ -276,7 +276,7 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'subject',
       item: { subject, occurrence },
-      canDrag: !subject.isObligatory, // Solo se pueden arrastrar materias no obligatorias
+      canDrag: !subject.isObligatory && !isRegular, // Disable dragging for obligatory subjects and regular students
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
@@ -336,8 +336,11 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
     const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
       accept: ['subject', 'available-subject'],
       canDrop: (dragItem: { subject: Subject; occurrence?: { day: string; time: string }; type?: string }) => {
+        // Regular students can't modify their schedule
+        if (isRegular) return false;
+        
         if (dragItem.type === 'available-subject') {
-          return true; // Siempre se pueden agregar materias disponibles
+          return true; // Siempre se pueden agregar materias disponibles (para estudiantes irregulares)
         }
         return true;
       },
@@ -409,7 +412,7 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'scheduled-subject',
       item: { subject, type: 'scheduled-subject' },
-      canDrag: !subject.isObligatory, // Solo materias no obligatorias
+      canDrag: !subject.isObligatory && !isRegular, // Only non-obligatory subjects can be dragged, and only by irregular students
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
@@ -494,6 +497,7 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'available-subject',
       item: { subject, type: 'available-subject' },
+      canDrag: !isRegular, // Only irregular students can drag subjects
       collect: (monitor) => ({
         isDragging: monitor.isDragging(),
       }),
@@ -577,6 +581,7 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
     // Configurar el área para recibir materias arrastradas
     const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
       accept: 'available-subject', 
+      canDrop: () => !isRegular, // Regular students can't modify their schedule
       drop: (item: { subject: Subject; type?: string }) => {
         onAddSubject(item.subject);
         toast.success(`Materia "${item.subject.title}" agregada al horario`);
@@ -636,6 +641,8 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
     const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
       accept: ['subject', 'scheduled-subject'], 
       canDrop: (item: { subject: Subject; type?: string }) => {
+        // Regular students can't modify their schedule
+        if (isRegular) return false;
         return !item.subject.isObligatory;
       },
       drop: (item: { subject: Subject; occurrence?: { day: string; time: string }; type?: string }) => {
