@@ -10,42 +10,33 @@ export interface GeneralScheduleItem {
   HoraFin: string;
 }
 
-class GeneralSchedule {  // Method to save the general schedule
+class GeneralSchedule {
+  // Method to save the general schedule
   static async saveGeneralSchedule(scheduleItems: GeneralScheduleItem[]) {
-    console.log(`SaveGeneralSchedule called with ${scheduleItems.length} items`);
-    
-    // If no items to save, just return success
-    if (scheduleItems.length === 0) {
-      console.log("No schedule items to save, returning early");
-      return true;
-    }
-    
     const client = await pool.connect();
     try {
-      console.log("Connected to database, beginning transaction");
       await client.query('BEGIN');
       
       // Delete existing schedule if there are new items
-      //if (scheduleItems.length > 0) {
-        //await client.query('DELETE FROM HorarioGeneral WHERE IdHorarioGeneral = $1', [scheduleItems[0].IdHorarioGeneral]);
-      //}
-        // Insert all new schedule items
+      if (scheduleItems.length > 0) {
+        await client.query('DELETE FROM HorarioGeneral WHERE IdHorarioGeneral = $1', [scheduleItems[0].IdHorarioGeneral]);
+      }
+      
+      // Insert all new schedule items
       const insertQuery = `
         INSERT INTO HorarioGeneral 
         (IdHorarioGeneral, NombreCarrera, IdGrupo, Dia, HoraInicio, HoraFin)
         VALUES ($1, $2, $3, $4, $5, $6)
       `;
       
-      console.log(`Preparing to insert ${scheduleItems.length} schedule items`);
       for (const item of scheduleItems) {
-        console.log(`Inserting item: ${JSON.stringify(item)}`);
         await client.query(insertQuery, [
           item.IdHorarioGeneral,
           item.NombreCarrera,
           item.IdGrupo,
           item.Dia,
           item.HoraInicio,
-          item.HoraFin,
+          item.HoraFin
         ]);
       }
       
@@ -63,9 +54,16 @@ class GeneralSchedule {  // Method to save the general schedule
   // Method to get the general schedule
   static async getGeneralSchedule(): Promise<GeneralScheduleItem[]> {
     const query = `
-      SELECT *
-      FROM HorarioGeneral
-      ORDER BY Dia, HoraInicio
+      SELECT hg.*,
+             g.IdMateria,
+             m.Nombre as MateriaNombre,
+             g.IdProfesor,
+             p.Nombre as ProfesorNombre
+      FROM HorarioGeneral hg
+      JOIN Grupo g ON hg.IdGrupo = g.IdGrupo
+      LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
+      LEFT JOIN Profesor p ON g.IdProfesor = p.IdProfesor
+      ORDER BY hg.Dia, hg.HoraInicio
     `;
     const result = await pool.query(query);
     return result.rows;

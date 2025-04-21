@@ -9,14 +9,13 @@ import Cycle from '../models/cycle';
 import pool from '../../config/database';
 import { syncCoursesFromAPI } from './subject-handler';
 import stringSimilarity from 'string-similarity';
-
-// Interface for input parameters when generating a group - Using PascalCase to match models
+// Interface for input parameters when generating a group
 export interface GroupGenerationParams {
-  IdGrupo?: number; // Optional - if not provided, will be auto-generated
-  IdMateria?: number; // Optional - will be determined from professor's classes if not provided
-  IdProfesor: string; // Required - the professor who will teach the group
-  IdSalon: number; // Required - the classroom where the group will be held
-  IdCiclo?: number; // Optional - will use the latest cycle if not provided
+  idGrupo?: number; // Optional - if not provided, will be auto-generated
+  idMateria?: number; // Optional - will be determined from professor's classes if not provided
+  idProfesor: string; // Required - the professor who will teach the group
+  idSalon: number; // Required - the classroom where the group will be held
+  idCiclo?: number; // Optional - will use the latest cycle if not provided
 }
 
 // Interface for group validation errors
@@ -26,114 +25,11 @@ export interface GroupValidationError {
 }
 
 /**
- * Generates a unique group ID that is not already in use
- * 
- * @returns A unique group ID
- */
-async function generateUniqueGroupId(): Promise<number> {
-  // Get the highest current group ID
-  const query = 'SELECT MAX(IdGrupo) as maxId FROM Grupo';
-  const result = await pool.query(query);
-  const maxId = result.rows[0]?.maxid || 0;
-  
-  // Return the next available ID
-  return maxId + 1;
-}
-
-/**
- * Validates the parameters for group generation
- * Checks if all required entities exist and are compatible
- * 
- * @param params Group generation parameters (expects PascalCase keys)
- * @returns Array of validation errors (empty if valid)
- */
-async function validateGroupParams(params: GroupGenerationParams): Promise<GroupValidationError[]> {
-  const errors: GroupValidationError[] = [];
-
-  // Check if the subject exists
-  if (params.IdMateria !== undefined) {
-    const subject = await Subject.findById(params.IdMateria);
-    if (!subject) {
-      errors.push({
-        field: 'IdMateria',
-        message: `Subject with ID ${params.IdMateria} not found`
-      });
-    }
-  }
-
-  // Check if the professor exists
-  const professor = await Professor.findById(params.IdProfesor);
-  if (!professor) {
-    errors.push({
-      field: 'IdProfesor',
-      message: `Professor with ID ${params.IdProfesor} not found`
-    });
-  }
-
-  // Check if the classroom exists
-  try {
-    const classroom = await Classroom.findById(params.IdSalon.toString());
-    if (!classroom) {
-      errors.push({
-        field: 'IdSalon',
-        message: `Classroom with ID ${params.IdSalon} not found`
-      });
-    }
-  } catch (error) {
-    errors.push({
-      field: 'IdSalon',
-      message: `Error finding classroom: ${error instanceof Error ? error.message : String(error)}`
-    });
-  }
-  
-  // Check if the cycle exists
-  if (params.IdCiclo !== undefined) {
-    try {
-      const cycle = await Cycle.findById(params.IdCiclo.toString());
-      if (!cycle) {
-        errors.push({
-          field: 'IdCiclo',
-          message: `Cycle with ID ${params.IdCiclo} not found`
-        });
-      }
-    } catch (error) {
-      errors.push({
-        field: 'IdCiclo',
-        message: `Error finding cycle: ${error instanceof Error ? error.message : String(error)}`
-      });
-    }
-  }
-
-  // If a group ID is provided, check if it's already in use
-  if (params.IdGrupo !== undefined) {
-    try {
-      const existingGroup = await Group.findById(params.IdGrupo);
-      if (existingGroup) {
-        errors.push({
-          field: 'IdGrupo',
-          message: `A group with ID ${params.IdGrupo} already exists`
-        });
-      }
-    } catch (error) {
-      // If there's an error but it's not because the group doesn't exist, add it to errors
-      if (!(error instanceof Error && error.message.includes('not found'))) {
-        errors.push({
-          field: 'IdGrupo',
-          message: `Error validating group ID: ${error instanceof Error ? error.message : String(error)}`
-        });
-      }
-    }
-  }
-
-  return errors;
-}
-
-/**
  * Generates a new group based on the provided parameters.
  * Ensures that the group's semester matches the subject's semester.
  * 
- * @param params Parameters needed to generate a group (expects PascalCase keys)
- * @returns The created group data (with PascalCase keys)
+ * @param params Parameters needed to generate a group
+ * @returns The created group data
  * @throws Error if validation fails
  */
 export async function generateGroup(params: GroupGenerationParams) {
@@ -149,16 +45,16 @@ export async function generateGroup(params: GroupGenerationParams) {
   }
 
   // Find the professor to get their classes
-  console.log(`Finding professor with ID: ${params.IdProfesor}`);
-  const professor = await Professor.findById(params.IdProfesor);
+  console.log(`Finding professor with ID: ${params.idProfesor}`);
+  const professor = await Professor.findById(params.idProfesor);
   if (!professor) {
-    console.error(`Professor with ID ${params.IdProfesor} not found`);
-    throw new Error(`Professor with ID ${params.IdProfesor} not found`);
+    console.error(`Professor with ID ${params.idProfesor} not found`);
+    throw new Error(`Professor with ID ${params.idProfesor} not found`);
   }
   console.log("Professor found:", professor);
 
   // Get the latest cycle if not provided
-  let idCiclo = params.IdCiclo;
+  let idCiclo = params.idCiclo;
   if (!idCiclo) {
     console.log("No cycle ID provided, fetching latest cycle...");
     const latestCycle = await getLatestCycle();
@@ -170,14 +66,13 @@ export async function generateGroup(params: GroupGenerationParams) {
     idCiclo = parseInt(latestCycle.idciclo);
     console.log(`Using latest cycle ID: ${idCiclo}`);
   }
-  
   // Find the subject based on professor's classes if not provided
-  let idMateria = params.IdMateria;
+  let idMateria = params.idMateria;
   if (!idMateria) {
     console.log(`No subject ID provided, determining from professor classes: ${professor.Clases}`);
     if (!professor.Clases || professor.Clases.trim() === '') {
-      console.warn(`Professor with ID ${params.IdProfesor} has empty assigned classes`); // Changed to warn
-      throw new Error(`Professor with ID ${params.IdProfesor} does not have any assigned classes`);
+      console.warn(`Professor with ID ${params.idProfesor} has empty assigned classes`); // Changed to warn
+      throw new Error(`Professor with ID ${params.idProfesor} does not have any assigned classes`);
     }
     
     // Find a subject that matches the professor's classes
@@ -186,7 +81,7 @@ export async function generateGroup(params: GroupGenerationParams) {
       console.error(`No subject found matching professor's classes: ${professor.Clases}`);
       throw new Error(`No subject found matching professor's classes: ${professor.Clases}`);
     }
-    idMateria = matchingSubject.idmateria; // <-- use lowercase as it comes from direct DB query
+    idMateria = matchingSubject.idmateria; // <-- use lowercase
     console.log(`Determined subject ID: ${idMateria}`);
   }
   
@@ -197,10 +92,10 @@ export async function generateGroup(params: GroupGenerationParams) {
   }
 
   // Update params with the determined values
-  const updatedParams: GroupGenerationParams = {
+  const updatedParams = {
     ...params,
-    IdMateria: idMateria, // Map to PascalCase
-    IdCiclo: idCiclo // Map to PascalCase
+    idMateria,
+    idCiclo
   };
   console.log("Updated params for validation:", updatedParams);
 
@@ -230,7 +125,7 @@ export async function generateGroup(params: GroupGenerationParams) {
   console.log("Subject found:", subject);
 
   // Generate a group ID if not provided
-  const groupId = params.IdGrupo || await generateUniqueGroupId();
+  const groupId = params.idGrupo || await generateUniqueGroupId();
   console.log(`Using Group ID: ${groupId}`);
 
   // Ensure subject.semestre is defined
@@ -238,14 +133,14 @@ export async function generateGroup(params: GroupGenerationParams) {
     throw new Error(`Subject with ID ${idMateria} does not have a valid 'semestre' value.`);
   }
 
-  // Create the group with the subject's semester - using PascalCase keys
+  // Create the group with the subject's semester
   const groupData = {
     IdGrupo: groupId,
     IdMateria: idMateria,
-    IdProfesor: params.IdProfesor,
-    IdSalon: params.IdSalon,
+    IdProfesor: params.idProfesor,
+    IdSalon: params.idSalon,
     IdCiclo: idCiclo,
-    Semestre: subject.semestre // Use the subject's semester as required
+    Semestre: subject.semestre // Use the subject's semester as required (lowercase)
   };
   console.log("Prepared group data for creation:", groupData);
 
@@ -254,22 +149,7 @@ export async function generateGroup(params: GroupGenerationParams) {
     console.log("Attempting to create group in database...");
     const createdGroup = await Group.create(groupData);
     console.log("Group created successfully:", createdGroup);
-    
-    // The Group.create returns an object with Database column names which might be lowercase
-    // Use type assertion with any to handle potential property casing differences
-    const dbResult = createdGroup as any;
-    
-    // Map the database result to ensure PascalCase keys
-    const mappedGroup = {
-      IdGrupo: dbResult.IdGrupo || dbResult.idgrupo,
-      IdMateria: dbResult.IdMateria || dbResult.idmateria,
-      IdProfesor: dbResult.IdProfesor || dbResult.idprofesor,
-      IdSalon: dbResult.IdSalon || dbResult.idsalon,
-      IdCiclo: dbResult.IdCiclo || dbResult.idciclo,
-      Semestre: dbResult.Semestre || dbResult.semestre
-    };
-    
-    return mappedGroup;
+    return createdGroup;
   } catch (creationError) {
     console.error("Error during Group.create:", creationError);
     throw new Error(`Failed to create group in database: ${creationError instanceof Error ? creationError.message : String(creationError)}`);
@@ -277,82 +157,180 @@ export async function generateGroup(params: GroupGenerationParams) {
 }
 
 /**
- * Validates parameters for updating a group
+ * Generates a unique group ID that is not already in use
  * 
- * @param idGrupo The ID of the group being updated
- * @param params The parameters for the update (expects PascalCase keys)
+ * @returns A unique group ID
+ */
+async function generateUniqueGroupId(): Promise<number> {
+  // Get the highest current group ID
+  const query = 'SELECT MAX(IdGrupo) as maxId FROM Grupo';
+  const result = await pool.query(query);
+  const maxId = result.rows[0]?.maxid || 0;
+  
+  // Return the next available ID
+  return maxId + 1;
+}
+
+/**
+ * Validates the parameters for group generation
+ * Checks if all required entities exist and are compatible
+ * 
+ * @param params Group generation parameters
  * @returns Array of validation errors (empty if valid)
  */
-async function validateGroupUpdate(idGrupo: number, params: any): Promise<GroupValidationError[]> {
+async function validateGroupParams(params: GroupGenerationParams): Promise<GroupValidationError[]> {
   const errors: GroupValidationError[] = [];
 
-  // Similar validation as validateGroupParams but allows for partial updates
-  const subject = await Subject.findById(params.IdMateria);
-  if (!subject) {
-    errors.push({
-      field: 'IdMateria',
-      message: `Subject with ID ${params.IdMateria} not found`
-    });
+  // Check if the subject exists
+  if (params.idMateria !== undefined) {
+    const subject = await Subject.findById(params.idMateria);
+    if (!subject) {
+      errors.push({
+        field: 'idMateria',
+        message: `Subject with ID ${params.idMateria} not found`
+      });
+    }
   }
 
-  const professor = await Professor.findById(params.IdProfesor);
+  // Check if the professor exists
+  const professor = await Professor.findById(params.idProfesor);
   if (!professor) {
     errors.push({
-      field: 'IdProfesor',
-      message: `Professor with ID ${params.IdProfesor} not found`
+      field: 'idProfesor',
+      message: `Professor with ID ${params.idProfesor} not found`
     });
   }
 
+  // Check if the classroom exists
   try {
-    const classroom = await Classroom.findById(params.IdSalon.toString());
+    const classroom = await Classroom.findById(params.idSalon.toString());
     if (!classroom) {
       errors.push({
-        field: 'IdSalon',
-        message: `Classroom with ID ${params.IdSalon} not found`
+        field: 'idSalon',
+        message: `Classroom with ID ${params.idSalon} not found`
       });
     }
   } catch (error) {
     errors.push({
-      field: 'IdSalon',
+      field: 'idSalon',
       message: `Error finding classroom: ${error instanceof Error ? error.message : String(error)}`
     });
   }
-
-  try {
-    const cycle = await Cycle.findById(params.IdCiclo.toString());
-    if (!cycle) {
+  // Check if the cycle exists
+  if (params.idCiclo !== undefined) {
+    try {
+      const cycle = await Cycle.findById(params.idCiclo.toString());
+      if (!cycle) {
+        errors.push({
+          field: 'idCiclo',
+          message: `Cycle with ID ${params.idCiclo} not found`
+        });
+      }
+    } catch (error) {
       errors.push({
-        field: 'IdCiclo',
-        message: `Cycle with ID ${params.IdCiclo} not found`
+        field: 'idCiclo',
+        message: `Error finding cycle: ${error instanceof Error ? error.message : String(error)}`
       });
     }
-  } catch (error) {
-    errors.push({
-      field: 'IdCiclo',
-      message: `Error finding cycle: ${error instanceof Error ? error.message : String(error)}`
-    });
   }
 
-  // Check that the semester matches the subject's semester
-  if (subject && params.Semestre !== subject.Semestre) {
-    errors.push({
-      field: 'Semestre',
-      message: `Group semester (${params.Semestre}) does not match subject semester (${subject.Semestre})`
-    });
+  // If a group ID is provided, check if it's already in use
+  if (params.idGrupo !== undefined) {
+    try {
+      const existingGroup = await Group.findById(params.idGrupo);
+      if (existingGroup) {
+        errors.push({
+          field: 'idGrupo',
+          message: `A group with ID ${params.idGrupo} already exists`
+        });
+      }
+    } catch (error) {
+      // If there's an error but it's not because the group doesn't exist, add it to errors
+      if (!(error instanceof Error && error.message.includes('not found'))) {
+        errors.push({
+          field: 'idGrupo',
+          message: `Error validating group ID: ${error instanceof Error ? error.message : String(error)}`
+        });
+      }
+    }
   }
 
   return errors;
 }
 
 /**
+ * Gets all groups matching specific filters
+ * 
+ * @param filters Optional filters for querying groups
+ * @returns Array of groups matching the filters
+ */
+export async function getGroups(filters?: {
+  idMateria?: number;
+  idProfesor?: string;
+  idSalon?: number;
+  idCiclo?: number;
+  semestre?: number;
+}) {
+  // Build the WHERE clause based on provided filters
+  const conditions: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  if (filters?.idMateria !== undefined) {
+    conditions.push(`g.IdMateria = $${paramIndex++}`);
+    values.push(filters.idMateria);
+  }
+
+  if (filters?.idProfesor !== undefined) {
+    conditions.push(`g.IdProfesor = $${paramIndex++}`);
+    values.push(filters.idProfesor);
+  }
+
+  if (filters?.idSalon !== undefined) {
+    conditions.push(`g.IdSalon = $${paramIndex++}`);
+    values.push(filters.idSalon);
+  }
+
+  if (filters?.idCiclo !== undefined) {
+    conditions.push(`g.IdCiclo = $${paramIndex++}`);
+    values.push(filters.idCiclo);
+  }
+
+  if (filters?.semestre !== undefined) {
+    conditions.push(`g.Semestre = $${paramIndex++}`);
+    values.push(filters.semestre);
+  }
+
+  // Construct the query with detailed information from related tables
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const query = `
+    SELECT 
+      g.*,
+      m.Nombre as subject_name,
+      p.Nombre as professor_name,
+      c.Nombre as cycle_name
+    FROM 
+      Grupo g
+      JOIN Materia m ON g.IdMateria = m.IdMateria
+      JOIN Profesor p ON g.IdProfesor = p.IdProfesor
+      JOIN Ciclo c ON g.IdCiclo = c.IdCiclo
+    ${whereClause}
+    ORDER BY g.IdGrupo
+  `;
+
+  const result = await pool.query(query, values);
+  return result.rows;
+}
+
+/**
  * Updates an existing group, ensuring that the semester still matches the subject's semester
  * 
  * @param idGrupo ID of the group to update
- * @param params New parameters for the group (expects lowercase keys from old interface)
- * @returns The updated group data (with PascalCase keys)
+ * @param params New parameters for the group
+ * @returns The updated group data
  * @throws Error if validation fails
  */
-export async function updateGroup(idGrupo: number, params: Partial<{ idGrupo?: number, idMateria?: number, idProfesor?: string, idSalon?: number, idCiclo?: number }>) {
+export async function updateGroup(idGrupo: number, params: Partial<GroupGenerationParams>) {
   // Get the current group to update only specified fields
   const currentGroup = await Group.findById(idGrupo);
   if (!currentGroup) {
@@ -369,7 +347,7 @@ export async function updateGroup(idGrupo: number, params: Partial<{ idGrupo?: n
     newSemester = newSubject.Semestre;
   }
 
-  // Prepare the update data with PascalCase keys
+  // Prepare the update data
   const updateData = {
     IdGrupo: idGrupo,
     IdMateria: params.idMateria ?? currentGroup.IdMateria,
@@ -386,46 +364,112 @@ export async function updateGroup(idGrupo: number, params: Partial<{ idGrupo?: n
   }
 
   // Update the group
-  const updatedGroup = await Group.update(idGrupo, updateData);
-  
-  // The Group.update returns an object with Database column names which might be lowercase
-  // Use type assertion with any to handle potential property casing differences
-  const dbResult = updatedGroup as any;
-  
-  // Map the database result to ensure PascalCase keys
-  const mappedResult = {
-    IdGrupo: dbResult.IdGrupo || dbResult.idgrupo,
-    IdMateria: dbResult.IdMateria || dbResult.idmateria,
-    IdProfesor: dbResult.IdProfesor || dbResult.idprofesor,
-    IdSalon: dbResult.IdSalon || dbResult.idsalon,
-    IdCiclo: dbResult.IdCiclo || dbResult.idciclo,
-    Semestre: dbResult.Semestre || dbResult.semestre
-  };
-  
-  return mappedResult;
+  return await Group.update(idGrupo, updateData);
+}
+
+/**
+ * Validates parameters for updating a group
+ * 
+ * @param idGrupo The ID of the group being updated
+ * @param params The parameters for the update
+ * @returns Array of validation errors (empty if valid)
+ */
+async function validateGroupUpdate(idGrupo: number, params: any): Promise<GroupValidationError[]> {
+  const errors: GroupValidationError[] = [];
+
+  // Similar validation as validateGroupParams but allows for partial updates
+  const subject = await Subject.findById(params.IdMateria);
+  if (!subject) {
+    errors.push({
+      field: 'idMateria',
+      message: `Subject with ID ${params.IdMateria} not found`
+    });
+  }
+
+  const professor = await Professor.findById(params.IdProfesor);
+  if (!professor) {
+    errors.push({
+      field: 'idProfesor',
+      message: `Professor with ID ${params.IdProfesor} not found`
+    });
+  }
+
+  try {
+    const classroom = await Classroom.findById(params.IdSalon.toString());
+    if (!classroom) {
+      errors.push({
+        field: 'idSalon',
+        message: `Classroom with ID ${params.IdSalon} not found`
+      });
+    }
+  } catch (error) {
+    errors.push({
+      field: 'idSalon',
+      message: `Error finding classroom: ${error instanceof Error ? error.message : String(error)}`
+    });
+  }
+
+  try {
+    const cycle = await Cycle.findById(params.IdCiclo.toString());
+    if (!cycle) {
+      errors.push({
+        field: 'idCiclo',
+        message: `Cycle with ID ${params.IdCiclo} not found`
+      });
+    }
+  } catch (error) {
+    errors.push({
+      field: 'idCiclo',
+      message: `Error finding cycle: ${error instanceof Error ? error.message : String(error)}`
+    });
+  }
+
+  // Check that the semester matches the subject's semester
+  if (subject && params.Semestre !== subject.Semestre) {
+    errors.push({
+      field: 'semestre',
+      message: `Group semester (${params.Semestre}) does not match subject semester (${subject.Semestre})`
+    });
+  }
+
+  return errors;
 }
 
 /**
  * Deletes a group by ID
  * 
  * @param idGrupo ID of the group to delete
- * @returns The deleted group data (with PascalCase keys)
+ * @returns The deleted group data
  */
 export async function deleteGroup(idGrupo: number) {
-  const deletedGroup = await Group.delete(idGrupo);
-  
-  // The Group.delete returns an object with Database column names which might be lowercase
-  // Use type assertion with any to handle potential property casing differences
-  const dbResult = deletedGroup as any;
-  
-  // Map the database result to ensure PascalCase keys
+  return await Group.delete(idGrupo);
+}
+
+/**
+ * Generates multiple groups in batch based on a list of parameters
+ * 
+ * @param paramsList List of group generation parameters
+ * @returns Array of created groups
+ */
+export async function generateGroupsBatch(paramsList: GroupGenerationParams[]) {
+  const createdGroups = [];
+  const errors = [];
+
+  for (const params of paramsList) {
+    try {
+      const group = await generateGroup(params);
+      createdGroups.push(group);
+    } catch (error) {
+      errors.push({
+        params,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
   return {
-    IdGrupo: dbResult.IdGrupo || dbResult.idgrupo,
-    IdMateria: dbResult.IdMateria || dbResult.idmateria,
-    IdProfesor: dbResult.IdProfesor || dbResult.idprofesor,
-    IdSalon: dbResult.IdSalon || dbResult.idsalon,
-    IdCiclo: dbResult.IdCiclo || dbResult.idciclo,
-    Semestre: dbResult.Semestre || dbResult.semestre
+    createdGroups,
+    errors
   };
 }
 
@@ -442,16 +486,6 @@ async function getLatestCycle() {
   `;
   const result = await pool.query(query);
   return result.rows[0] || null;
-}
-
-/**
- * Deletes all groups from the database.
- *
- * @returns void
- */
-async function deleteAllGroups(): Promise<void> {
-  const query = 'DELETE FROM Grupo';
-  await pool.query(query);
 }
 
 /**
@@ -498,31 +532,13 @@ async function findSubjectByName(subjectName: string) {
 }
 
 /**
- * Generates multiple groups in batch based on a list of parameters
- * 
- * @param paramsList List of group generation parameters (expects PascalCase keys)
- * @returns Object containing created groups (with PascalCase keys) and any errors that occurred
+ * Deletes all groups from the database.
+ *
+ * @returns void
  */
-export async function generateGroupsBatch(paramsList: GroupGenerationParams[]) {
-  const createdGroups = [];
-  const errors = [];
-
-  for (const params of paramsList) {
-    try {
-      const group = await generateGroup(params);
-      createdGroups.push(group);
-    } catch (error) {
-      errors.push({
-        params,
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  }
-
-  return {
-    createdGroups,
-    errors
-  };
+async function deleteAllGroups(): Promise<void> {
+  const query = 'DELETE FROM Grupo';
+  await pool.query(query);
 }
 
 /**
@@ -531,18 +547,17 @@ export async function generateGroupsBatch(paramsList: GroupGenerationParams[]) {
  * 
  * @param idSalon - The classroom ID to be used for all groups (ignored, will use all classrooms)
  * @param idCiclo - Optional cycle ID (will use latest if not provided)
- * @returns Object containing created groups (with PascalCase keys) and any errors that occurred
+ * @returns Object containing created groups and any errors that occurred
  */
 export async function generateGroupsForAllProfessors(idSalon: number, idCiclo?: number) {
   // First, delete all existing groups
   console.log("Deleting all existing groups...");
   await deleteAllGroups();
   console.log("Existing groups deleted.");
-  
   // Get all professors from the database
-  const professorQuery = 'SELECT * FROM Profesor WHERE Clases IS NOT NULL AND Clases <> \'\'';
-  const professorResult = await pool.query(professorQuery);
-  const professors = professorResult.rows;
+  const query = 'SELECT * FROM Profesor WHERE Clases IS NOT NULL AND Clases <> \'\'';
+  const result = await pool.query(query);
+  const professors = result.rows;
 
   // Get all classrooms from the database
   const classrooms = await Classroom.findAll();
@@ -551,19 +566,12 @@ export async function generateGroupsForAllProfessors(idSalon: number, idCiclo?: 
   }
 
   // Prepare parameters for each professor, assign classrooms in round-robin
-  // Map database results to PascalCase properties for GroupGenerationParams
   const groupParams: GroupGenerationParams[] = professors.map((professor, idx) => ({
-    IdProfesor: professor.idprofesor, // Map from lowercase from DB to PascalCase
-    IdSalon: classrooms[idx % classrooms.length].idsalon, // Map from lowercase from DB to PascalCase
-    IdCiclo: idCiclo
+    idProfesor: professor.idprofesor,
+    idSalon: classrooms[idx % classrooms.length].idsalon,
+    idCiclo: idCiclo
   }));
 
   // Generate groups using the existing batch function
-  const batchResult = await generateGroupsBatch(groupParams);
-  
-  // Return the result directly - the createdGroups array already contains objects with PascalCase keys
-  return {
-    createdGroups: batchResult.createdGroups,
-    errors: batchResult.errors
-  };
+  return await generateGroupsBatch(groupParams);
 }
