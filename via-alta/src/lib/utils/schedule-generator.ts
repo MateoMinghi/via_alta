@@ -56,6 +56,19 @@ function processAvailability(availabilityData: Awaited<ReturnType<typeof Availab
     return map;
 }
 
+// Helper to normalize group object keys
+function normalizeGroup(group: any) {
+  return {
+    IdGrupo: group.IdGrupo ?? group.idgrupo,
+    IdMateria: group.IdMateria ?? group.idmateria,
+    IdProfesor: group.IdProfesor ?? group.idprofesor,
+    IdSalon: group.IdSalon ?? group.idsalon,
+    IdCiclo: group.IdCiclo ?? group.idciclo,
+    Semestre: group.Semestre ?? group.semestre,
+    // Preserve any extra fields
+    ...group,
+  };
+}
 
 /**
  * Generates the general schedule based on existing groups, professor availability, and subject requirements.
@@ -77,7 +90,8 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
     // 2. Fetch Data
     console.log("Fetching groups...");
     // Use the existing getGroups function which joins necessary details
-    const groups = await getGroups({ idCiclo: targetCycleId });
+    const groupsRaw = await getGroups({ idCiclo: targetCycleId });
+    const groups = groupsRaw.map(normalizeGroup);
     console.log("Sample group object:", groups[0]);
     if (!groups || groups.length === 0) {
       console.log("No groups found for this cycle. Schedule generation skipped.");
@@ -94,7 +108,13 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
     const professorIds = [...new Set(groups.map(g => g.IdProfesor))];
     const availabilityMap: AvailabilityMap = new Map();
     for (const profId of professorIds) {
-        const avail = await Availability.findByProfessor(profId);
+        if (typeof profId !== 'string') {
+            console.warn(`Professor ID is not a string:`, profId);
+            continue;
+        }
+        // Normalize the professor ID (trim and uppercase)
+        const normalizedProfId = profId.trim().toUpperCase();
+        const avail = await Availability.findByProfessor(normalizedProfId);
         availabilityMap.set(profId, processAvailability(avail));
     }
     console.log(`Fetched availability for ${availabilityMap.size} professors.`);

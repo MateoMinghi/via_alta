@@ -18,8 +18,15 @@ interface SubjectWithGroup extends SubjectData {
 class Subject {
   // Add a static helper to map 'semestre' to 'Semestre' if needed
   static normalize(subject: any): SubjectData {
-    if (subject && subject.Semestre !== undefined && subject.semestre === undefined) {
-      subject.semestre = subject.Semestre;
+    // Map lowercase keys to PascalCase for compatibility
+    if (subject) {
+      subject.IdMateria = subject.IdMateria ?? subject.idmateria;
+      subject.Nombre = subject.Nombre ?? subject.nombre;
+      subject.HorasClase = subject.HorasClase ?? subject.horasclase;
+      subject.Requisitos = subject.Requisitos ?? subject.requisitos;
+      subject.Carrera = subject.Carrera ?? subject.carrera;
+      subject.Semestre = subject.Semestre ?? subject.semestre;
+      subject.semestre = subject.Semestre; // for compatibility
     }
     return subject as SubjectData;
   }

@@ -72,8 +72,9 @@ class Availability {
    * returns {Promise<AvailabilityData[]>} Una lista de disponibilidades del profesor.
    */
   static async findByProfessor(professorId: string): Promise<AvailabilityData[]> {
-    const query = "SELECT * FROM Disponibilidad WHERE IdProfesor = $1";
-    const result = await pool.query(query, [professorId]);
+    const trimmedId = professorId.trim();
+    const query = "SELECT * FROM Disponibilidad WHERE LOWER(IdProfesor) = LOWER($1)";
+    const result = await pool.query(query, [trimmedId]);
     return result.rows.map(normalizeAvailabilityData);
   }
 
