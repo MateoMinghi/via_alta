@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
@@ -16,24 +16,132 @@ const timeSlots = [
   '14:30', '15:00', '15:30', '16:00'
 ];
 
-const dummySubjects = [
-  { id: 1, title: 'Matemáticas', salon: 'A1', professor: 'Prof. López', credits: 5, semester: 1, hours: [{ day: 'Lunes', time: '08:00' }] },
-  { id: 2, title: 'Inglés', salon: 'B2', professor: 'Prof. Smith', credits: 4, semester: 2, hours: [{ day: 'Martes', time: '09:00' }] },
-  { id: 3, title: 'Historia', salon: 'C3', professor: 'Prof. Pérez', credits: 3, semester: 1, hours: [{ day: 'Miércoles', time: '10:00' }] },
-];
+// Types for the general schedule item (matches your backend)
+interface GeneralScheduleItem {
+  IdHorarioGeneral: number;
+  NombreCarrera: string;
+  IdGrupo: number;
+  Dia: string;
+  HoraInicio: string;
+  HoraFin: string;
+  Semestre?: number;
+  MateriaNombre?: string;
+  ProfesorNombre?: string;
+}
 
 export default function HorarioGeneralPage() {
-  const [selectedSubjects, setSelectedSubjects] = useState(dummySubjects);
-
-  // Helper to find subject in a cell
-  const findSubject = (day: string, time: string) => {
-    return selectedSubjects.find((subject) =>
-      subject.hours.some((hour) => hour.day === day && hour.time === time)
-    );
+  const [schedule, setSchedule] = useState<GeneralScheduleItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  // Fetch the general schedule from the API
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch('/api/schedule');
+        const data = await res.json();
+        if (data.success) {
+          console.log('Schedule data received:', data.data);
+          setSchedule(data.data);
+        } else {
+          console.log('No schedule data received:', data);
+          setSchedule([]);
+        }
+      } catch (err) {
+        console.error('Error fetching schedule:', err);
+        setSchedule([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSchedule();
+  }, []);
+  // Generate schedule handler
+  const handleGenerateSchedule = async () => {
+    setIsLoading(true);
+    try {
+      console.log('Generating schedule...');
+      const res = await fetch('/api/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      const data = await res.json();
+      console.log('Generation response:', data);
+      
+      if (data.success) {
+        // After generating, fetch the new schedule
+        console.log('Fetching updated schedule...');
+        const res2 = await fetch('/api/schedule');
+        const data2 = await res2.json();
+        console.log('Updated schedule data:', data2);
+        
+        if (data2.success) {
+          console.log('Schedule data received, count:', data2.data?.length || 0);
+          setSchedule(data2.data);
+        } else {
+          console.log('Failed to fetch updated schedule:', data2);
+          setSchedule([]);
+        }
+      }
+    } catch (err) {
+      console.error('Error generating/fetching schedule:', err);
+      setSchedule([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };  // Helper to find schedule item in a cell
+  const findScheduleItem = (day: string, time: string) => {
+    // Add debugging to see what schedule data we're working with
+    if (day === 'Lunes' && time === '09:00') {
+      console.log('All schedule items:', schedule);
+    }
+    
+    // Format the time for comparison (remove leading zeros)
+    const formattedTime = time.replace(/^0/, '');
+    
+    // Find items where the day matches and the HoraInicio contains the time we're looking for
+    const item = schedule.find((item) => {
+      if (!item || !item.Dia || !item.HoraInicio) return false;
+      
+      // Check if the day matches exactly
+      const dayMatches = item.Dia === day;
+      
+      // For time, we need to handle different formats:
+      // The database might store it as "9:00-10:00" but UI is looking for "09:00"
+      const timeMatches = 
+        // First try exact match with possible leading zero stripped
+        item.HoraInicio.replace(/^0/, '') === formattedTime ||
+        // Then try checking if it's the start of a range (e.g., "9:00-10:00")
+        item.HoraInicio.replace(/^0/, '').startsWith(formattedTime) ||
+        // Finally try checking if it's part of a time range
+        item.HoraInicio.includes(formattedTime);
+      
+      return dayMatches && timeMatches;
+    });
+    
+    // Detailed debug for specific cells
+    if (day === 'Lunes' && (time === '09:00' || time === '10:00' || time === '11:00')) {
+      console.log(`Debug cell ${day} ${time}:`, { 
+        lookingFor: { day, time, formattedTime },
+        foundItem: item,
+        matchingItems: schedule.filter(i => 
+          i && i.Dia === day && i.HoraInicio && 
+          (i.HoraInicio.includes(formattedTime.substring(0, 4)) || 
+           i.HoraInicio.replace(/^0/, '').includes(formattedTime.substring(0, 4)))
+        )
+      });
+    }
+    
+    return item;
   };
 
   return (
     <div className="w-full pb-8 flex flex-col gap-4">
+      <div className="flex justify-end mb-2">
+        <button
+          onClick={handleGenerateSchedule}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          disabled={isLoading}
+        >
+          {isLoading ? 'Generando...' : 'Generar horario general'}
+        </button>
+      </div>
       <div className="overflow-x-auto w-full">
         <div className="w-full">
           <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)] w-full">
@@ -49,18 +157,19 @@ export default function HorarioGeneralPage() {
                   {time}
                 </div>
                 {daysOfWeek.map((day) => {
-                  const subject = findSubject(day, time);
+                  const item = findScheduleItem(day, time);
                   return (
                     <div
                       key={`${day}-${time}`}
                       className={cn(
                         'border border-gray-200 p-1 relative h-full',
-                        subject ? 'bg-blue-50/50' : 'bg-white'
+                        item ? 'bg-blue-50/50' : 'bg-white'
                       )}
                     >
-                      {subject && (
-                        <div className="p-1 text-xs rounded-md border border-gray-200 bg-white shadow-sm h-full flex justify-center items-center">
-                          <div className="truncate font-medium text-blue-500">{subject.title}</div>
+                      {item && (
+                        <div className="p-1 text-xs rounded-md border border-gray-200 bg-white shadow-sm h-full flex flex-col justify-center items-center">
+                          <div className="truncate font-medium text-blue-500">{item.MateriaNombre || 'Materia'}</div>
+                          <div className="truncate text-xs text-gray-500">{item.ProfesorNombre || ''}</div>
                         </div>
                       )}
                     </div>
@@ -71,6 +180,7 @@ export default function HorarioGeneralPage() {
           </div>
         </div>
       </div>
+      {isLoading && <div className="text-center text-gray-500 mt-4">Cargando horario...</div>}
     </div>
   );
 }
