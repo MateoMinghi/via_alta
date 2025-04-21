@@ -78,6 +78,7 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
     console.log("Fetching groups...");
     // Use the existing getGroups function which joins necessary details
     const groups = await getGroups({ idCiclo: targetCycleId });
+    console.log("Sample group object:", groups[0]);
     if (!groups || groups.length === 0) {
       console.log("No groups found for this cycle. Schedule generation skipped.");
       return true; // Not an error, just nothing to schedule
@@ -109,23 +110,23 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
     // 4. Iterate and Assign Groups
     console.log("Assigning groups to schedule slots...");
     for (const group of groups) {
-      const subject = subjectsMap.get(group.IdMateria);
-      const professorAvail = availabilityMap.get(group.IdProfesor);
+      const subject = subjectsMap.get(group.idmateria);
+      const professorAvail = availabilityMap.get(group.idprofesor);
 
       if (!subject) {
-        console.warn(`Subject with ID ${group.IdMateria} not found for Group ${group.IdGrupo}. Skipping.`);
+        console.warn(`Subject with ID ${group.idmateria} not found for Group ${group.idgrupo}. Skipping.`);
         continue;
       }
       if (!professorAvail) {
-        console.warn(`Availability not found for Professor ${group.IdProfesor} of Group ${group.IdGrupo}. Skipping.`);
+        console.warn(`Availability not found for Professor ${group.idprofesor} of Group ${group.idgrupo}. Skipping.`);
         continue;
       }
 
       // Use Math.ceil to ensure enough blocks are scheduled for decimal hours
       const requiredBlocks = Math.ceil(subject.HorasClase);
-      let currentAssignedBlocks = assignedHours.get(group.IdGrupo) || 0;
+      let currentAssignedBlocks = assignedHours.get(group.idgrupo) || 0;
 
-      console.log(`Processing Group ${group.IdGrupo} (Subject: ${subject.Nombre}, Prof: ${group.professor_name}, Salon: ${group.IdSalon}, Required Blocks: ${requiredBlocks})`);
+      console.log(`Processing Group ${group.idgrupo} (Subject: ${subject.Nombre}, Prof: ${group.professor_name}, Salon: ${group.idsalon}, Required Blocks: ${requiredBlocks})`);
 
       // Iterate through days and professor's available slots for that day
       daysLoop:
@@ -136,7 +137,7 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
           // Iterate through each hour within the professor's available block
           for (let hour = availSlot.start; hour < availSlot.end; hour++) {
             if (currentAssignedBlocks >= requiredBlocks) {
-              console.log(`Group ${group.IdGrupo} fully scheduled.`);
+              console.log(`Group ${group.idgrupo} fully scheduled.`);
               break daysLoop; // Move to the next group
             }
 
@@ -152,42 +153,42 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
             let conflict = false;
             if (existingAssignment) {
               // Professor conflict: Same professor assigned to a different group in the same slot
-              if (existingAssignment.professorId && existingAssignment.professorId !== group.IdProfesor) {
+              if (existingAssignment.professorId && existingAssignment.professorId !== group.idprofesor) {
                  // This check is slightly redundant as we iterate by professor availability,
                  // but good for sanity. The main professor conflict is handled by the grid check below.
               }
               // Professor busy: This professor is already assigned (implicitly to this group or another)
-              if (existingAssignment.professorId === group.IdProfesor) {
+              if (existingAssignment.professorId === group.idprofesor) {
                   conflict = true;
-                  // console.log(`Conflict: Professor ${group.IdProfesor} already scheduled at ${day} ${hour}:00`);
+                  // console.log(`Conflict: Professor ${group.idprofesor} already scheduled at ${day} ${hour}:00`);
               }
               // Salon conflict: Same salon assigned to a different group in the same slot
-              if (existingAssignment.salonId === group.IdSalon) {
+              if (existingAssignment.salonId === group.idsalon) {
                 conflict = true;
-                // console.log(`Conflict: Salon ${group.IdSalon} already scheduled at ${day} ${hour}:00`);
+                // console.log(`Conflict: Salon ${group.idsalon} already scheduled at ${day} ${hour}:00`);
               }
             }
 
             // If no conflict, assign the group
             if (!conflict) {
-              scheduleGrid.set(gridKey, { professorId: group.IdProfesor, salonId: group.IdSalon });
+              scheduleGrid.set(gridKey, { professorId: group.idprofesor, salonId: group.idsalon });
               currentAssignedBlocks++;
-              assignedHours.set(group.IdGrupo, currentAssignedBlocks);
+              assignedHours.set(group.idgrupo, currentAssignedBlocks);
 
               const scheduleItem: GeneralScheduleItem = {
                 IdHorarioGeneral: targetCycleId, // Use Cycle ID as the Schedule ID
                 NombreCarrera: subject.Carrera || 'General', // Use subject's career or default
-                IdGrupo: group.IdGrupo,
+                IdGrupo: group.idgrupo,
                 Dia: day as GeneralScheduleItem['Dia'], // Cast to the specific type
                 HoraInicio: formatTime(hour),
                 HoraFin: formatTime(hour + 1), // Assuming 1-hour blocks
               };
               scheduleItems.push(scheduleItem);
-              console.log(`  Assigned Group ${group.IdGrupo} to ${day} ${hour}:00-${hour + 1}:00 (Block ${currentAssignedBlocks}/${requiredBlocks})`);
+              console.log(`  Assigned Group ${group.idgrupo} to ${day} ${hour}:00-${hour + 1}:00 (Block ${currentAssignedBlocks}/${requiredBlocks})`);
 
               // Re-check if fully scheduled after assignment
               if (currentAssignedBlocks >= requiredBlocks) {
-                 console.log(`Group ${group.IdGrupo} fully scheduled.`);
+                 console.log(`Group ${group.idgrupo} fully scheduled.`);
                  break daysLoop;
               }
             }
@@ -196,7 +197,7 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
       } // End day loop
 
       if (currentAssignedBlocks < requiredBlocks) {
-        console.warn(`Could not fully schedule Group ${group.IdGrupo}. Assigned ${currentAssignedBlocks}/${requiredBlocks} blocks.`);
+        console.warn(`Could not fully schedule Group ${group.idgrupo}. Assigned ${currentAssignedBlocks}/${requiredBlocks} blocks.`);
       }
     } // End group loop
 
