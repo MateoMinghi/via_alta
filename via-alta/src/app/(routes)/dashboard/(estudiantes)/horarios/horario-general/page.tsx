@@ -102,6 +102,13 @@ export default function HorarioGeneralPage() {
     }
   };
 
+  // Helper to convert HH:MM to minutes
+  const timeToMinutes = (time: string | undefined | null): number => {
+    if (!time) return 0;
+    const [h, m] = time.split(":").map(Number);
+    return h * 60 + m;
+  };
+
   return (
     <div className="w-full pb-8 flex flex-col gap-4">
       <div className="flex justify-end mb-2">
@@ -131,7 +138,14 @@ export default function HorarioGeneralPage() {
               <tr key={time}>
                 <th className="border p-2 text-right text-sm">{time}</th>
                 {daysOfWeek.map(day => {
-                  const items = schedule.filter(i => i.Dia === day && i.HoraInicio === time);
+                  // Show all groups that span this time slot
+                  const slotMinutes = timeToMinutes(time);
+                  const items = schedule.filter(i => {
+                    if (i.Dia !== day) return false;
+                    const start = timeToMinutes(i.HoraInicio);
+                    const end = timeToMinutes(i.HoraFin);
+                    return slotMinutes >= start && slotMinutes < end;
+                  });
                   return (
                     <td key={`${day}-${time}`} className="border p-2 align-top">
                       {items.length > 0 ? (
