@@ -24,6 +24,9 @@ export default function HorariosSlug() {
   const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
   const params = useParams();
   const { slug } = params;
+  
+  // Determine if this is a semester view or a student view
+  const viewType = typeof slug === 'string' && slug.includes('-') ? 'semestre' : 'estudiante';
 
   // Parse slug to extract the semester number
   const getSemesterNumber = (slugStr: string) => {
@@ -197,14 +200,30 @@ export default function HorariosSlug() {
 
   return (
     <div className="p-4">
-      <p className="text-3xl font-bold mb-4">
-        Horario del Semestre {semesterNum}
-      </p>
-      {filteredSubjects.length > 0 ? (
-        <CoordinadorSchedule subjects={filteredSubjects} />
+      {viewType === 'semestre' ? (
+        <>
+          <p className="text-3xl font-bold mb-4">
+            Horario del {viewType} {semesterNum}
+          </p>
+          {filteredSubjects.length > 0 ? (
+            <CoordinadorSchedule subjects={filteredSubjects} />
+          ) : (
+            <p className="text-center py-4">No hay materias disponibles para el {viewType} {semesterNum}</p>
+          )}
+        </>
       ) : (
-        <p className="text-center py-4">No hay materias disponibles para el semestre {semesterNum}</p>
+        <>
+          <p className="text-3xl font-bold mb-4">
+            Horario del {viewType} {semesterNum}
+          </p>
+          {filteredSubjects.length > 0 ? (
+            <CoordinadorSchedule subjects={filteredSubjects} />
+          ) : (
+            <p className="text-center py-4">No hay materias disponibles para el {viewType} {semesterNum}</p>
+          )}
+        </>
       )}
+     
       <div className="flex justify-between mt-8 gap-4">
         <Button 
           variant="outline" 
