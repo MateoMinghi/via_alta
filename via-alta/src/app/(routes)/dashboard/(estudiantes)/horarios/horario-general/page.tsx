@@ -335,8 +335,8 @@ export default function HorarioGeneralPage() {
     );
   };
 
-  // Handle drop: update item's day and start/end time
-  const handleDropItem = async (itemId: number, newDay: string, newTime: string) => {
+  // Handle drop: update item's day and start/end time (UI only)
+  const handleDropItem = (itemId: number, newDay: string, newTime: string) => {
     // Find the item we're updating
     const itemToUpdate = schedule.find(item => item.IdGrupo === itemId);
     if (!itemToUpdate) return;
@@ -353,38 +353,9 @@ export default function HorarioGeneralPage() {
       HoraFin: minutesToTime(newEnd)
     };
     
-    // Optimistic update
+    // Update UI only - no API call
     setSchedule(prev => prev.map(item => item.IdGrupo === itemId ? updatedItem : item));
-    
-    try {
-      // Sync with backend via API
-      const response = await fetch('/api/schedule/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: itemToUpdate.IdHorarioGeneral,
-          day: newDay,
-          startTime: minutesToTime(newStart),
-          endTime: minutesToTime(newEnd)
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        toast.success('Horario actualizado correctamente');
-      } else {
-        // Revert changes if update fails
-        setSchedule(prev => prev.map(item => item.IdGrupo === itemId ? itemToUpdate : item));
-        toast.error('Error al actualizar el horario');
-      }
-    } catch (err) {
-      console.error('Error updating schedule:', err);
-      // Revert changes on error
-      setSchedule(prev => prev.map(item => item.IdGrupo === itemId ? itemToUpdate : item));
-      toast.error('Error de conexión al actualizar el horario');
-    }
+    toast.success('Horario actualizado solo en la UI (no persiste en la base de datos)');
   };
 
   return (
