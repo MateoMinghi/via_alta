@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 
 export interface ScheduleItem {
-  IdGrupo: number;
-  MateriaNombre: string;
-  ProfesorNombre: string;
-  Semestre: number;
-  Dia: string;
-  HoraInicio: string;
-  HoraFin: string;
+  idgrupo: number;
+  materianombre: string;
+  profesornombre: string;
+  semestre: number;
+  dia: string;
+  horainicio: string;
+  horafin: string;
   idsalon?: number;
-  TipoSalon?: string;
+  tiposalon?: string;
 }
 
 export interface StudentScheduleResponse {
@@ -70,7 +70,7 @@ export function useGetStudentSchedule(studentId: string | undefined, semester: n
       
     
       const validScheduleItems = schedule.filter(item => {
-        const idGrupo = item.IdGrupo || item.idgrupo;
+        const idGrupo = item.idgrupo;
         if (!idGrupo) {
           console.warn('Skipping schedule item without IdGrupo:', item);
           return false;

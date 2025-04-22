@@ -47,6 +47,7 @@ export default function HorarioGeneralPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [unsavedChanges, setUnsavedChanges] = useState(false);
   // Fetch the general schedule from the API
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -149,7 +150,7 @@ export default function HorarioGeneralPage() {
     }), [item]);
     return (
       <div
-        ref={drag}
+        ref={node => { drag(node); }}
         className={`${colorClass} rounded p-1 mb-1 cursor-move ${isDragging ? 'opacity-50' : ''}`}
         onClick={onClick}
       >
@@ -177,7 +178,9 @@ export default function HorarioGeneralPage() {
       }
     }), [day, time]);
     return (
-      <td ref={drop} className="border p-2 align-top min-h-[40px]">{children}</td>
+      <td
+        ref={node => { drop(node); }}
+        className="border p-2 align-top min-h-[40px]">{children}</td>
     );
   }
 
@@ -196,7 +199,30 @@ export default function HorarioGeneralPage() {
         HoraFin: minutesToTime(newEnd)
       };
     }));
-    // TODO: Sync with backend via API
+    setUnsavedChanges(true);
+  };
+
+  // Save changes to backend
+  const handleSaveChanges = async () => {
+    setIsLoading(true);
+    try {
+      // Send only the changed schedule (or all, depending on backend design)
+      const res = await fetch('/api/schedule', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedule })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUnsavedChanges(false);
+      } else {
+        alert('Error al guardar los cambios: ' + (data.error || ''));
+      }
+    } catch (err) {
+      alert('Error al guardar los cambios.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
@@ -242,13 +268,24 @@ export default function HorarioGeneralPage() {
               </select>
             </div>
           </div>
-          <button
-            onClick={handleGenerateSchedule}
-            className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Generando...' : 'Generar horario general'}
-          </button>
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={handleGenerateSchedule}
+              className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Generando...' : 'Generar horario general'}
+            </button>
+            {unsavedChanges && (
+              <button
+                onClick={handleSaveChanges}
+                className="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto w-full">
           <table className="table-fixed w-full border-collapse">
