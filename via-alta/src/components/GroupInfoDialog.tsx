@@ -29,7 +29,8 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group 
           <div><b>Materia:</b> {group.MateriaNombre}</div>
           <div><b>Profesor:</b> {group.ProfesorNombre}</div>
           <div><b>Carrera:</b> {group.NombreCarrera}</div>
-          <div><b>Semestre:</b> {group.Semestre}</div>
+          <div><b>Semestre:</b> {group.Semestre !== undefined ? group.Semestre : 'No disponible'}
+          </div>
           <div><b>Día:</b> {group.Dia}</div>
           <div><b>Hora Inicio:</b> {group.HoraInicio}</div>
           <div><b>Hora Fin:</b> {group.HoraFin}</div>

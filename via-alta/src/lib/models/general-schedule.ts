@@ -8,6 +8,9 @@ export interface GeneralScheduleItem {
   Dia: string;
   HoraInicio: string;
   HoraFin: string;
+  Semestre?: number;
+  MateriaNombre?: string;
+  ProfesorNombre?: string;
 }
 
 class GeneralSchedule {
@@ -58,7 +61,8 @@ class GeneralSchedule {
              g.IdMateria,
              m.Nombre as MateriaNombre,
              g.IdProfesor,
-             p.Nombre as ProfesorNombre
+             p.Nombre as ProfesorNombre,
+             g.Semestre
       FROM HorarioGeneral hg
       JOIN Grupo g ON hg.IdGrupo = g.IdGrupo
       LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
