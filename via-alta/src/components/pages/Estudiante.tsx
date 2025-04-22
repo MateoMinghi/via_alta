@@ -12,6 +12,7 @@ import { useGetStudentSchedule, ScheduleItem } from '@/api/useGetStudentSchedule
 import { useScheduleChangeRequest } from '@/api/useScheduleChangeRequest';
 import EstudianteStatusBanner from '../EstudianteStatusBanner';
 import EstudianteHeader from '../EstudianteHeader';
+import { useGetStudentAcademicHistory } from '@/api/useGetStudentAcademicHistory';
 
 /**
  * Interfaz que define la estructura de una materia en el horario
@@ -45,8 +46,8 @@ export default function Estudiante() {
     // Obtenemos el horario del estudiante desde la API
     const { 
       result: scheduleData,      // Datos del horario
-      loading,                   // Indicador de carga
-      error,                     // Error (si existe)
+      loading: scheduleLoading,  // Indicador de carga
+      error: scheduleError,      // Error (si existe)
       isIndividual,              // Indica si es un horario individual
       confirmSchedule            // Función para confirmar el horario
     } = useGetStudentSchedule(
@@ -54,12 +55,19 @@ export default function Estudiante() {
       updatedUser?.semester
     );
 
+    // Obtenemos el historial académico del estudiante
+    const {
+      academicHistory,
+      loading: historyLoading,
+      error: historyError
+    } = useGetStudentAcademicHistory(updatedUser?.ivd_id);
+
     // Hook para manejar solicitudes de cambios en el horario
     const { 
-      submitChangeRequest,        // Función para enviar solicitud
-      loading: changeRequestLoading,    // Indicador de carga
-      success: changeRequestSuccess,    // Indicador de éxito
-      error: changeRequestError         // Error (si existe)
+      submitChangeRequest,            // Función para enviar solicitud
+      loading: changeRequestLoading,  // Indicador de carga
+      success: changeRequestSuccess,  // Indicador de éxito
+      error: changeRequestError       // Error (si existe)
     } = useScheduleChangeRequest();
 
     // Al iniciar, recuperamos los comentarios guardados en localStorage
@@ -136,6 +144,79 @@ export default function Estudiante() {
     
     // Convertimos los datos de la API a nuestro formato Subject
     const filteredSubjects = convertToSubjects(scheduleData);
+
+    /**
+     * Analiza el historial académico del estudiante para determinar las materias recomendadas
+     * y configura las materias obligatorias y disponibles siguiendo el flujo de trabajo
+     * para estudiantes irregulares.
+     */
+    const analyzeAcademicHistory = () => {
+      if (!academicHistory || academicHistory.length === 0) {
+        console.log("No academic history available for analysis");
+        return {
+          obligatoryCourseIds: [],
+          recommededCourses: []
+        };
+      }
+
+      // Obtener el semestre actual del estudiante
+      const currentSemester = updatedUser?.semester || 1;
+      
+      // Identificar el plan de estudios completo del estudiante
+      // Agrupar por semestres para facilitar el análisis
+      const studyPlan = academicHistory.reduce((acc, course) => {
+        if (!acc[course.course_semester]) {
+          acc[course.course_semester] = [];
+        }
+        acc[course.course_semester].push(course);
+        return acc;
+      }, {});
+      
+      // Identificar materias faltantes del plan de estudios 
+      // (materias que no tienen calificación y no están en trámite de equivalencia)
+      const pendingCourses = academicHistory.filter(course => 
+        course.course_semester <= currentSemester && 
+        !course.grade_final &&
+        !course.grade_observations?.includes('equivalencia')
+      );
+      
+      console.log(`Found ${pendingCourses.length} pending courses for recommendations`);
+      
+      // Ordenar materias faltantes por prioridad:
+      // 1. Por semestre (prioritarios los semestres más bajos)
+      // 2. Por créditos (mayor a menor)
+      const prioritizedCourses = [...pendingCourses].sort((a, b) => {
+        // Primero por semestre
+        if (a.course_semester !== b.course_semester) {
+          return a.course_semester - b.course_semester;
+        }
+        
+        // Si están en el mismo semestre, por créditos (mayor primero)
+        const aCredits = parseFloat(a.sep_credits);
+        const bCredits = parseFloat(b.sep_credits);
+        return bCredits - aCredits;
+      });
+      
+      // Selección de materias obligatorias e importantes
+      // Las 3 primeras materias serán obligatorias (las más básicas/importantes)
+      const obligatoryCourseIds = prioritizedCourses
+        .slice(0, 3)
+        .map(course => course.course_id);
+      
+      // Las siguientes 3 serán recomendadas por su importancia
+      const recommendedCourseNames = prioritizedCourses
+        .slice(3, 6)
+        .map(course => course.course_name);
+      
+      return {
+        obligatoryCourseIds,
+        recommendedCourses: recommendedCourseNames
+      };
+    };
+    
+    // Obtenemos las recomendaciones basadas en el historial académico
+    const { obligatoryCourseIds = [], recommendedCourses = [] } = 
+      !historyLoading && !scheduleLoading ? analyzeAcademicHistory() : {};
 
     /**
      * Maneja la confirmación del horario por parte del estudiante
@@ -222,7 +303,7 @@ export default function Estudiante() {
     };
 
     // --- RENDERIZADO CONDICIONAL: CARGA Y ERROR ---
-    if (loading) {
+    if (scheduleLoading || historyLoading) {
       return (
         <div className="p-4">
           <p className="text-center">Cargando materias...</p>
@@ -230,10 +311,10 @@ export default function Estudiante() {
       );
     }
 
-    if (error) {
+    if (scheduleError || historyError) {
       return (
         <div className="p-4">
-          <p className="text-center text-red-600">Error: {error}</p>
+          <p className="text-center text-red-600">Error: {scheduleError || historyError}</p>
         </div>
       );
     }
@@ -263,7 +344,11 @@ export default function Estudiante() {
 
         {/* Horario del estudiante o mensaje si no hay materias */}
         {filteredSubjects.length > 0 ? (
-          <EstudianteSchedule subjects={filteredSubjects} isRegular={updatedUser?.regular !== false} />
+          <EstudianteSchedule 
+            subjects={filteredSubjects} 
+            isRegular={updatedUser?.regular !== false}
+            recommendedCourses={recommendedCourses?.slice(0, 3).map(c => c.course_name) || []} 
+          />
         ) : (
           <p className="text-center py-4 bg-gray-50 rounded-md">
             No hay materias disponibles para tu semestre. Contacta al coordinador académico.

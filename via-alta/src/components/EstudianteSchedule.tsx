@@ -21,6 +21,7 @@ interface Subject {
   semester: number;                      // Semestre al que pertenece
   hours: { day: string; time: string }[];// Horarios de la materia (día y hora)
   isObligatory?: boolean;                // Indica si es obligatoria
+  isRecommended?: boolean;               // Indica si es recomendada basado en histo prial académico
 }
 
 /**
@@ -67,17 +68,33 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
 
   // Inicializar datos cuando cambian las materias recibidas
   useEffect(() => {
-    // Separar materias obligatorias (primeras 4) y disponibles (resto)
-    const obligatory = subjects.slice(0, 4).map(s => ({...s, isObligatory: true}));
-    const available = subjects.slice(4);
-    
-    setObligatorySubjects(obligatory);
-    setAvailableSubjects(available);
-    setScheduledSubjects([...obligatory]); // Iniciar horario con materias obligatorias
+    // Manejar estudiantes irregulares y regulares de manera diferente
+    if (!isRegular) {
+      // Para estudiantes irregulares:
+      // 1. Seleccionar exactamente 3 materias obligatorias (bloquadas)
+      const obligatory = subjects.slice(0, 3).map(s => ({...s, isObligatory: true}));
+      
+      // 2. Seleccionar las 3 siguientes como recomendadas basadas en historial académico
+      const recommended = subjects.slice(3, 6).map(s => ({...s, isRecommended: true}));
+      
+      // 3. El resto son materias disponibles
+      const available = subjects.slice(6);
+      
+      setObligatorySubjects(obligatory);
+      setAvailableSubjects([...recommended, ...available]);
+      setScheduledSubjects([...obligatory]); // Iniciar horario con materias obligatorias
+    } else {
+      // Para estudiantes regulares:
+      // Todas sus materias son obligatorias (no pueden modificar su horario)
+      const obligatory = subjects.map(s => ({...s, isObligatory: true}));
+      setObligatorySubjects(obligatory);
+      setAvailableSubjects([]);
+      setScheduledSubjects([...obligatory]);
+    }
     
     // Si hay materias disponibles, el estudiante es irregular
-    setIsIrregularStudent(available.length > 0);
-  }, [subjects]);
+    setIsIrregularStudent(!isRegular);
+  }, [subjects, isRegular]);
 
   /**
    * Agrega una materia al horario si no está ya incluida
@@ -302,18 +319,33 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
           widthClass
         )}
       >
-        {/* Icono de arrastre para materias no obligatorias */}
-        {!subject.isObligatory && (
+        {/* Icono de arrastre para materias no obligatorias y no recomendadas */}
+        {!subject.isObligatory && !subject.isRecommended && (
           <div className="flex-shrink-0 mr-1" title="Arrastra para mover o remover">
             <GripVertical className="h-3 w-3 text-gray-400" />
           </div>
         )}
-        {/* Icono de candado para materias obligatorias */}
+        
+        {/* Icono de candado para materias obligatorias con tooltip explicativo */}
         {subject.isObligatory && isIrregularStudent && (
-          <div className="flex-shrink-0 mr-1" title="Materia obligatoria">
+          <div className="flex-shrink-0 mr-1 relative group">
             <Lock className="h-3 w-3 text-gray-400" />
+            <div className="absolute left-0 -mt-1 w-64 scale-0 group-hover:scale-100 transition-all bg-black text-white text-xs p-2 rounded shadow-lg z-50 -translate-y-full origin-bottom">
+              Materia obligatoria necesaria para tu avance académico. No puede ser removida.
+            </div>
           </div>
         )}
+        
+        {/* Icono de estrella para materias recomendadas con tooltip explicativo */}
+        {!subject.isObligatory && subject.isRecommended && (
+          <div className="flex-shrink-0 mr-1 relative group">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <div className="absolute left-0 -mt-1 w-64 scale-0 group-hover:scale-100 transition-all bg-black text-white text-xs p-2 rounded shadow-lg z-50 -translate-y-full origin-bottom">
+              Materia recomendada basada en tu historial académico.
+            </div>
+          </div>
+        )}
+        
         <div className={cn(
           'truncate font-medium flex-1', 
           colors.text
@@ -436,13 +468,31 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
       >
         <div className="flex flex-row justify-between w-full">
           <div className="flex items-center gap-2">
-            {/* Icono de arrastre o candado según corresponda */}
-            {!subject.isObligatory && (
+            {/* Icono de arrastre para materias no obligatorias y no recomendadas */}
+            {!subject.isObligatory && !subject.isRecommended && (
               <GripVertical className="h-4 w-4 text-gray-400" />
             )}
+            
+            {/* Icono de candado para materias obligatorias con tooltip explicativo */}
             {subject.isObligatory && isIrregularStudent && (
-              <Lock className="h-4 w-4 text-gray-500" />
+              <div className="flex-shrink-0 relative group">
+                <Lock className="h-4 w-4 text-gray-500" />
+                <div className="absolute left-0 -mt-1 w-64 scale-0 group-hover:scale-100 transition-all bg-black text-white text-xs p-2 rounded shadow-lg z-50 -translate-y-full origin-bottom">
+                  Materia obligatoria necesaria para tu avance académico. No puede ser removida.
+                </div>
+              </div>
             )}
+            
+            {/* Icono de estrella para materias recomendadas con tooltip explicativo */}
+            {!subject.isObligatory && subject.isRecommended && (
+              <div className="flex-shrink-0 relative group">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <div className="absolute left-0 -mt-1 w-64 scale-0 group-hover:scale-100 transition-all bg-black text-white text-xs p-2 rounded shadow-lg z-50 -translate-y-full origin-bottom">
+                  Materia recomendada basada en tu historial académico.
+                </div>
+              </div>
+            )}
+            
             <div className="pb-1 w-full">
               <p className={cn("font-bold text-base truncate", colors.text)}>{subject.title}</p>
               <p className="text-sm font-medium truncate mt-1">{subject.professor}</p>
@@ -521,11 +571,31 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
       >
         <div className="flex justify-between">
           <div className="flex items-center gap-2">
-            {subject.isObligatory ? (
-              <Lock className="h-4 w-4 text-gray-500" />
-            ) : (
+            {/* Icono de candado para materias obligatorias con tooltip */}
+            {subject.isObligatory && (
+              <div className="relative group">
+                <Lock className="h-4 w-4 text-gray-500" />
+                <div className="absolute left-0 -mt-1 w-64 scale-0 group-hover:scale-100 transition-all bg-black text-white text-xs p-2 rounded shadow-lg z-50 -translate-y-full origin-bottom">
+                  Materia obligatoria necesaria para tu avance académico. No puede ser removida.
+                </div>
+              </div>
+            )}
+            
+            {/* Icono de estrella para materias recomendadas con tooltip */}
+            {!subject.isObligatory && subject.isRecommended && (
+              <div className="relative group">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <div className="absolute left-0 -mt-1 w-64 scale-0 group-hover:scale-100 transition-all bg-black text-white text-xs p-2 rounded shadow-lg z-50 -translate-y-full origin-bottom">
+                  Materia recomendada basada en tu historial académico.
+                </div>
+              </div>
+            )}
+            
+            {/* Icono de arrastre para materias normales */}
+            {!subject.isObligatory && !subject.isRecommended && (
               <GripVertical className="h-4 w-4 text-gray-400" />
             )}
+            
             <div className="pb-1 w-full">
               <p className={cn("font-bold text-base truncate", colors.text)}>{subject.title}</p>
               <p className="text-sm font-medium truncate mt-1">{subject.professor}</p>
@@ -535,7 +605,7 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => handleSubjectSelect(subject)}
+            onClick={() => onAdd(subject)}
             className="h-8 w-8 text-green-500 -mr-1"
           >
             <Plus className="h-4 w-4" />
@@ -733,13 +803,39 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
             onAddSubject={handleSubjectSelect}
           />
           
-          {/* Sección de materias disponibles (solo para estudiantes irregulares) */}
-          {!isRegular && isIrregularStudent && availableSubjects.length > 0 && (
+          {/* Sección de materias recomendadas basadas en historial académico */}
+          {!isRegular && isIrregularStudent && (
+            <div className="mt-6 mb-2">
+              <div className="flex items-center gap-2 mb-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <p className="text-sm font-semibold">Materias Recomendadas</p>
+              </div>
+              <p className="text-xs text-gray-500 mb-2">Basadas en tu historial académico, te recomendamos estas materias para completar tu carga.</p>
+              <div className="space-y-2">
+                {availableSubjects
+                  .filter(subject => 
+                    subject.isRecommended && 
+                    !scheduledSubjects.some(s => s.id === subject.id)
+                  )
+                  .map(subject => (
+                    <DraggableSubjectCard
+                      key={subject.id}
+                      subject={{...subject, isObligatory: false}}
+                      onAdd={handleSubjectSelect}
+                    />
+                  ))
+                }
+              </div>
+            </div>
+          )}
+          
+          {/* Sección de materias opcionales disponibles */}
+          {!isRegular && isIrregularStudent && availableSubjects.filter(s => !s.isRecommended).length > 0 && (
             <div className="mt-6 mb-4">
-              <p className="text-lg font-semibold mb-2">Materias Disponibles</p>
+              <p className="text-lg font-semibold mb-2">Materias Opcionales</p>
               <AvailableSubjectsDropArea 
                 subjects={availableSubjects.filter(subject => 
-                  !scheduledSubjects.some(s => s.id === subject.id)
+                  !subject.isRecommended && !scheduledSubjects.some(s => s.id === subject.id)
                 )}
                 onAddSubject={handleSubjectSelect}
                 onRemoveFromSchedule={removeScheduledSubject}
