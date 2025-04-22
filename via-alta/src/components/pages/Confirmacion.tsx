@@ -12,19 +12,21 @@ import { Card } from '@/components/ui/card';
 export default function Confirmacion() {
   const router = useRouter();
   const { user } = useAuth();
-  const [comentarios, setComentarios] = useState('');
+  const [descripcion, setDescripcion] = useState('');
   const fecha = '2023-10-01T12:00:00Z';
 
   useEffect(() => {
-    const savedComments = localStorage.getItem('studentComments');
-    if (savedComments) {
-      setComentarios(savedComments);
+    const savedDescription = localStorage.getItem('studentComments');
+    if (savedDescription) {
+      setDescripcion(savedDescription);
     }
   }, []);
 
-  if (user?.status === 'active' || user?.status === 'no-inscrito') {
-    router.push('/estudiante');
-  }
+  useEffect(() => {
+    if (user?.status === 'active' || user?.status === 'no-inscrito') {
+      router.push('/estudiante');
+    }
+  }, [user, router]);
 
   const isInscrito = user?.status === 'inscrito';
 
@@ -79,7 +81,7 @@ export default function Confirmacion() {
         <p className="mb-2"><span className="font-semibold">Estado:</span> Cambios Solicitados</p>
         <p className="mb-2"><span className="font-semibold">Matrícula:</span> {user?.ivd_id}</p>
         <p className="mb-2"><span className="font-semibold">Motivo de la solicitud:</span></p>
-        <p className="bg-white p-3 rounded border border-yellow-200 mb-2">{comentarios}</p>
+        <p className="bg-white p-3 rounded border border-yellow-200 mb-2">{descripcion}</p>
         <p><span className="font-semibold">Nota:</span> El coordinador revisará tu solicitud y te contactará pronto.</p>
       </div>
       
