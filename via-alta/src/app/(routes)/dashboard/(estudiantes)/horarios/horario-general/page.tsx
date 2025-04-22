@@ -115,8 +115,25 @@ export default function HorarioGeneralPage() {
     return `${h}:${m}`;
   };
 
+  // Color classes for each semester
+  const semesterColors: Record<number, string> = {
+    1: 'bg-green-50 hover:bg-green-100 border-green-200 text-green-700',
+    2: 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700',
+    3: 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700',
+    4: 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700',
+    5: 'bg-pink-50 hover:bg-pink-100 border-pink-200 text-pink-700',
+    6: 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700',
+    7: 'bg-red-50 hover:bg-red-100 border-red-200 text-red-700',
+    8: 'bg-teal-50 hover:bg-teal-100 border-teal-200 text-teal-700'
+  };
+  function getSemesterColor(sem: number | undefined) {
+    if (!sem || !(sem in semesterColors)) return 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700';
+    return semesterColors[sem];
+  }
+
   // Draggable schedule item
   function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, onClick: () => void }) {
+    const colorClass = getSemesterColor(item.Semestre);
     const [{ isDragging }, drag] = useDrag(() => ({
       type: ItemTypes.SCHEDULE_ITEM,
       item: { id: item.IdGrupo },
@@ -125,10 +142,10 @@ export default function HorarioGeneralPage() {
     return (
       <div
         ref={drag}
-        className={`bg-blue-50 rounded p-1 mb-1 cursor-move hover:bg-blue-100 ${isDragging ? 'opacity-50' : ''}`}
+        className={`${colorClass} rounded p-1 mb-1 cursor-move ${isDragging ? 'opacity-50' : ''}`}
         onClick={onClick}
       >
-        <div className="text-xs font-medium text-blue-500 truncate">{item.MateriaNombre}</div>
+        <div className="text-xs font-medium truncate">{item.MateriaNombre}</div>
       </div>
     );
   }
@@ -174,13 +191,52 @@ export default function HorarioGeneralPage() {
     // TODO: Sync with backend via API
   };
 
+  const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
+  const [selectedMajor, setSelectedMajor] = useState<string>('All');
+  // Available options
+  const semesters = ['All', 1,2,3,4,5,6,7,8] as const;
+  const majors = Array.from(new Set(schedule.map(i => i.NombreCarrera)));
+  // Filtered schedule based on selections
+  const filteredSchedule = schedule.filter(i =>
+    (selectedSemester === 'All' || i.Semestre === selectedSemester) &&
+    (selectedMajor === 'All' || i.NombreCarrera === selectedMajor)
+  );
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="w-full pb-8 flex flex-col gap-4">
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-between items-center mb-2">
+          {/* Filters */}
+          <div className="flex gap-4 items-center">
+            <div>
+              <label className="mr-2">Semestre:</label>
+              <select
+                value={selectedSemester}
+                onChange={e => setSelectedSemester(e.target.value === 'All' ? 'All' : Number(e.target.value))}
+                className="border p-1 rounded"
+              >
+                {semesters.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mr-2">Carrera:</label>
+              <select
+                value={selectedMajor}
+                onChange={e => setSelectedMajor(e.target.value)}
+                className="border p-1 rounded"
+              >
+                <option value="All">All</option>
+                {majors.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <button
             onClick={handleGenerateSchedule}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
             disabled={isLoading}
           >
             {isLoading ? 'Generando...' : 'Generar horario general'}
@@ -204,7 +260,7 @@ export default function HorarioGeneralPage() {
                   <th className="border p-2 text-right text-sm">{time}</th>
                   {daysOfWeek.map(day => {
                     const slotMinutes = timeToMinutes(time);
-                    const items = schedule.filter(i => {
+                    const items = filteredSchedule.filter(i => {
                       if (i.Dia !== day) return false;
                       const start = timeToMinutes(i.HoraInicio);
                       const end = timeToMinutes(i.HoraFin);
