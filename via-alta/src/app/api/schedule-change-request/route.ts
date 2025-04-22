@@ -70,7 +70,12 @@ export async function POST(request: NextRequest) {
   try {
     const { studentId, reason } = await request.json();
     
+    // Log the start of the change request process with details
+    console.log(`CHANGE REQUEST PROCESS STARTED - Student ID: ${studentId}`);
+    console.log(`Change reason: ${reason?.substring(0, 50)}${reason?.length > 50 ? '...' : ''}`);
+    
     if (!studentId || !reason) {
+      console.log(`CHANGE REQUEST FAILED - Missing required fields`);
       return NextResponse.json({ 
         success: false, 
         message: 'Student ID and change reason are required' 
@@ -168,9 +173,13 @@ export async function POST(request: NextRequest) {
         "pendiente"
       ]);
       
-      console.log('Change request inserted successfully');
+      console.log(`CHANGE REQUEST SUCCESSFULLY CREATED`);
+      console.log(`Request details: ID=${nextId}, Student=${effectiveStudentId}, Status=pendiente`);
+      console.log(`Request date: ${currentDate.toISOString()}`);
+      
       await client.query('COMMIT');
       console.log('Transaction committed');
+      console.log(`CHANGE REQUEST PROCESS COMPLETED SUCCESSFULLY`);
       
       return NextResponse.json({ 
         success: true, 
@@ -180,14 +189,15 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       // Si ocurre un error, revertir la transacción
       await client.query('ROLLBACK');
-      console.error('Transaction error:', error);
+      console.error('TRANSACTION ERROR:', error);
+      console.error('CHANGE REQUEST FAILED - Database error');
       throw error;
     } finally {
       client.release();
       console.log('Database connection released');
     }
   } catch (error) {
-    console.error('Error submitting change request:', error);
+    console.error('CHANGE REQUEST PROCESS FAILED:', error);
     return NextResponse.json({ 
       success: false, 
       message: 'Error submitting change request',
