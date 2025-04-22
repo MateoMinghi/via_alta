@@ -1,12 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import SubjectList from '@/components/SubjectList';
-import SubjectSearch from '@/components/SubjectSearch';
 import GroupInfoDialog from '@/components/GroupInfoDialog';
 
 // Dummy data for UI demonstration
