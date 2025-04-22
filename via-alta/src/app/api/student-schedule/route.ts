@@ -45,7 +45,15 @@ async function getStudentDetails(studentId: string): Promise<any> {
     throw new Error('Failed to fetch student details from central system');
   }
   
-  return await response.json();
+  const responseData = await response.json();
+  
+  // Return the full data structure with proper extraction of ivd_id
+  if (responseData.data) {
+    const studentData = responseData.data;
+    return studentData;  // Return the student data object directly
+  }
+  
+  return responseData; // Fallback to the whole response if data property is missing
 }
 
 export async function GET(request: NextRequest) {
@@ -61,12 +69,31 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
+    console.log(`GET request received for student: ${studentId}`);
+
     // Validar detalles del estudiante para determinar el semestre
     let semester = providedSemester;
+    let effectiveStudentId = studentId; // Use this for all database operations
+    
     if (!semester) {
       try {
         const studentDetails = await getStudentDetails(studentId);
+        
+        // Make sure we're using ivd_id instead of id for database operations
+        if (studentDetails.ivd_id) {
+          effectiveStudentId = studentDetails.ivd_id.toString();
+          console.log(`Using ivd_id (${effectiveStudentId}) instead of provided ID (${studentId})`);
+        }
+        
         semester = studentDetails.semester?.toString();
+        
+        // Log effective ID being used (should be ivd_id when available)
+        console.log('Student details retrieved:', {
+          originalId: studentId,
+          effectiveId: effectiveStudentId,
+          ivd_id: studentDetails.ivd_id, 
+          semester: studentDetails.semester
+        });
         
         if (!semester) {
           return NextResponse.json({ 
@@ -84,7 +111,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Primero, verificar si el estudiante tiene un horario individual
+    // Use effectiveStudentId for all database operations
     const studentScheduleQuery = `
       SELECT h.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon
       FROM Horario h
@@ -94,7 +121,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN salon s ON g.IdSalon = s.idsalon
       WHERE h.idAlumno = $1
     `;
-    const studentScheduleResult = await pool.query(studentScheduleQuery, [studentId]);
+    const studentScheduleResult = await pool.query(studentScheduleQuery, [effectiveStudentId]);
     
     if (studentScheduleResult.rows.length > 0) {
       // Si el estudiante tiene un horario individual, devolverlo
@@ -106,7 +133,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Si no hay horario individual, obtener el horario general
-    console.log('Fetching schedule for student:', studentId, 'semester:', semester);
+    console.log('Fetching schedule for student:', effectiveStudentId, 'semester:', semester);
 
     const generalScheduleQuery = `
       SELECT hg.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon
@@ -154,30 +181,35 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    console.log('Received confirmation request for student:', studentId);
-    console.log('Schedule items:', schedule.length);
-    console.log('Test mode:', testMode ? 'enabled' : 'disabled');
+    console.log(`Starting schedule confirmation for student: ${studentId}`);
+    console.log(`Schedule items count: ${schedule.length}, Test mode: ${testMode ? 'enabled' : 'disabled'}`);
     
     const client = await pool.connect();
+    console.log('Database connection established');
     
     try {
       await client.query('BEGIN');
+      console.log('Transaction started');
       
       // Primero, verificamos si el estudiante existe en la tabla Alumno
       const checkStudentQuery = 'SELECT * FROM Alumno WHERE IdAlumno = $1';
       const studentExists = await client.query(checkStudentQuery, [studentId]);
+      console.log(`Student check complete: ${studentExists.rows.length > 0 ? 'exists' : 'does not exist'} in Alumno table`);
       
       // Si no existe, lo creamos
       if (studentExists.rows.length === 0) {
-        console.log('Creating new student record in Alumno table');
+        console.log(`Creating new student record in Alumno table for ID: ${studentId}`);
         await client.query('INSERT INTO Alumno (IdAlumno, Confirmacion) VALUES ($1, FALSE)', [studentId]);
+        console.log('Student record created successfully');
       }
       
       // Borrar el horario existente del estudiante
-      await client.query('DELETE FROM Horario WHERE idAlumno = $1', [studentId]);
+      const deleteResult = await client.query('DELETE FROM Horario WHERE idAlumno = $1', [studentId]);
+      console.log(`Deleted ${deleteResult.rowCount} existing schedule items for student: ${studentId}`);
       
       // Insertar el nuevo horario
       const currentDate = new Date();
+      let insertedCount = 0;
       for (const item of schedule) {
         // Handle case sensitivity in property names
         const idGrupo = item.IdGrupo || item.idgrupo;
@@ -192,22 +224,27 @@ export async function POST(request: NextRequest) {
           VALUES ($1, $2, $3)
         `;
         await client.query(query, [currentDate, idGrupo, studentId]);
+        insertedCount++;
       }
+      console.log(`Successfully inserted ${insertedCount} schedule items for student: ${studentId}`);
       
       // If in test mode, don't update confirmation status
       if (!testMode) {
         await client.query('UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1', [studentId]);
+        console.log(`Student ${studentId} confirmation status updated to TRUE`);
       } else {
-        console.log('Test mode active: Not updating confirmation status');
+        console.log(`Test mode active: Not updating confirmation status for student: ${studentId}`);
       }
       
       // Terminar la transacción
       await client.query('COMMIT');
+      console.log('Transaction committed successfully');
       
       return NextResponse.json({ 
         success: true, 
         message: testMode ? 'Schedule saved in test mode' : 'Schedule confirmed successfully',
-        testMode
+        testMode,
+        itemsProcessed: insertedCount
       });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -215,6 +252,7 @@ export async function POST(request: NextRequest) {
       throw error;
     } finally {
       client.release();
+      console.log('Database connection released');
     }
   } catch (error) {
     console.error('Error saving student schedule:', error);

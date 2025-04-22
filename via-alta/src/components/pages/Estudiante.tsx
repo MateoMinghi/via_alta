@@ -50,7 +50,7 @@ export default function Estudiante() {
       isIndividual,              // Indica si es un horario individual
       confirmSchedule            // Función para confirmar el horario
     } = useGetStudentSchedule(
-      updatedUser?.id?.toString(),
+      updatedUser?.ivd_id?.toString() || updatedUser?.id?.toString(),
       updatedUser?.semester
     );
 
@@ -149,9 +149,12 @@ export default function Estudiante() {
           throw new Error("No hay datos de horario disponibles para confirmar");
         }
         
-        if (!updatedUser?.id) {
+        if (!updatedUser?.ivd_id && !updatedUser?.id) {
           throw new Error("ID de estudiante no disponible");
         }
+        
+        // Usar ivd_id si está disponible, si no, usar id
+        const effectiveStudentId = updatedUser.ivd_id?.toString() || updatedUser.id?.toString();
         
         // Llamamos a la API para confirmar el horario
         const result = await confirmSchedule(scheduleData, true);
