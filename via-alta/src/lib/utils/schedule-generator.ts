@@ -2,9 +2,8 @@ import pool from "../../config/database";
 import Subject from "../models/subject";
 import Availability from "../models/availability";
 import GeneralSchedule, { GeneralScheduleItem } from "../models/general-schedule";
-import Cycle from "../models/cycle"; // Renamed import to match the exported class name
-import { getGroups } from "./group-generator"; // Assuming getGroups is exported and fetches necessary details
-
+import Cycle from "../models/cycle"; 
+import { getGroups } from "./group-generator"; 
 // Helper function to get the latest cycle ID
 async function getLatestCycleId(): Promise<number | null> {
   const query = `SELECT IdCiclo FROM Ciclo ORDER BY FechaInicio DESC LIMIT 1`;
@@ -129,7 +128,8 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
 
     // 4. Iterate and Assign Groups
     console.log("Assigning groups to schedule slots...");
-    for (const group of groups) {
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i];
       const subject = subjectsMap.get(group.idmateria);
       const professorAvail = availabilityMap.get(group.idprofesor);
 
@@ -146,11 +146,18 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
       const requiredBlocks = Math.ceil(subject.HorasClase);
       let currentAssignedBlocks = assignedHours.get(group.idgrupo) || 0;
 
+      // Rotate weekdays per group to spread evenly across the week
+      const dayOffset = i % daysOfWeek.length;
+      const rotatedDays = [
+        ...daysOfWeek.slice(dayOffset),
+        ...daysOfWeek.slice(0, dayOffset),
+      ];
+
       console.log(`Processing Group ${group.idgrupo} (Subject: ${subject.Nombre}, Prof: ${group.professor_name}, Salon: ${group.idsalon}, Required Blocks: ${requiredBlocks})`);
 
-      // Iterate through days and professor's available slots for that day
+      // Iterate through rotated days and professor's available slots for that day
       daysLoop:
-      for (const day of daysOfWeek) {
+      for (const day of rotatedDays) {
         const dayAvailability = professorAvail.get(day) || [];
 
         for (const availSlot of dayAvailability) {

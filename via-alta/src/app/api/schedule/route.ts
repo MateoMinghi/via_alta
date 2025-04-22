@@ -32,9 +32,24 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Handle GET requests - useful for testing endpoint availability
+// Handle GET requests - return the current general schedule
 export async function GET() {
-  return NextResponse.json({ 
-    message: 'El endpoint está disponible. Use POST para generar el horario general.' 
-  });
+  try {
+    // Import the GeneralSchedule model here to avoid circular dependencies
+    const { default: GeneralSchedule } = await import('@/lib/models/general-schedule');
+    
+    // Get the schedule data from the database
+    const scheduleData = await GeneralSchedule.getGeneralSchedule();
+    
+    return NextResponse.json({ 
+      success: true,
+      data: scheduleData
+    });
+  } catch (error) {
+    console.error('Error al obtener el horario general:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Error desconocido' 
+    }, { status: 500 });
+  }
 }
