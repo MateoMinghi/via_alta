@@ -2,14 +2,28 @@
 
 import React, { useState, useEffect } from 'react';
 import GroupInfoDialog from '@/components/GroupInfoDialog';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { X, Lock, Plus, GripVertical } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
-// Dummy data for UI demonstration
+// Días de la semana para mostrar en el horario
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+// Franjas horarias disponibles en el horario (formato 24h)
 const timeSlots = [
   '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00',
   '14:30', '15:00', '15:30', '16:00'
 ];
+
+// Define item type for drag and drop
+const ItemTypes = {
+  SCHEDULE_ITEM: 'scheduleItem'
+};
 
 // Types for the general schedule item (matches your backend)
 interface GeneralScheduleItem {
@@ -85,21 +99,23 @@ export default function HorarioGeneralPage() {
         if (data2.success) {
           console.log('Schedule data received, count:', data2.data?.length || 0);
           setSchedule(data2.data.map(mapRawScheduleItem));
+          toast.success('Horario general generado correctamente');
         } else {
           console.log('Failed to fetch updated schedule:', data2);
           setSchedule([]);
+          toast.error('Error al obtener el horario actualizado');
         }
+      } else {
+        toast.error('Error al generar el horario general');
       }
     } catch (err) {
       console.error('Error generating/fetching schedule:', err);
       setSchedule([]);
+      toast.error('Error al generar/obtener el horario');
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Drag-and-drop types
-  const ItemTypes = { SCHEDULE_ITEM: 'scheduleItem' };
 
   // Helper to convert HH:MM to minutes
   const timeToMinutes = (time: string | undefined | null): number => {
@@ -108,71 +124,280 @@ export default function HorarioGeneralPage() {
     return h * 60 + m;
   };
 
+  // Helper to get time string from minutes
+  const minutesToTime = (minutes: number): string => {
+    const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+    const m = (minutes % 60).toString().padStart(2, '0');
+    return `${h}:${m}`;
+  };
+  
+  // Normalizes day names
+  function normalizeDay(day: string): string {
+    switch (day.toLowerCase()) {
+      case 'monday':
+      case 'lun':
+      case 'lunes': 
+        return 'Lunes';
+      case 'tuesday':
+      case 'mar':
+      case 'martes':
+        return 'Martes';
+      case 'wednesday':
+      case 'mié':
+      case 'miercoles':
+      case 'miércoles':
+        return 'Miércoles';
+      case 'thursday':
+      case 'jue':
+      case 'jueves':
+        return 'Jueves';
+      case 'friday':
+      case 'vie':
+      case 'viernes':
+        return 'Viernes';    
+      default:
+        return day;
+    }
+  }
+
+  // Function to get subject color based on subject name
+  const getSubjectColor = (subjectName: string): { text: string, border: string, bg: string } => {
+    const colorOptions = [
+      { text: 'text-blue-700', border: 'border-blue-400', bg: 'bg-blue-50' },
+      { text: 'text-green-700', border: 'border-green-400', bg: 'bg-green-50' },
+      { text: 'text-amber-700', border: 'border-amber-400', bg: 'bg-amber-50' },
+      { text: 'text-purple-700', border: 'border-purple-400', bg: 'bg-purple-50' },
+      { text: 'text-pink-700', border: 'border-pink-400', bg: 'bg-pink-50' },
+      { text: 'text-indigo-700', border: 'border-indigo-400', bg: 'bg-indigo-50' },
+      { text: 'text-rose-700', border: 'border-rose-400', bg: 'bg-rose-50' },
+      { text: 'text-teal-700', border: 'border-teal-400', bg: 'bg-teal-50' },
+      { text: 'text-cyan-700', border: 'border-cyan-400', bg: 'bg-cyan-50' },
+      { text: 'text-orange-700', border: 'border-orange-400', bg: 'bg-orange-50' },
+      { text: 'text-lime-700', border: 'border-lime-400', bg: 'bg-lime-50' },
+      { text: 'text-emerald-700', border: 'border-emerald-400', bg: 'bg-emerald-50' },
+      { text: 'text-sky-700', border: 'border-sky-400', bg: 'bg-sky-50' },
+      { text: 'text-violet-700', border: 'border-violet-400', bg: 'bg-violet-50' },
+      { text: 'text-fuchsia-700', border: 'border-fuchsia-400', bg: 'bg-fuchsia-50' },
+      { text: 'text-red-700', border: 'border-red-400', bg: 'bg-red-50' },
+    ];
+    
+    // Create a hash based on subject name for consistent colors
+    let hashCode = 0;
+    for (let i = 0; i < subjectName.length; i++) {
+      hashCode = ((hashCode << 5) - hashCode) + subjectName.charCodeAt(i);
+      hashCode = hashCode & hashCode;
+    }
+    
+    const colorIndex = Math.abs(hashCode) % colorOptions.length;
+    return colorOptions[colorIndex];
+  };
+
+  // Create a matrix representation of the schedule
+  const scheduleMatrix = React.useMemo(() => {
+    const matrix: { [time: string]: { [day: string]: GeneralScheduleItem[] } } = {};
+    
+    // Initialize empty matrix
+    timeSlots.forEach(time => {
+      matrix[time] = {};
+      daysOfWeek.forEach(day => {
+        matrix[time][day] = [];
+      });
+    });
+    
+    // Fill with schedule items
+    schedule.forEach(item => {
+      const normalizedDay = normalizeDay(item.Dia);
+      const startTime = timeToMinutes(item.HoraInicio);
+      const endTime = timeToMinutes(item.HoraFin);
+      
+      // Add item to each time slot it spans
+      timeSlots.forEach(slot => {
+        const slotTime = timeToMinutes(slot);
+        if (slotTime >= startTime && slotTime < endTime) {
+          if (matrix[slot]?.[normalizedDay]) {
+            matrix[slot][normalizedDay].push(item);
+          }
+        }
+      });
+    });
+    
+    return matrix;
+  }, [schedule]);
+
+  // Draggable item component
+  const DraggableItem = ({ item, index, widthClass }: { item: GeneralScheduleItem, index: number, widthClass: string }) => {
+    const [{ isDragging }, dragRef] = useDrag(() => ({
+      type: ItemTypes.SCHEDULE_ITEM,
+      item: { 
+        id: item.IdGrupo,
+        day: item.Dia,
+        time: item.HoraInicio,
+        name: item.MateriaNombre || item.NombreCarrera,
+        originalItem: item
+      },
+      collect: (monitor) => ({
+        isDragging: !!monitor.isDragging()
+      })
+    }), [item]);
+
+    const colors = getSubjectColor(item.MateriaNombre || item.NombreCarrera || '');
+    
+    return (
+      <div
+        ref={dragRef}
+        key={`${item.IdHorarioGeneral}-${index}`}
+        className={cn(
+          'p-1 text-xs rounded-md border shadow-sm h-full cursor-grab',
+          'flex justify-between items-center',
+          `border-l-4 ${colors.border} ${colors.bg}`,
+          isDragging ? 'opacity-50 shadow-lg' : '',
+          widthClass
+        )}
+        onClick={(e) => {
+          e.stopPropagation(); // Prevent cell click from triggering
+          setSelectedGroup(item);
+          setDialogOpen(true);
+        }}
+      >
+        <div className={cn('truncate font-medium flex-1', colors.text)}>
+          {item.MateriaNombre || item.NombreCarrera}
+        </div>
+        <GripVertical className="h-3 w-3 text-gray-400 flex-shrink-0" />
+      </div>
+    );
+  };
+
+  // Droppable cell component
+  const DroppableCell = ({ day, time }: { day: string, time: string }) => {
+    const items = scheduleMatrix[time]?.[day] || [];
+    
+    // Configure drop functionality
+    const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
+      accept: ItemTypes.SCHEDULE_ITEM,
+      drop: (droppedItem: { id: number, day: string, time: string }) => {
+        handleDropItem(droppedItem.id, day, time);
+        toast.success(`Clase movida a ${day} ${time}`);
+      },
+      collect: (monitor) => ({
+        isOver: !!monitor.isOver(),
+        canDrop: !!monitor.canDrop(),
+      }),
+    }), [day, time]);
+
+    const getWidthClass = (total: number) => {
+      switch(total) {
+        case 1: return 'w-full';
+        case 2: return 'w-[calc(50%-2px)]';
+        case 3: return 'w-[calc(33.333%-2px)]';
+        default: return 'w-[calc(25%-2px)]';
+      }
+    };
+
+    return (
+      <div 
+        ref={dropRef}
+        className={cn(
+          'border border-gray-200 p-1 relative h-full transition-colors',
+          items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
+          isOver && canDrop && 'bg-green-100 border-dashed border-green-400',
+        )}
+      >
+        <div className="flex flex-row gap-0.5 h-full">
+          {items.map((item, index) => (
+            <DraggableItem 
+              key={`${item.IdHorarioGeneral}-${index}`} 
+              item={item} 
+              index={index} 
+              widthClass={getWidthClass(items.length)}
+            />
+          ))}
+          {isOver && canDrop && items.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-green-600 font-medium">
+              Soltar aquí
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Handle drop: update item's day and start/end time
+  const handleDropItem = (itemId: number, newDay: string, newTime: string) => {
+    setSchedule(prev => prev.map(item => {
+      if (item.IdGrupo !== itemId) return item;
+      // Calculate duration in minutes
+      const duration = timeToMinutes(item.HoraFin) - timeToMinutes(item.HoraInicio);
+      const newStart = timeToMinutes(newTime);
+      const newEnd = newStart + duration;
+      return {
+        ...item,
+        Dia: newDay,
+        HoraInicio: minutesToTime(newStart),
+        HoraFin: minutesToTime(newEnd)
+      };
+    }));
+    
+    // TODO: Sync with backend via API using a POST request to update the schedule
+    // This would be implemented when you have the API endpoint ready
+    console.log(`Moved item ${itemId} to ${newDay} at ${newTime}`);
+  };
+
   return (
-    <div className="w-full pb-8 flex flex-col gap-4">
-      <div className="flex justify-end mb-2">
-        <button
-          onClick={handleGenerateSchedule}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Generando...' : 'Generar horario general'}
-        </button>
+    <DndProvider backend={HTML5Backend}>
+      <div className="w-full pb-8 flex flex-col gap-4">
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={handleGenerateSchedule}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Generando...' : 'Generar horario general'}
+          </button>
+        </div>
+        
+        <div className="w-full flex justify-between flex-col gap-4">
+          {/* Horario grid usando el mismo layout que EstudianteSchedule */}
+          <div className="overflow-x-auto">
+            <div className="min-w-[800px]">
+              <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
+                {/* Encabezados con días de la semana */}
+                <div className="h-10" />
+                {daysOfWeek.map((day) => (
+                  <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
+                    {day}
+                  </div>
+                ))}
+
+                {/* Filas de horarios para cada franja horaria */}
+                {timeSlots.map((time) => (
+                  <React.Fragment key={time}>
+                    {/* Columna de horas */}
+                    <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
+                      {time}
+                    </div>
+                    {/* Celdas para cada día en esa franja horaria */}
+                    {daysOfWeek.map((day) => (
+                      <DroppableCell key={`${day}-${time}`} day={day} time={time} />
+                    ))}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Dialog para mostrar información de grupo cuando se hace clic */}
+        <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
+        
+        {isLoading && (
+          <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-xl">
+              <p className="text-lg text-center">Cargando horario...</p>
+              <div className="mt-4 w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+          </div>
+        )}
       </div>
-      {/* Replace grid with table for rowSpan support */}
-      <div className="overflow-x-auto w-full">
-        <table className="table-fixed w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="w-20 border p-2"></th>
-              {daysOfWeek.map(day => (
-                <th key={day} className="border p-2 text-center font-medium">
-                  {day}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {timeSlots.map(time => (
-              <tr key={time}>
-                <th className="border p-2 text-right text-sm">{time}</th>
-                {daysOfWeek.map(day => {
-                  // Show all groups that span this time slot
-                  const slotMinutes = timeToMinutes(time);
-                  const items = schedule.filter(i => {
-                    if (i.Dia !== day) return false;
-                    const start = timeToMinutes(i.HoraInicio);
-                    const end = timeToMinutes(i.HoraFin);
-                    return slotMinutes >= start && slotMinutes < end;
-                  });
-                  return (
-                    <td key={`${day}-${time}`} className="border p-2 align-top">
-                      {items.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {items.map(item => (
-                            <div
-                              key={item.IdGrupo}
-                              className="bg-blue-50 rounded p-1 mb-1 cursor-pointer hover:bg-blue-100"
-                              onClick={() => {
-                                setSelectedGroup(item);
-                                setDialogOpen(true);
-                              }}
-                            >
-                              <div className="text-xs font-medium text-blue-500 truncate">{item.MateriaNombre}</div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
-      {isLoading && <div className="text-center text-gray-500 mt-4">Cargando horario...</div>}
-    </div>
+    </DndProvider>
   );
 }
