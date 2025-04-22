@@ -39,6 +39,10 @@ export default function HorarioGeneralPage() {
     MateriaNombre: raw.MateriaNombre ?? raw.materianombre,
     ProfesorNombre: raw.ProfesorNombre ?? raw.profesornombre,
   });
+  // Utility to remove duplicate schedule items by unique ID
+  const dedupeScheduleItems = (items: GeneralScheduleItem[]) =>
+    Array.from(new Map(items.map(item => [item.IdHorarioGeneral, item])).values());
+
   const [schedule, setSchedule] = useState<GeneralScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
@@ -52,7 +56,9 @@ export default function HorarioGeneralPage() {
         const data = await res.json();
         if (data.success) {
           console.log('Schedule data received:', data.data);
-          setSchedule(data.data.map(mapRawScheduleItem));
+          // Map schedule without global dedupe
+          const mapped = data.data.map(mapRawScheduleItem);
+          setSchedule(mapped);
         } else {
           console.log('No schedule data received:', data);
           setSchedule([]);
@@ -84,7 +90,9 @@ export default function HorarioGeneralPage() {
         
         if (data2.success) {
           console.log('Schedule data received, count:', data2.data?.length || 0);
-          setSchedule(data2.data.map(mapRawScheduleItem));
+          // Map updated schedule without global dedupe
+          const mapped2 = data2.data.map(mapRawScheduleItem);
+          setSchedule(mapped2);
         } else {
           console.log('Failed to fetch updated schedule:', data2);
           setSchedule([]);
@@ -266,6 +274,13 @@ export default function HorarioGeneralPage() {
                       const end = timeToMinutes(i.HoraFin);
                       return slotMinutes >= start && slotMinutes < end;
                     });
+                    // Only show each group once per cell (by IdGrupo)
+                    const seen = new Set();
+                    const uniqueItems = items.filter(i => {
+                      if (seen.has(i.IdGrupo)) return false;
+                      seen.add(i.IdGrupo);
+                      return true;
+                    });
                     return (
                       <DroppableCell
                         key={`${day}-${time}`}
@@ -273,20 +288,17 @@ export default function HorarioGeneralPage() {
                         time={time}
                         onDropItem={handleDropItem}
                       >
-                        {items.length > 0 ? (
+                        {uniqueItems.length > 0 && (
                           <div className="flex flex-col gap-1">
-                            {items.map((item, idx) => (
+                            {uniqueItems.map((item, idx) => (
                               <DraggableScheduleItem
                                 key={`${item.IdGrupo}-${item.Dia}-${item.HoraInicio}-${item.HoraFin}-${idx}`}
                                 item={item}
-                                onClick={() => {
-                                  setSelectedGroup(item);
-                                  setDialogOpen(true);
-                                }}
+                                onClick={() => { setSelectedGroup(item); setDialogOpen(true); }}
                               />
                             ))}
                           </div>
-                        ) : null}
+                        )}
                       </DroppableCell>
                     );
                   })}
