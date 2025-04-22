@@ -1,42 +1,19 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import SubjectList from './SubjectList';
-import SubjectSearch from './SubjectSearch';
 import { toast } from 'sonner';
-import { IndividualSubject } from '@/components/pages/horario-general/IndividualSubject';
-
-// Define la interfaz para una materia
-// Una materia incluye id, título, salón, profesor, créditos, semestre y horarios
-interface Subject {
-  id: number;
-  title: string;
-  salon: string;
-  professor: string;
-  credits: number;
-  semester: number;
-  hours: { day: string; time: string }[];
-}
-
-// Define las propiedades que recibe el componente CoordinadorSchedule
-// Recibe un arreglo de materias (subjects)
-interface SubjectsProps {
-  subjects: Subject[];
-}
+import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 
 interface DraggableCellProps {
-  subject: Subject;
+  subject: GeneralScheduleItem;
   occurrence: { day: string; time: string };
   widthClass?: string;
 }
 
-// Constantes para los días de la semana y los intervalos de tiempo
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 const timeSlots = [
   '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
@@ -44,49 +21,35 @@ const timeSlots = [
   '14:30', '15:00', '15:30', '16:00'
 ];
 
-// Componente principal para gestionar el horario del coordinador
-// Recibe las materias como parámetro y permite visualizarlas, seleccionarlas y moverlas
-export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
-  // Estados para manejar el día activo, todas las materias, materias seleccionadas, materia seleccionada y última vez guardada
-  const [allSubjects, setAllSubjects] = useState<Subject[]>(subjects);
-  const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+export default function CoordinadorSchedule({ subjects }: { subjects: GeneralScheduleItem[] }) {
+  const [allSubjects, setAllSubjects] = useState<GeneralScheduleItem[]>(subjects);
+  const [selectedSubjects, setSelectedSubjects] = useState<GeneralScheduleItem[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<GeneralScheduleItem | null>(null);
 
-  // Efecto para inicializar las materias al montar el componente
   useEffect(() => {
     setAllSubjects(subjects);
   }, [subjects]);
 
   useEffect(() => {
-    // Initialize selected subjects with the provided subjects
     setSelectedSubjects(subjects);
   }, [subjects]);
 
-  // Función para manejar la selección de una materia
-  // Agrega la materia seleccionada al estado de materias seleccionadas si no está ya incluida
-  const handleSubjectSelect = (subject: Subject) => {
-    if (!selectedSubjects.some((s) => s.id === subject.id)) {
+  const handleSubjectSelect = (subject: GeneralScheduleItem) => {
+    if (!selectedSubjects.some((s) => s.IdGrupo === subject.IdGrupo)) {
       setSelectedSubjects([...selectedSubjects, subject]);
     }
   };
 
-  // Función para eliminar una materia seleccionada
-  // Filtra la materia por su id y actualiza el estado
   const removeSelectedSubject = (subjectId: number) => {
-    setSelectedSubjects(selectedSubjects.filter((s) => s.id !== subjectId));
+    setSelectedSubjects(selectedSubjects.filter((s) => s.IdGrupo !== subjectId));
   };
 
-  // Función para encontrar una materia en un día y hora específicos
-  // Busca en todas las materias y materias seleccionadas
   const findSubject = (day: string, time: string) => {
     const allDisplaySubjects = [
       ...selectedSubjects,
-      ...allSubjects.filter(s => !selectedSubjects.some(ss => ss.id === s.id)),
+      ...allSubjects.filter(s => !selectedSubjects.some(ss => ss.IdGrupo === s.IdGrupo)),
     ];
-
-    return allDisplaySubjects.find((subject) => subject.hours.some(
-      (hour) => hour.day.toLowerCase() === day.toLowerCase() && hour.time === time,
-    ));
+    return allDisplaySubjects.find((subject) => subject.Dia.toLowerCase() === day.toLowerCase() && subject.HoraInicio === time);
   };
 
   function normalizeDay(day: string): string {
@@ -112,7 +75,6 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     }
   }
 
-  // Funciones auxiliares para convertir tiempo a minutos y viceversa
   function timeToMinutes(time: string): number {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
@@ -124,68 +86,56 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     return `${hh}:${mm}`;
   }
 
-  // Crea una representación matricial del horario
-  // Agrupa las materias por día y hora en una estructura de matriz
   const scheduleMatrix = useMemo(() => {
-    const matrix: { [key: string]: { [key: string]: Subject[] } } = {};
-  
+    const matrix: { [key: string]: { [key: string]: GeneralScheduleItem[] } } = {};
     timeSlots.forEach(time => {
       matrix[time] = {};
       daysOfWeek.forEach(day => {
         matrix[time][day] = [];
       });
     });
-  
-    // Combine subjects and selectedSubjects (avoid duplicates)
     const allDisplaySubjects = [
       ...selectedSubjects,
-      ...subjects.filter(s => !selectedSubjects.some(ss => ss.id === s.id))
+      ...subjects.filter(s => !selectedSubjects.some(ss => ss.IdGrupo === s.IdGrupo))
     ];
-  
     allDisplaySubjects.forEach(subject => {
-      if (!subject?.hours) return;
-      subject.hours.forEach(hour => {
-        if (!hour?.time || !hour.day) return;
-        const normalizedDay = normalizeDay(hour.day);
-        const start = timeToMinutes(hour.time);
-        const end = start + 60; // Assuming 1-hour classes
-  
-        for (let t = start; t < end; t += 30) {
-          const slot = minutesToTime(t);
-          if (matrix[slot]?.[normalizedDay]) {
-            matrix[slot][normalizedDay].push(subject);
-          }
+      if (!subject?.Dia || !subject.HoraInicio || !subject.HoraFin) return;
+      const normalizedDay = normalizeDay(subject.Dia);
+      const start = timeToMinutes(subject.HoraInicio);
+      const end = timeToMinutes(subject.HoraFin);
+      for (let t = start; t < end; t += 30) {
+        const slot = minutesToTime(t);
+        if (matrix[slot]?.[normalizedDay]) {
+          matrix[slot][normalizedDay].push(subject);
         }
-      });
+      }
     });
-  
     return matrix;
   }, [subjects, selectedSubjects]);
 
-  // Función para mover una materia a un nuevo día y hora
-  // Actualiza el estado de las materias seleccionadas y muestra un mensaje de éxito
   const moveSubject = (
-    dragItem: { subject: Subject; occurrence: { day: string; time: string } },
+    dragItem: { subject: GeneralScheduleItem; occurrence: { day: string; time: string } },
     toDay: string,
     toTime: string
   ) => {
     const { subject, occurrence } = dragItem;
     const updatedSubjects = selectedSubjects.map(s => {
-      if (s.id === subject.id) {
+      if (s.IdGrupo === subject.IdGrupo) {
+        // Assume 1-hour duration for now
+        const start = timeToMinutes(toTime);
+        const end = start + 60;
         return {
           ...s,
-          hours: s.hours.map(hour =>
-            (hour.day.toLowerCase() === occurrence.day.toLowerCase() && hour.time === occurrence.time)
-              ? { day: toDay, time: toTime }
-              : hour
-          )
+          Dia: toDay,
+          HoraInicio: toTime,
+          HoraFin: minutesToTime(end),
         };
       }
       return s;
     });
     setSelectedSubjects(updatedSubjects);
     
-    toast.success(`Moved ${subject.title} from ${occurrence.day} ${occurrence.time} to ${toDay} at ${toTime}`);
+    toast.success(`Moved ${subject.MateriaNombre || subject.IdGrupo} from ${occurrence.day} ${occurrence.time} to ${toDay} at ${toTime}`);
   };
 
   const getSubjectColor = (subjectTitle: string): string => {
@@ -199,55 +149,8 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
     return subjectColors[subjectTitle] || 'text-red-700'; // default color
 };
 
-  // Componente para celdas arrastrables
-  // Permite arrastrar materias dentro del horario
-  const DraggableCell = ({ subject, occurrence, widthClass }: DraggableCellProps) => {
-    const [{ isDragging }, dragRef] = useDrag(() => ({
-      type: 'subject',
-      // send both the subject and the occurrence details for this cell
-      item: { subject, occurrence },
-      collect: (monitor) => ({
-        isDragging: monitor.isDragging(),
-      }),
-    }));
-
-    return (
-      <div
-        ref={(node) => {
-          if (typeof dragRef === 'function') {
-            dragRef(node);
-          }
-        }}
-        className={cn(
-          'p-1 text-xs cursor-pointer rounded-md border border-gray-200 bg-white shadow-sm h-full',
-          'hover:shadow-md transition-shadow flex justify-center items-center',
-          isDragging && 'opacity-50',
-          widthClass
-        )}
-        onClick={() => setSelectedSubject(subject)}
-      >
-        <div className={cn('truncate font-medium', getSubjectColor(subject.title))}>
-          {subject.title}
-        </div>
-      </div>
-    );  
-  };
-
-  // Componente para celdas dropeables
-  // Permite soltar materias en un día y hora específicos
   const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time][day];
-    const [{ isOver }, dropRef] = useDrop(() => ({
-      accept: 'subject',
-      drop: (dragItem: { subject: Subject; occurrence: { day: string; time: string } }) => {
-        moveSubject(dragItem, day, time);
-      },
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-      }),
-    }));
-
-    // Calculate width class based on number of items in the cell
     const getWidthClass = (total: number, index: number) => {
       switch(total) {
         case 1: return 'w-full';
@@ -256,28 +159,28 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
         default: return 'w-[calc(25%-2px)]';
       }
     };
-  
     return (
       <div
-        ref={(node) => {
-          if (typeof dropRef === 'function') {
-            dropRef(node);
-          }
-        }}
         className={cn(
           'border border-gray-200 p-1 relative h-full',
-          items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
-          isOver && 'bg-gray-100'
+          items.length > 0 ? 'bg-blue-50/50' : 'bg-white'
         )}
       >
         <div className="flex flex-row gap-0.5 h-full">
           {items.map((item, index) => (
-            <DraggableCell 
-              key={`${item.professor}-${item.title}-${index}`}
-              subject={item}
-              occurrence={{ day, time }} // pass the cell's day/time as the occurrence
-              widthClass={getWidthClass(items.length, index)}
-            />
+            <div
+              key={`${item.IdGrupo}-${item.MateriaNombre || item.IdGrupo}-${index}`}
+              className={cn(
+                'p-1 text-xs rounded-md border border-gray-200 bg-white shadow-sm h-full',
+                'flex justify-center items-center',
+                getWidthClass(items.length, index)
+              )}
+              onClick={() => setSelectedSubject(item)}
+            >
+              <div className={cn('truncate font-medium', getSubjectColor(item.MateriaNombre || String(item.IdGrupo)))}>
+                {item.MateriaNombre || item.IdGrupo}
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -285,124 +188,54 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   };
 
   return (
-    // Renderiza el horario, lista de materias y funcionalidades de arrastrar y soltar
-    // Incluye botones para guardar el horario y mostrar la última vez guardada
-    <DndProvider backend={HTML5Backend}>
-      <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
-        <div className="overflow-x-auto flex-1">
-          <div className="min-w-[800px]">
-            <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
-              <div className="h-10" />
-              {daysOfWeek.map((day) => (
-                <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
-                  {day}
+    <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
+      <div className="overflow-x-auto flex-1">
+        <div className="min-w-[800px]">
+          <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
+            <div className="h-10" />
+            {daysOfWeek.map((day) => (
+              <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
+                {day}
+              </div>
+            ))}
+            {timeSlots.map((time) => (
+              <React.Fragment key={time}>
+                <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
+                  {time}
                 </div>
-              ))}
-
-              {timeSlots.map((time) => (
-                <React.Fragment key={time}>
-                  <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
-                    {time}
+                {daysOfWeek.map((day) => (
+                  <Cell key={`${day}-${time}`} day={day} time={time} />
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
+        <p className="text-2xl font-bold">Lista de Materias</p>
+        {selectedSubjects.length > 0 && (
+          <div className="mt-4 mb-4">
+            <p className="text-lg font-semibold mb-2">Materias Seleccionadas</p>
+            <div className="space-y-2">
+              {selectedSubjects.map((subject) => (
+                <Card key={subject.IdGrupo} className="p-3 flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{subject.MateriaNombre || subject.IdGrupo}</p>
                   </div>
-                  {daysOfWeek.map((day) => (
-                    <Cell key={`${day}-${time}`} day={day} time={time} />
-                  ))}
-                </React.Fragment>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeSelectedSubject(subject.IdGrupo)}
+                    className="h-8 w-8 text-red-500"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </Card>
               ))}
             </div>
           </div>
-        </div>
-
-        <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
-          <p className="text-2xl font-bold">Lista de Materias</p>
-          <SubjectList subjects={subjects} />
-          {selectedSubjects.length > 0 && (
-            <div className="mt-4 mb-4">
-              <p className="text-lg font-semibold mb-2">Materias Seleccionadas</p>
-              <div className="space-y-2">
-                {selectedSubjects.map((subject) => (
-                  <Card key={subject.id} className="p-3 flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{subject.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {subject.professor}
-                        {' '}
-                        •
-                        {subject.credits}
-                        {' '}
-                        créditos
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeSelectedSubject(subject.id)}
-                      className="h-8 w-8 text-red-500"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <SubjectSearch subjects={allSubjects} onSubjectSelect={handleSubjectSelect} />
-        </div>
+        )}
       </div>
-
-      {/* Render the IndividualSubject dialog when a subject on the grid is clicked */}      {selectedSubject && (
-        <IndividualSubject
-          subject={{
-            IdHorarioGeneral: 1, // Default value
-            NombreCarrera: selectedSubject.title,
-            IdMateria: selectedSubject.id,
-            IdProfesor: parseInt(selectedSubject.professor.replace(/\D/g, '')) || 0,
-            IdCiclo: 1, // Default value
-            Dia: selectedSubject.hours[0]?.day || '',
-            HoraInicio: selectedSubject.hours[0]?.time || '',
-            HoraFin: (() => {
-              const time = selectedSubject.hours[0]?.time;
-              if (!time) return '';
-              const [h, m] = time.split(':').map(Number);
-              const date = new Date();
-              date.setHours(h, m, 0, 0);
-              date.setHours(date.getHours() + 1);
-              return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-            })(),
-            Semestre: selectedSubject.semester
-          }}
-          isOpen={!!selectedSubject}
-          onClose={() => setSelectedSubject(null)}
-          onUpdate={(updatedScheduleItem) => {
-            setSelectedSubjects(prev =>
-              prev.map(s => {
-                if (s.id === selectedSubject.id) {
-                  return {
-                    ...s,
-                    title: updatedScheduleItem.NombreCarrera,
-                    professor: `Prof ${updatedScheduleItem.IdProfesor}`,
-                    salon: `Salon ${updatedScheduleItem.IdCiclo}`,
-                    semester: updatedScheduleItem.Semestre,
-                    hours: [{
-                      day: updatedScheduleItem.Dia,
-                      time: updatedScheduleItem.HoraInicio
-                    }]
-                  };
-                }
-                return s;
-              })
-            );
-            setSelectedSubject(null);
-          }}
-          onDelete={(scheduleItem) => {
-            setSelectedSubjects(prev =>
-              prev.filter(s => s.id !== selectedSubject.id)
-            );
-            setSelectedSubject(null);
-          }}
-        />
-      )}
-    </DndProvider>
+    </div>
   );
 }
