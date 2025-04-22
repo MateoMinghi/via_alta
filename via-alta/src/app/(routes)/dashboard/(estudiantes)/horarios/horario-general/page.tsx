@@ -390,48 +390,42 @@ export default function HorarioGeneralPage() {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="w-full pb-8 flex flex-col gap-4">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-2">
           {/* Filters */}
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-            <div className="bg-white p-4 rounded-md border border-gray-200 shadow-sm w-full md:w-auto">
-              <h2 className="text-lg font-bold text-red-700 mb-3">Filtros</h2>
-              <div className="flex flex-wrap gap-4">
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-1">Semestre:</label>
-                  <select
-                    value={selectedSemester}
-                    onChange={e => setSelectedSemester(e.target.value === 'All' ? 'All' : Number(e.target.value))}
-                    className="border border-gray-200 p-2 rounded-md bg-white shadow-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  >
-                    {semesters.map(s => (
-                      <option key={s} value={s}>{s === 'All' ? 'Todos' : s}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium mb-1">Carrera:</label>
-                  <select
-                    value={selectedMajor}
-                    onChange={e => setSelectedMajor(e.target.value)}
-                    className="border border-gray-200 p-2 rounded-md bg-white shadow-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  >
-                    <option value="All">Todas</option>
-                    {majors.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+          <div className="flex gap-4 items-center">
+            <div>
+              <label className="mr-2">Semestre:</label>
+              <select
+                value={selectedSemester}
+                onChange={e => setSelectedSemester(e.target.value === 'All' ? 'All' : Number(e.target.value))}
+                className="border p-1 rounded"
+              >
+                {semesters.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
-            <Button 
-              onClick={handleGenerateSchedule}
-              disabled={isLoading}
-              size="lg"
-              className="bg-red-700 hover:bg-red-800 text-white"
-            >
-              {isLoading ? 'Generando...' : 'Generar horario general'}
-            </Button>
+            <div>
+              <label className="mr-2">Carrera:</label>
+              <select
+                value={selectedMajor}
+                onChange={e => setSelectedMajor(e.target.value)}
+                className="border p-1 rounded"
+              >
+                <option value="All">All</option>
+                {majors.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
           </div>
+          <button
+            onClick={handleGenerateSchedule}
+            className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Generando...' : 'Generar horario general'}
+          </button>
         </div>
         
         <div className="w-full flex justify-between flex-col gap-4">
