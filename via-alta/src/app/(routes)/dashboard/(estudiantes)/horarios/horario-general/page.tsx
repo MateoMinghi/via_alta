@@ -20,11 +20,6 @@ const timeSlots = [
   '14:30', '15:00', '15:30', '16:00'
 ];
 
-// Define item type for drag and drop
-const ItemTypes = {
-  SCHEDULE_ITEM: 'scheduleItem'
-};
-
 // Types for the general schedule item (matches your backend)
 interface GeneralScheduleItem {
   IdHorarioGeneral: number;
@@ -51,10 +46,6 @@ export default function HorarioGeneralPage() {
     MateriaNombre: raw.MateriaNombre ?? raw.materianombre,
     ProfesorNombre: raw.ProfesorNombre ?? raw.profesornombre,
   });
-  // Utility to remove duplicate schedule items by unique ID
-  const dedupeScheduleItems = (items: GeneralScheduleItem[]) =>
-    Array.from(new Map(items.map(item => [item.IdHorarioGeneral, item])).values());
-
   const [schedule, setSchedule] = useState<GeneralScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
@@ -69,9 +60,7 @@ export default function HorarioGeneralPage() {
         const data = await res.json();
         if (data.success) {
           console.log('Schedule data received:', data.data);
-          // Map schedule without global dedupe
-          const mapped = data.data.map(mapRawScheduleItem);
-          setSchedule(mapped);
+          setSchedule(data.data.map(mapRawScheduleItem));
         } else {
           console.log('No schedule data received:', data);
           setSchedule([]);
@@ -105,6 +94,7 @@ export default function HorarioGeneralPage() {
         if (data2.success) {
           console.log('Schedule data received, count:', data2.data?.length || 0);
           setSchedule(data2.data.map(mapRawScheduleItem));
+          toast.success('Horario general generado correctamente');
         } else {
           console.log('Failed to fetch updated schedule:', data2);
           setSchedule([]);
@@ -135,53 +125,104 @@ export default function HorarioGeneralPage() {
     const m = (minutes % 60).toString().padStart(2, '0');
     return `${h}:${m}`;
   };
+  
+  // Normalizes day names
+  function normalizeDay(day: string): string {
+    switch (day.toLowerCase()) {
+      case 'monday':
+      case 'lun':
+      case 'lunes': 
+        return 'Lunes';
+      case 'tuesday':
+      case 'mar':
+      case 'martes':
+        return 'Martes';
+      case 'wednesday':
+      case 'mié':
+      case 'miercoles':
+      case 'miércoles':
+        return 'Miércoles';
+      case 'thursday':
+      case 'jue':
+      case 'jueves':
+        return 'Jueves';
+      case 'friday':
+      case 'vie':
+      case 'viernes':
+        return 'Viernes';    
+      default:
+        return day;
+    }
+  }
 
-  // Draggable schedule item
-  function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, onClick: () => void }) {
-    const [{ isDragging }, drag] = useDrag(() => ({
-      type: ItemTypes.SCHEDULE_ITEM,
-      item: { 
-        id: item.IdGrupo,
-        day: item.Dia,
-        time: item.HoraInicio,
-        name: item.MateriaNombre || item.NombreCarrera,
-        originalItem: item
-      },
-      collect: (monitor) => ({
-        isDragging: !!monitor.isDragging()
-      })
-    }), [item]);
-
-    const colors = getSubjectColor(item.MateriaNombre || item.NombreCarrera || '');
+  // Function to get subject color based on subject name
+  const getSubjectColor = (subjectName: string): { text: string, border: string, bg: string } => {
+    const colorOptions = [
+      { text: 'text-blue-700', border: 'border-blue-400', bg: 'bg-blue-50' },
+      { text: 'text-green-700', border: 'border-green-400', bg: 'bg-green-50' },
+      { text: 'text-amber-700', border: 'border-amber-400', bg: 'bg-amber-50' },
+      { text: 'text-purple-700', border: 'border-purple-400', bg: 'bg-purple-50' },
+      { text: 'text-pink-700', border: 'border-pink-400', bg: 'bg-pink-50' },
+      { text: 'text-indigo-700', border: 'border-indigo-400', bg: 'bg-indigo-50' },
+      { text: 'text-rose-700', border: 'border-rose-400', bg: 'bg-rose-50' },
+      { text: 'text-teal-700', border: 'border-teal-400', bg: 'bg-teal-50' },
+      { text: 'text-cyan-700', border: 'border-cyan-400', bg: 'bg-cyan-50' },
+      { text: 'text-orange-700', border: 'border-orange-400', bg: 'bg-orange-50' },
+      { text: 'text-lime-700', border: 'border-lime-400', bg: 'bg-lime-50' },
+      { text: 'text-emerald-700', border: 'border-emerald-400', bg: 'bg-emerald-50' },
+      { text: 'text-sky-700', border: 'border-sky-400', bg: 'bg-sky-50' },
+      { text: 'text-violet-700', border: 'border-violet-400', bg: 'bg-violet-50' },
+      { text: 'text-fuchsia-700', border: 'border-fuchsia-400', bg: 'bg-fuchsia-50' },
+      { text: 'text-red-700', border: 'border-red-400', bg: 'bg-red-50' },
+    ];
     
-    return (
-      <div
-        ref={drag}
-        className={`bg-blue-50 rounded p-1 mb-1 cursor-move hover:bg-blue-100 ${isDragging ? 'opacity-50' : ''}`}
-        onClick={onClick}
-      >
-        <div className="text-xs font-medium text-blue-500 truncate">{item.MateriaNombre}</div>
-      </div>
-    );
+    // Create a hash based on subject name for consistent colors
+    let hashCode = 0;
+    for (let i = 0; i < subjectName.length; i++) {
+      hashCode = ((hashCode << 5) - hashCode) + subjectName.charCodeAt(i);
+      hashCode = hashCode & hashCode;
+    }
+    
+    const colorIndex = Math.abs(hashCode) % colorOptions.length;
+    return colorOptions[colorIndex];
   };
 
-  // Droppable cell component
-  const DroppableCell = ({ day, time }: { day: string, time: string }) => {
+  // Create a matrix representation of the schedule
+  const scheduleMatrix = React.useMemo(() => {
+    const matrix: { [time: string]: { [day: string]: GeneralScheduleItem[] } } = {};
+    
+    // Initialize empty matrix
+    timeSlots.forEach(time => {
+      matrix[time] = {};
+      daysOfWeek.forEach(day => {
+        matrix[time][day] = [];
+      });
+    });
+    
+    // Fill with schedule items
+    schedule.forEach(item => {
+      const normalizedDay = normalizeDay(item.Dia);
+      const startTime = timeToMinutes(item.HoraInicio);
+      const endTime = timeToMinutes(item.HoraFin);
+      
+      // Add item to each time slot it spans
+      timeSlots.forEach(slot => {
+        const slotTime = timeToMinutes(slot);
+        if (slotTime >= startTime && slotTime < endTime) {
+          if (matrix[slot]?.[normalizedDay]) {
+            matrix[slot][normalizedDay].push(item);
+          }
+        }
+      });
+    });
+    
+    return matrix;
+  }, [schedule]);
+
+  // Cell component to display items at a specific day and time
+  const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time]?.[day] || [];
     
-    // Configure drop functionality
-    const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
-      accept: ItemTypes.SCHEDULE_ITEM,
-      drop: (droppedItem: { id: number, day: string, time: string }) => {
-        handleDropItem(droppedItem.id, day, time);
-        toast.success(`Clase movida a ${day} ${time}`);
-      },
-      collect: (monitor) => ({
-        isOver: !!monitor.isOver(),
-        canDrop: !!monitor.canDrop(),
-      }),
-    }), [day, time]);
-
     const getWidthClass = (total: number) => {
       switch(total) {
         case 1: return 'w-full';
@@ -192,28 +233,34 @@ export default function HorarioGeneralPage() {
     };
 
     return (
-      <div 
-        ref={dropRef}
-        className={cn(
-          'border border-gray-200 p-1 relative h-full transition-colors',
-          items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
-          isOver && canDrop && 'bg-green-100 border-dashed border-green-400',
-        )}
-      >
+      <div className={cn(
+        'border border-gray-200 p-1 relative h-full',
+        items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
+      )}>
         <div className="flex flex-row gap-0.5 h-full">
-          {items.map((item, index) => (
-            <DraggableItem 
-              key={`${item.IdHorarioGeneral}-${index}`} 
-              item={item} 
-              index={index} 
-              widthClass={getWidthClass(items.length)}
-            />
-          ))}
-          {isOver && canDrop && items.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center text-xs text-green-600 font-medium">
-              Soltar aquí
-            </div>
-          )}
+          {items.map((item, index) => {
+            const colors = getSubjectColor(item.MateriaNombre || item.NombreCarrera || '');
+            
+            return (
+              <div
+                key={`${item.IdHorarioGeneral}-${index}`}
+                className={cn(
+                  'p-1 text-xs rounded-md border shadow-sm h-full cursor-pointer',
+                  'flex justify-between items-center',
+                  `border-l-4 ${colors.border} ${colors.bg}`,
+                  getWidthClass(items.length)
+                )}
+                onClick={() => {
+                  setSelectedGroup(item);
+                  setDialogOpen(true);
+                }}
+              >
+                <div className={cn('truncate font-medium flex-1', colors.text)}>
+                  {item.MateriaNombre || item.NombreCarrera}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -234,30 +281,16 @@ export default function HorarioGeneralPage() {
         HoraFin: minutesToTime(newEnd)
       };
     }));
-    
-    // TODO: Sync with backend via API using a POST request to update the schedule
-    // This would be implemented when you have the API endpoint ready
-    console.log(`Moved item ${itemId} to ${newDay} at ${newTime}`);
+    // TODO: Sync with backend via API
   };
-
-  const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
-  const [selectedMajor, setSelectedMajor] = useState<string>('All');
-  // Available options
-  const semesters = ['All', 1,2,3,4,5,6,7,8] as const;
-  const majors = Array.from(new Set(schedule.map(i => i.NombreCarrera)));
-  // Filtered schedule based on selections
-  const filteredSchedule = schedule.filter(i =>
-    (selectedSemester === 'All' || i.Semestre === selectedSemester) &&
-    (selectedMajor === 'All' || i.NombreCarrera === selectedMajor)
-  );
 
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="w-full pb-8 flex flex-col gap-4">
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-end mb-4">
           <button
             onClick={handleGenerateSchedule}
-            className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
             disabled={isLoading}
           >
             {isLoading ? 'Generando...' : 'Generar horario general'}
@@ -276,48 +309,23 @@ export default function HorarioGeneralPage() {
                     {day}
                   </div>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {timeSlots.map(time => (
-                <tr key={time}>
-                  <th className="border p-2 text-right text-sm">{time}</th>
-                  {daysOfWeek.map(day => {
-                    const slotMinutes = timeToMinutes(time);
-                    const items = schedule.filter(i => {
-                      if (i.Dia !== day) return false;
-                      const start = timeToMinutes(i.HoraInicio);
-                      const end = timeToMinutes(i.HoraFin);
-                      return slotMinutes >= start && slotMinutes < end;
-                    });
-                    return (
-                      <DroppableCell
-                        key={`${day}-${time}`}
-                        day={day}
-                        time={time}
-                        onDropItem={handleDropItem}
-                      >
-                        {items.length > 0 ? (
-                          <div className="flex flex-col gap-1">
-                            {items.map((item, idx) => (
-                              <DraggableScheduleItem
-                                key={`${item.IdGrupo}-${item.Dia}-${item.HoraInicio}-${item.HoraFin}-${idx}`}
-                                item={item}
-                                onClick={() => {
-                                  setSelectedGroup(item);
-                                  setDialogOpen(true);
-                                }}
-                              />
-                            ))}
-                          </div>
-                        ) : null}
-                      </DroppableCell>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+                {/* Filas de horarios para cada franja horaria */}
+                {timeSlots.map((time) => (
+                  <React.Fragment key={time}>
+                    {/* Columna de horas */}
+                    <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
+                      {time}
+                    </div>
+                    {/* Celdas para cada día en esa franja horaria */}
+                    {daysOfWeek.map((day) => (
+                      <Cell key={`${day}-${time}`} day={day} time={time} />
+                    ))}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
         
         {/* Dialog para mostrar información de grupo cuando se hace clic */}
