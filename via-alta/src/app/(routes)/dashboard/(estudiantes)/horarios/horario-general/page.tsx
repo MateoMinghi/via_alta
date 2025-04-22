@@ -10,6 +10,11 @@ import { X, Lock, Plus, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+// Define item types for drag and drop
+const ItemTypes = {
+  SCHEDULE_ITEM: 'schedule_item'
+};
+
 // Días de la semana para mostrar en el horario
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
@@ -19,6 +24,23 @@ const timeSlots = [
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00',
   '14:30', '15:00', '15:30', '16:00'
 ];
+
+// Color classes for each semester - keep for backward compatibility
+const semesterColors: Record<number, string> = {
+  1: 'bg-green-50 hover:bg-green-100 border-green-200 text-green-700',
+  2: 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700',
+  3: 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700',
+  4: 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700',
+  5: 'bg-pink-50 hover:bg-pink-100 border-pink-200 text-pink-700',
+  6: 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-700',
+  7: 'bg-red-50 hover:bg-red-100 border-red-200 text-red-700',
+  8: 'bg-teal-50 hover:bg-teal-100 border-teal-200 text-teal-700'
+};
+
+function getSemesterColor(sem: number | undefined) {
+  if (!sem || !(sem in semesterColors)) return 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700';
+  return semesterColors[sem];
+}
 
 // Types for the general schedule item (matches your backend)
 interface GeneralScheduleItem {
@@ -31,6 +53,70 @@ interface GeneralScheduleItem {
   Semestre?: number;
   MateriaNombre?: string;
   ProfesorNombre?: string;
+}
+
+// Function to get subject color based on subject name
+const getSubjectColor = (subjectName: string): { text: string, border: string, bg: string } => {
+  const colorOptions = [
+    { text: 'text-blue-700', border: 'border-blue-400', bg: 'bg-blue-50' },
+    { text: 'text-green-700', border: 'border-green-400', bg: 'bg-green-50' },
+    { text: 'text-amber-700', border: 'border-amber-400', bg: 'bg-amber-50' },
+    { text: 'text-purple-700', border: 'border-purple-400', bg: 'bg-purple-50' },
+    { text: 'text-pink-700', border: 'border-pink-400', bg: 'bg-pink-50' },
+    { text: 'text-indigo-700', border: 'border-indigo-400', bg: 'bg-indigo-50' },
+    { text: 'text-rose-700', border: 'border-rose-400', bg: 'bg-rose-50' },
+    { text: 'text-teal-700', border: 'border-teal-400', bg: 'bg-teal-50' },
+    { text: 'text-cyan-700', border: 'border-cyan-400', bg: 'bg-cyan-50' },
+    { text: 'text-orange-700', border: 'border-orange-400', bg: 'bg-orange-50' },
+    { text: 'text-lime-700', border: 'border-lime-400', bg: 'bg-lime-50' },
+    { text: 'text-emerald-700', border: 'border-emerald-400', bg: 'bg-emerald-50' },
+    { text: 'text-sky-700', border: 'border-sky-400', bg: 'bg-sky-50' },
+    { text: 'text-violet-700', border: 'border-violet-400', bg: 'bg-violet-50' },
+    { text: 'text-fuchsia-700', border: 'border-fuchsia-400', bg: 'bg-fuchsia-50' },
+    { text: 'text-red-700', border: 'border-red-400', bg: 'bg-red-50' },
+  ];
+  
+  // Create a hash based on subject name for consistent colors
+  let hashCode = 0;
+  for (let i = 0; i < subjectName.length; i++) {
+    hashCode = ((hashCode << 5) - hashCode) + subjectName.charCodeAt(i);
+    hashCode = hashCode & hashCode;
+  }
+  
+  const colorIndex = Math.abs(hashCode) % colorOptions.length;
+  return colorOptions[colorIndex];
+};
+
+// Draggable schedule item
+function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, onClick: () => void }) {
+  // Get color based on the subject name rather than semester
+  const colors = getSubjectColor(item.MateriaNombre || '');
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: ItemTypes.SCHEDULE_ITEM,
+    item: { id: item.IdGrupo },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  }));
+  
+  return (
+    <div
+      ref={drag}
+      className={cn(
+        'p-1 text-xs rounded-md border shadow-sm h-full',
+        'flex justify-between items-center',
+        `border-l-4 ${colors.border}`,
+        `${colors.bg} cursor-grab hover:shadow-md transition-all bg-opacity-90 hover:bg-opacity-100`,
+        isDragging && 'opacity-50 cursor-grabbing scale-[0.97]',
+        'w-full'
+      )}
+      onClick={onClick}
+    >
+      <div className={cn("truncate font-medium flex-1", colors.text)}>
+        {item.MateriaNombre}
+      </div>
+    </div>
+  );
 }
 
 export default function HorarioGeneralPage() {
@@ -50,6 +136,17 @@ export default function HorarioGeneralPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  
+  const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
+  const [selectedMajor, setSelectedMajor] = useState<string>('All');
+  // Available options
+  const semesters = ['All', 1, 2, 3, 4, 5, 6, 7, 8] as const;
+  const majors = Array.from(new Set(schedule.map(i => i.NombreCarrera)));
+  // Filtered schedule based on selections
+  const filteredSchedule = schedule.filter(i =>
+    (selectedSemester === 'All' || i.Semestre === selectedSemester) &&
+    (selectedMajor === 'All' || i.NombreCarrera === selectedMajor)
+  );
   
   // Fetch the general schedule from the API
   useEffect(() => {
@@ -155,38 +252,6 @@ export default function HorarioGeneralPage() {
     }
   }
 
-  // Function to get subject color based on subject name
-  const getSubjectColor = (subjectName: string): { text: string, border: string, bg: string } => {
-    const colorOptions = [
-      { text: 'text-blue-700', border: 'border-blue-400', bg: 'bg-blue-50' },
-      { text: 'text-green-700', border: 'border-green-400', bg: 'bg-green-50' },
-      { text: 'text-amber-700', border: 'border-amber-400', bg: 'bg-amber-50' },
-      { text: 'text-purple-700', border: 'border-purple-400', bg: 'bg-purple-50' },
-      { text: 'text-pink-700', border: 'border-pink-400', bg: 'bg-pink-50' },
-      { text: 'text-indigo-700', border: 'border-indigo-400', bg: 'bg-indigo-50' },
-      { text: 'text-rose-700', border: 'border-rose-400', bg: 'bg-rose-50' },
-      { text: 'text-teal-700', border: 'border-teal-400', bg: 'bg-teal-50' },
-      { text: 'text-cyan-700', border: 'border-cyan-400', bg: 'bg-cyan-50' },
-      { text: 'text-orange-700', border: 'border-orange-400', bg: 'bg-orange-50' },
-      { text: 'text-lime-700', border: 'border-lime-400', bg: 'bg-lime-50' },
-      { text: 'text-emerald-700', border: 'border-emerald-400', bg: 'bg-emerald-50' },
-      { text: 'text-sky-700', border: 'border-sky-400', bg: 'bg-sky-50' },
-      { text: 'text-violet-700', border: 'border-violet-400', bg: 'bg-violet-50' },
-      { text: 'text-fuchsia-700', border: 'border-fuchsia-400', bg: 'bg-fuchsia-50' },
-      { text: 'text-red-700', border: 'border-red-400', bg: 'bg-red-50' },
-    ];
-    
-    // Create a hash based on subject name for consistent colors
-    let hashCode = 0;
-    for (let i = 0; i < subjectName.length; i++) {
-      hashCode = ((hashCode << 5) - hashCode) + subjectName.charCodeAt(i);
-      hashCode = hashCode & hashCode;
-    }
-    
-    const colorIndex = Math.abs(hashCode) % colorOptions.length;
-    return colorOptions[colorIndex];
-  };
-
   // Create a matrix representation of the schedule
   const scheduleMatrix = React.useMemo(() => {
     const matrix: { [time: string]: { [day: string]: GeneralScheduleItem[] } } = {};
@@ -200,7 +265,7 @@ export default function HorarioGeneralPage() {
     });
     
     // Fill with schedule items
-    schedule.forEach(item => {
+    filteredSchedule.forEach(item => {
       const normalizedDay = normalizeDay(item.Dia);
       const startTime = timeToMinutes(item.HoraInicio);
       const endTime = timeToMinutes(item.HoraFin);
@@ -217,13 +282,26 @@ export default function HorarioGeneralPage() {
     });
     
     return matrix;
-  }, [schedule]);
+  }, [filteredSchedule]);
 
   // Cell component to display items at a specific day and time
   const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time]?.[day] || [];
     
-    const getWidthClass = (total: number) => {
+    // Add drop target functionality
+    const [{ isOver, canDrop }, drop] = useDrop(() => ({
+      accept: ItemTypes.SCHEDULE_ITEM,
+      drop: (item: { id: number }) => {
+        handleDropItem(item.id, day, time);
+        return { day, time };
+      },
+      collect: (monitor) => ({
+        isOver: monitor.isOver(),
+        canDrop: monitor.canDrop(),
+      }),
+    }));
+
+    const getWidthClass = (total: number, index: number) => {
       switch(total) {
         case 1: return 'w-full';
         case 2: return 'w-[calc(50%-2px)]';
@@ -233,68 +311,127 @@ export default function HorarioGeneralPage() {
     };
 
     return (
-      <div className={cn(
-        'border border-gray-200 p-1 relative h-full',
-        items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
-      )}>
+      <div 
+        ref={drop}
+        className={cn(
+          'border border-gray-200 p-1 relative h-full',
+          items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
+          isOver && 'bg-gray-100'
+        )}
+      >
         <div className="flex flex-row gap-0.5 h-full">
-          {items.map((item, index) => {
-            const colors = getSubjectColor(item.MateriaNombre || item.NombreCarrera || '');
-            
-            return (
-              <div
-                key={`${item.IdHorarioGeneral}-${index}`}
-                className={cn(
-                  'p-1 text-xs rounded-md border shadow-sm h-full cursor-pointer',
-                  'flex justify-between items-center',
-                  `border-l-4 ${colors.border} ${colors.bg}`,
-                  getWidthClass(items.length)
-                )}
-                onClick={() => {
-                  setSelectedGroup(item);
-                  setDialogOpen(true);
-                }}
-              >
-                <div className={cn('truncate font-medium flex-1', colors.text)}>
-                  {item.MateriaNombre || item.NombreCarrera}
-                </div>
-              </div>
-            );
-          })}
+          {items.map((item, index) => (
+            <DraggableScheduleItem 
+              key={`${item.IdHorarioGeneral}-${index}`} 
+              item={item} 
+              onClick={() => {
+                setSelectedGroup(item);
+                setDialogOpen(true);
+              }}
+            />
+          ))}
         </div>
       </div>
     );
   };
 
   // Handle drop: update item's day and start/end time
-  const handleDropItem = (itemId: number, newDay: string, newTime: string) => {
-    setSchedule(prev => prev.map(item => {
-      if (item.IdGrupo !== itemId) return item;
-      // Calculate duration in minutes
-      const duration = timeToMinutes(item.HoraFin) - timeToMinutes(item.HoraInicio);
-      const newStart = timeToMinutes(newTime);
-      const newEnd = newStart + duration;
-      return {
-        ...item,
-        Dia: newDay,
-        HoraInicio: minutesToTime(newStart),
-        HoraFin: minutesToTime(newEnd)
-      };
-    }));
-    // TODO: Sync with backend via API
+  const handleDropItem = async (itemId: number, newDay: string, newTime: string) => {
+    // Find the item we're updating
+    const itemToUpdate = schedule.find(item => item.IdGrupo === itemId);
+    if (!itemToUpdate) return;
+    
+    // Calculate duration in minutes
+    const duration = timeToMinutes(itemToUpdate.HoraFin) - timeToMinutes(itemToUpdate.HoraInicio);
+    const newStart = timeToMinutes(newTime);
+    const newEnd = newStart + duration;
+    
+    const updatedItem = {
+      ...itemToUpdate,
+      Dia: newDay,
+      HoraInicio: minutesToTime(newStart),
+      HoraFin: minutesToTime(newEnd)
+    };
+    
+    // Optimistic update
+    setSchedule(prev => prev.map(item => item.IdGrupo === itemId ? updatedItem : item));
+    
+    try {
+      // Sync with backend via API
+      const response = await fetch('/api/schedule/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: itemToUpdate.IdHorarioGeneral,
+          day: newDay,
+          startTime: minutesToTime(newStart),
+          endTime: minutesToTime(newEnd)
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Horario actualizado correctamente');
+      } else {
+        // Revert changes if update fails
+        setSchedule(prev => prev.map(item => item.IdGrupo === itemId ? itemToUpdate : item));
+        toast.error('Error al actualizar el horario');
+      }
+    } catch (err) {
+      console.error('Error updating schedule:', err);
+      // Revert changes on error
+      setSchedule(prev => prev.map(item => item.IdGrupo === itemId ? itemToUpdate : item));
+      toast.error('Error de conexión al actualizar el horario');
+    }
   };
 
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="w-full pb-8 flex flex-col gap-4">
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={handleGenerateSchedule}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Generando...' : 'Generar horario general'}
-          </button>
+        <div className="flex justify-between items-center mb-6">
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <div className="bg-white p-4 rounded-md border border-gray-200 shadow-sm w-full md:w-auto">
+              <h2 className="text-lg font-bold text-red-700 mb-3">Filtros</h2>
+              <div className="flex flex-wrap gap-4">
+                <div className="flex flex-col">
+                  <label className="text-sm font-medium mb-1">Semestre:</label>
+                  <select
+                    value={selectedSemester}
+                    onChange={e => setSelectedSemester(e.target.value === 'All' ? 'All' : Number(e.target.value))}
+                    className="border border-gray-200 p-2 rounded-md bg-white shadow-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    {semesters.map(s => (
+                      <option key={s} value={s}>{s === 'All' ? 'Todos' : s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-sm font-medium mb-1">Carrera:</label>
+                  <select
+                    value={selectedMajor}
+                    onChange={e => setSelectedMajor(e.target.value)}
+                    className="border border-gray-200 p-2 rounded-md bg-white shadow-sm hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="All">Todas</option>
+                    {majors.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <Button 
+              onClick={handleGenerateSchedule}
+              disabled={isLoading}
+              size="lg"
+              className="bg-red-700 hover:bg-red-800 text-white"
+            >
+              {isLoading ? 'Generando...' : 'Generar horario general'}
+            </Button>
+          </div>
         </div>
         
         <div className="w-full flex justify-between flex-col gap-4">
