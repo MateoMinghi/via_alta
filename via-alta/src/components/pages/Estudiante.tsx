@@ -25,7 +25,7 @@ interface Subject {
   credits: number;     // Número de créditos
   salon: string;       // Ubicación/salón
   semester: number;    // Semestre al que pertenece
-  hours: { day: string; time: string }[]; // Días y horas de clase
+  hours: { day: string; time: string; timeStart?: string; timeEnd?: string }[]; // Días y horas de clase
 }
 
 export default function Estudiante() {
@@ -51,7 +51,7 @@ export default function Estudiante() {
       isIndividual,              // Indica si es un horario individual
       confirmSchedule            // Función para confirmar el horario
     } = useGetStudentSchedule(
-      updatedUser?.id?.toString(),
+      updatedUser?.ivd_id?.toString() || updatedUser?.id?.toString(),
       updatedUser?.semester
     );
 
@@ -90,8 +90,8 @@ export default function Estudiante() {
       
       scheduleItems.forEach(item => {
       
-        const materiaNombre = item.MateriaNombre || item.materianombre;
-        const profesorNombre = item.ProfesorNombre || item.profesornombre;
+        const materiaNombre = item.materianombre;
+        const profesorNombre = item.profesornombre;
         
         if (!materiaNombre) {
           console.warn('Missing material name for item:', item);
@@ -111,15 +111,15 @@ export default function Estudiante() {
         const firstItem = items[0];
         console.log('Creating subject from:', firstItem);
         
-        const idGrupo = firstItem.IdGrupo || firstItem.idgrupo;
-        const materiaNombre = firstItem.MateriaNombre || firstItem.materianombre;
-        const profesorNombre = firstItem.ProfesorNombre || firstItem.profesornombre;
-        const tipoSalon = firstItem.TipoSalon || firstItem.tiposalon;
+        const idGrupo = firstItem.idgrupo;
+        const materiaNombre = firstItem.materianombre;
+        const profesorNombre = firstItem.profesornombre;
+        const tipoSalon = firstItem.tiposalon;
         const idSalon = firstItem.idsalon;
-        const semestre = firstItem.Semestre || firstItem.semestre;
+        const semestre = firstItem.semestre;
         
-        const day = firstItem.Dia || firstItem.dia;
-        const timeStart = firstItem.HoraInicio || firstItem.horainicio;
+        const day = firstItem.dia;
+        const timeStart = firstItem.horainicio;
         
         return {
           id: idGrupo || index,
@@ -130,12 +130,16 @@ export default function Estudiante() {
           credits: 0, 
           // Mapeamos todos los horarios para esta materia
           hours: items.map(item => {
-            const itemDay = item.Dia || item.dia;
-            const itemTime = item.HoraInicio || item.horainicio;
+            const itemDay = item.dia;
+            const itemTimeStart = item.horainicio;
+            const itemTimeEnd = item.horafin;
+            const itemTime = itemTimeStart && itemTimeEnd ? `${itemTimeStart} - ${itemTimeEnd}` : '';
             console.log(`Hour for ${materiaNombre}: day=${itemDay}, time=${itemTime}`);
             return {
               day: itemDay || '',
-              time: itemTime || ''
+              time: itemTime || '',
+              timeStart: itemTimeStart || '',
+              timeEnd: itemTimeEnd || ''
             };
           })
         };
@@ -230,9 +234,12 @@ export default function Estudiante() {
           throw new Error("No hay datos de horario disponibles para confirmar");
         }
         
-        if (!updatedUser?.id) {
+        if (!updatedUser?.ivd_id && !updatedUser?.id) {
           throw new Error("ID de estudiante no disponible");
         }
+        
+        // Usar ivd_id si está disponible, si no, usar id
+        const effectiveStudentId = updatedUser.ivd_id?.toString() || updatedUser.id?.toString();
         
         // Llamamos a la API para confirmar el horario
         const result = await confirmSchedule(scheduleData, true);
