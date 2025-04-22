@@ -35,7 +35,6 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group 
           <div><b>Hora Inicio:</b> {group.HoraInicio}</div>
           <div><b>Hora Fin:</b> {group.HoraFin}</div>
           <div><b>ID Grupo:</b> {group.IdGrupo}</div>
-          {group.IdHorarioGeneral && <div><b>ID Horario General:</b> {group.IdHorarioGeneral}</div>}
         </div>
       </DialogContent>
     </Dialog>

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import GroupInfoDialog from '@/components/GroupInfoDialog';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 // Dummy data for UI demonstration
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -96,6 +98,9 @@ export default function HorarioGeneralPage() {
     }
   };
 
+  // Drag-and-drop types
+  const ItemTypes = { SCHEDULE_ITEM: 'scheduleItem' };
+
   // Helper to convert HH:MM to minutes
   const timeToMinutes = (time: string | undefined | null): number => {
     if (!time) return 0;
@@ -103,71 +108,140 @@ export default function HorarioGeneralPage() {
     return h * 60 + m;
   };
 
+  // Helper to get time string from minutes
+  const minutesToTime = (minutes: number): string => {
+    const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+    const m = (minutes % 60).toString().padStart(2, '0');
+    return `${h}:${m}`;
+  };
+
+  // Draggable schedule item
+  function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, onClick: () => void }) {
+    const [{ isDragging }, drag] = useDrag(() => ({
+      type: ItemTypes.SCHEDULE_ITEM,
+      item: { id: item.IdGrupo },
+      collect: (monitor) => ({ isDragging: monitor.isDragging() })
+    }), [item]);
+    return (
+      <div
+        ref={drag}
+        className={`bg-blue-50 rounded p-1 mb-1 cursor-move hover:bg-blue-100 ${isDragging ? 'opacity-50' : ''}`}
+        onClick={onClick}
+      >
+        <div className="text-xs font-medium text-blue-500 truncate">{item.MateriaNombre}</div>
+      </div>
+    );
+  }
+
+  // Droppable cell
+  function DroppableCell({
+    day,
+    time,
+    children,
+    onDropItem
+  }: {
+    day: string,
+    time: string,
+    children: React.ReactNode,
+    onDropItem: (itemId: number, newDay: string, newTime: string) => void
+  }) {
+    const [, drop] = useDrop(() => ({
+      accept: ItemTypes.SCHEDULE_ITEM,
+      drop: (dragged: { id: number }) => {
+        onDropItem(dragged.id, day, time);
+      }
+    }), [day, time]);
+    return (
+      <td ref={drop} className="border p-2 align-top min-h-[40px]">{children}</td>
+    );
+  }
+
+  // Handle drop: update item's day and start/end time
+  const handleDropItem = (itemId: number, newDay: string, newTime: string) => {
+    setSchedule(prev => prev.map(item => {
+      if (item.IdGrupo !== itemId) return item;
+      // Calculate duration in minutes
+      const duration = timeToMinutes(item.HoraFin) - timeToMinutes(item.HoraInicio);
+      const newStart = timeToMinutes(newTime);
+      const newEnd = newStart + duration;
+      return {
+        ...item,
+        Dia: newDay,
+        HoraInicio: minutesToTime(newStart),
+        HoraFin: minutesToTime(newEnd)
+      };
+    }));
+    // TODO: Sync with backend via API
+  };
+
   return (
-    <div className="w-full pb-8 flex flex-col gap-4">
-      <div className="flex justify-end mb-2">
-        <button
-          onClick={handleGenerateSchedule}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Generando...' : 'Generar horario general'}
-        </button>
-      </div>
-      {/* Replace grid with table for rowSpan support */}
-      <div className="overflow-x-auto w-full">
-        <table className="table-fixed w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="w-20 border p-2"></th>
-              {daysOfWeek.map(day => (
-                <th key={day} className="border p-2 text-center font-medium">
-                  {day}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {timeSlots.map(time => (
-              <tr key={time}>
-                <th className="border p-2 text-right text-sm">{time}</th>
-                {daysOfWeek.map(day => {
-                  // Show all groups that span this time slot
-                  const slotMinutes = timeToMinutes(time);
-                  const items = schedule.filter(i => {
-                    if (i.Dia !== day) return false;
-                    const start = timeToMinutes(i.HoraInicio);
-                    const end = timeToMinutes(i.HoraFin);
-                    return slotMinutes >= start && slotMinutes < end;
-                  });
-                  return (
-                    <td key={`${day}-${time}`} className="border p-2 align-top">
-                      {items.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {items.map(item => (
-                            <div
-                              key={item.IdGrupo}
-                              className="bg-blue-50 rounded p-1 mb-1 cursor-pointer hover:bg-blue-100"
-                              onClick={() => {
-                                setSelectedGroup(item);
-                                setDialogOpen(true);
-                              }}
-                            >
-                              <div className="text-xs font-medium text-blue-500 truncate">{item.MateriaNombre}</div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </td>
-                  );
-                })}
+    <DndProvider backend={HTML5Backend}>
+      <div className="w-full pb-8 flex flex-col gap-4">
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={handleGenerateSchedule}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Generando...' : 'Generar horario general'}
+          </button>
+        </div>
+        <div className="overflow-x-auto w-full">
+          <table className="table-fixed w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="w-20 border p-2"></th>
+                {daysOfWeek.map(day => (
+                  <th key={day} className="border p-2 text-center font-medium">
+                    {day}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {timeSlots.map(time => (
+                <tr key={time}>
+                  <th className="border p-2 text-right text-sm">{time}</th>
+                  {daysOfWeek.map(day => {
+                    const slotMinutes = timeToMinutes(time);
+                    const items = schedule.filter(i => {
+                      if (i.Dia !== day) return false;
+                      const start = timeToMinutes(i.HoraInicio);
+                      const end = timeToMinutes(i.HoraFin);
+                      return slotMinutes >= start && slotMinutes < end;
+                    });
+                    return (
+                      <DroppableCell
+                        key={`${day}-${time}`}
+                        day={day}
+                        time={time}
+                        onDropItem={handleDropItem}
+                      >
+                        {items.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {items.map((item, idx) => (
+                              <DraggableScheduleItem
+                                key={`${item.IdGrupo}-${item.Dia}-${item.HoraInicio}-${item.HoraFin}-${idx}`}
+                                item={item}
+                                onClick={() => {
+                                  setSelectedGroup(item);
+                                  setDialogOpen(true);
+                                }}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                      </DroppableCell>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
+        {isLoading && <div className="text-center text-gray-500 mt-4">Cargando horario...</div>}
       </div>
-      <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
-      {isLoading && <div className="text-center text-gray-500 mt-4">Cargando horario...</div>}
-    </div>
+    </DndProvider>
   );
 }
