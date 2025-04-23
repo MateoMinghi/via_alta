@@ -89,7 +89,6 @@ const getSubjectColor = (subjectName: string): { text: string, border: string, b
 
 // Draggable schedule item
 function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, onClick: () => void }) {
-  // Get color based on the subject name rather than semester
   const colors = getSubjectColor(item.MateriaNombre || '');
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.SCHEDULE_ITEM,
@@ -99,9 +98,9 @@ function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, o
     }),
   }));
   
-  return (
+  // Wrap the element with the drag connector instead of using ref
+  return drag(
     <div
-      ref={drag}
       className={cn(
         'p-1 text-xs rounded-md border shadow-sm h-full',
         'flex justify-between items-center',
@@ -310,9 +309,8 @@ export default function HorarioGeneralPage() {
       }
     };
 
-    return (
-      <div 
-        ref={drop}
+    return drop(
+      <div
         className={cn(
           'border border-gray-200 p-1 relative h-full',
           items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
