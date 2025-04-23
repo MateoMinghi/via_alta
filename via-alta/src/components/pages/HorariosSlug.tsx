@@ -61,10 +61,8 @@ export default function HorariosSlug() {
       // Map and filter schedule items for the current semester
       const mapped = result.data.map(mapRawScheduleItem);
       const scheduleForSemester = mapped.filter((item: GeneralScheduleItem) => {
-        const itemSemester =
-          typeof item.Semestre !== 'undefined' ? Number(item.Semestre) :
-          typeof item.semestre !== 'undefined' ? Number(item.semestre) : null;
-        return itemSemester === Number(semesterNum);
+        const itemSemester = item.Semestre ?? null;
+        return itemSemester === semesterNum;
       });
       console.log('Filtered schedule for semester', semesterNum, scheduleForSemester); // DEBUG
       setFilteredSchedule(scheduleForSemester);
