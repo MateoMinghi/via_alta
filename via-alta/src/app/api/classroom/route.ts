@@ -18,12 +18,6 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
-<<<<<<< HEAD
-    const nuevoSalon = await Classroom.create(data);
-    return NextResponse.json(nuevoSalon, { status: 201 });
-  } catch (error) {
-    console.error("❌ Error al crear el salón:", error);
-=======
     const { idsalon, tipo, cupo, nota } = data;
 
     // Validación básica
@@ -42,22 +36,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(nuevoSalon, { status: 201 });
   } catch (error) {
     console.error("Error al crear el salón:", error);
->>>>>>> develop
     return NextResponse.json(
       { error: (error as Error).message || "Error al crear el salón" },
       { status: 500 }
     );
   }
-<<<<<<< HEAD
-  
-}
-
-// Actualizar datos de un salón (tipo, cupo o nota)
-=======
 }
 
 // Actualizar datos de un salón (tipo, cupo, nota o idsalon)
->>>>>>> develop
 export async function PUT(req: NextRequest) {
   try {
     const data = await req.json();
@@ -71,11 +57,8 @@ export async function PUT(req: NextRequest) {
       updatedClassroom = await Classroom.updateTipo(id, valor);
     } else if (campo === "nota") {
       updatedClassroom = await Classroom.updateNota(id, valor);
-<<<<<<< HEAD
-=======
     } else if (campo === "idsalon") {
       updatedClassroom = await Classroom.updateId(id, parseInt(valor));
->>>>>>> develop
     } else {
       return NextResponse.json({ error: "Campo inválido" }, { status: 400 });
     }
@@ -83,11 +66,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json(updatedClassroom);
   } catch (error) {
     return NextResponse.json(
-<<<<<<< HEAD
-      { error: "Error al actualizar el salón" },
-=======
       { error: (error as Error).message || "Error al actualizar el salón" },
->>>>>>> develop
       { status: 500 }
     );
   }
@@ -111,8 +90,4 @@ export async function DELETE(req: NextRequest) {
       { status: 500 }
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> develop
