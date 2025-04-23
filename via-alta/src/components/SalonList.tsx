@@ -33,6 +33,7 @@ export default function SalonCRUD() {
     const data = await res.json();
     setSalones(data);
   };
+  
 
   useEffect(() => {
     cargarSalones();
