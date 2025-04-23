@@ -99,16 +99,21 @@ CREATE TABLE Solicitud (
 );
 
 CREATE TABLE HorarioGeneral (
-    IdHorarioGeneral SERIAL PRIMARY KEY,
-    profesor VARCHAR(100) NOT NULL,
-    materia VARCHAR(100) NOT NULL,
-    dia VARCHAR(10) NOT NULL,
-    hora_inicio TIME NOT NULL,
-    hora_fin TIME NOT NULL,
-    salon VARCHAR(50) NOT NULL,
-    semestre INTEGER NOT NULL,
-    CONSTRAINT chk_dia CHECK (dia IN ('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes')),
-    CONSTRAINT chk_semestre CHECK (semestre BETWEEN 1 AND 8)
+    IdHorarioGeneral INTEGER NOT NULL,
+    NombreCarrera VARCHAR(100) NOT NULL,
+    IdMateria INTEGER NOT NULL,
+    IdProfesor INTEGER NOT NULL,
+    IdCiclo INTEGER NOT NULL,
+    Dia VARCHAR(10) NOT NULL,
+    HoraInicio TIME NOT NULL,
+    HoraFin TIME NOT NULL,
+    Semestre INTEGER NOT NULL,
+    CONSTRAINT chk_dia CHECK (Dia IN ('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes')),
+    CONSTRAINT chk_semestre CHECK (Semestre BETWEEN 1 AND 8),
+    CONSTRAINT fk_materia FOREIGN KEY (IdMateria) REFERENCES Materia(IdMateria),
+    CONSTRAINT fk_profesor FOREIGN KEY (IdProfesor) REFERENCES Profesor(IdProfesor),
+    CONSTRAINT fk_ciclo FOREIGN KEY (IdCiclo) REFERENCES Ciclo(IdCiclo),
+    PRIMARY KEY (IdHorarioGeneral, IdMateria, Dia, HoraInicio)
 );
 
 -- Add Clases column to Profesor table
@@ -513,5 +518,14 @@ INSERT INTO Horario (idHorario, idAlumno, idGrupo, fecha) VALUES
 (18, 'ALU100035', 1018, '2025-03-10'),
 (19, 'ALU100036', 1019, '2025-03-01'),
 (20, 'ALU100036', 1020, '2025-03-11');
+
+-- Insert sample data for different degree programs
+INSERT INTO HorarioGeneral (IdHorarioGeneral, NombreCarrera, IdMateria, IdProfesor, IdCiclo, Dia, HoraInicio, HoraFin, Semestre) VALUES
+(1, 'Ingeniería en Sistemas', 1, 300101, 1, 'Lunes', '07:00:00', '11:00:00', 1),
+(1, 'Ingeniería en Sistemas', 2, 300102, 1, 'Martes', '07:00:00', '11:00:00', 1),
+(1, 'Ingeniería en Sistemas', 3, 300103, 1, 'Miércoles', '07:00:00', '11:00:00', 1),
+(2, 'Diseño de Moda', 4, 300104, 1, 'Lunes', '13:00:00', '17:00:00', 1),
+(2, 'Diseño de Moda', 5, 300105, 1, 'Martes', '13:00:00', '17:00:00', 1),
+(2, 'Diseño de Moda', 6, 300106, 1, 'Miércoles', '13:00:00', '17:00:00', 1);
 
 -- FIN DE SCRIPT

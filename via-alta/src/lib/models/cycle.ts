@@ -1,7 +1,7 @@
 import pool from "../../config/database";
 
 interface CycleData {
-  IdCiclo: string;
+  IdCiclo: number; 
   Nombre: string;
   FechaInicio: Date;
   FechaFin: Date;

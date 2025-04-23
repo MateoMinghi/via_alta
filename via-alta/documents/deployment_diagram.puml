@@ -1,0 +1,128 @@
+@startuml Via Alta Deployment Diagram
+title Via Alta - Heroku Deployment Architecture
+
+' Define styling
+skinparam node {
+  BackgroundColor PaleGreen
+  BorderColor Green
+  FontName Arial
+}
+
+skinparam database {
+  BackgroundColor LightBlue
+  BorderColor Blue
+  FontName Arial
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Gray
+  FontName Arial
+}
+
+skinparam artifact {
+  BackgroundColor Yellow
+  BorderColor Orange
+  FontName Arial
+}
+
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 100
+
+' Define all artifacts with stereotype
+artifact "HTML/CSS/JS Bundles" <<deploy>> as clientBundle
+artifact "Static Assets" <<deploy>> as staticAssets
+artifact "Server Components" <<deploy>> as serverComponents
+artifact "API Routes" <<deploy>> as apiRoutes
+artifact "Authentication Middleware" <<deploy>> as authMiddleware
+artifact "Environment Variables" <<deploy>> as envVars
+artifact "User Authentication" <<deploy>> as externalAuth
+artifact "User Data" <<deploy>> as userData
+artifact "Password Reset Emails" <<deploy>> as resetEmails
+
+' Client devices
+node "Client Device" as client {
+  node "Web Browser" as browser
+}
+
+' Heroku Platform
+cloud "Heroku Platform" as heroku {
+  node "Web Dyno" as webDyno {
+    node "Node.js Runtime" as nodejs {
+      node "Next.js Server" as nextjs
+    }
+  }
+  
+  node "Heroku Postgres" <<execution environment>> as postgres {
+    artifact "PostgreSQL Database" <<database>> as postgresDB {
+      frame "Tables" as tables {
+        database "Users" as usersTable
+        database "Students" as studentsTable
+        database "Professors" as professorsTable
+        database "Subjects" as subjectsTable
+        database "Groups" as groupsTable
+        database "Classrooms" as classroomsTable
+        database "Schedules" as schedulesTable
+        database "Reset Tokens" as tokensTable
+      }
+    }
+  }
+}
+
+' External Systems
+cloud "External Systems" as external {
+  node "Via Diseño API" as viaDisenioApi
+  node "Email Service" as emailService
+}
+
+' Deployment relationships for artifacts
+clientBundle ...> browser : <<deploy>>
+staticAssets ...> browser : <<deploy>>
+serverComponents ...> nextjs : <<deploy>>
+apiRoutes ...> nextjs : <<deploy>>
+authMiddleware ...> nextjs : <<deploy>>
+envVars ...> webDyno : <<deploy>>
+externalAuth ...> viaDisenioApi : <<deploy>>
+userData ...> viaDisenioApi : <<deploy>>
+resetEmails ...> emailService : <<deploy>>
+
+' Define communication relationships with clear labels
+client --> heroku : "HTTPS"
+browser --> webDyno : "HTTPS/WSS"
+
+' Internal Heroku relationships
+nextjs --> postgres : "DB Connection Pool"
+nodejs --> envVars : "Reads Configuration"
+
+' Database relationships with cleaner lines
+usersTable ..> studentsTable : "References"
+usersTable ..> professorsTable : "References"
+groupsTable ..> subjectsTable : "References"
+groupsTable ..> professorsTable : "References"
+groupsTable ..> classroomsTable : "References"
+schedulesTable ..> groupsTable : "References"
+
+' External system relationships with improved labels
+webDyno --> viaDisenioApi : "M2M Auth (REST)"
+webDyno --> emailService : "SMTP"
+authMiddleware ..> viaDisenioApi : "Verify Users"
+
+' Deployment notes
+note bottom of heroku
+  <b>Deployment Notes:</b>
+  - Next.js app deployed on Heroku web dyno
+  - PostgreSQL via Heroku Postgres add-on
+  - Environment variables configured in Heroku dashboard
+  - Database migrations run during deployment
+  - Connection pooling for efficient DB access
+end note
+
+note bottom of viaDisenioApi
+  <b>M2M Authentication:</b>
+  - OAuth/Bearer tokens
+  - Client ID/Secret stored in env variables
+  - Requests authenticated with token
+end note
+
+@enduml

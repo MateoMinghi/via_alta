@@ -24,6 +24,9 @@ export default function HorariosSlug() {
   const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
   const params = useParams();
   const { slug } = params;
+  
+  // Determine if this is a semester view or a student view
+  const viewType = typeof slug === 'string' && slug.includes('-') ? 'semestre' : 'estudiante';
 
   // Parse slug to extract the semester number
   const getSemesterNumber = (slugStr: string) => {
@@ -51,38 +54,50 @@ export default function HorariosSlug() {
       
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch schedule');
-      }
-
-      // Filter subjects for the current semester
+      }      console.log('Raw data from API:', result.data);
+      console.log('Filtering for semester:', semesterNum);
+      
+      // Filter subjects for the current semester and transform the data
       const subjectsForSemester = result.data
-        .filter((item: any) => item.semester === semesterNum)
+        .filter((item: any) => {
+          // Check for both uppercase and lowercase field names
+          const itemSemester = item.Semestre || item.semestre;
+          console.log('Item:', item);
+          console.log('Item semester:', itemSemester, 'Target semester:', semesterNum);
+          return itemSemester === semesterNum;
+        })
         .reduce((acc: Subject[], item: any) => {
           // Find if we already have this subject in our accumulator
+          const subjectTitle = item.materianombre || item.MateriaNombre || item.NombreCarrera || item.nombrecarrera;
+          const professorName = item.profesornombre || item.ProfesorNombre || `Prof ${item.IdProfesor || item.idprofesor}`;
+          
           const existingSubject = acc.find(
-            s => s.title === item.subject && s.professor === item.teacher
+            s => s.title === subjectTitle && s.professor === professorName
           );
 
           if (existingSubject) {
             // Add the new hour to existing subject
             existingSubject.hours.push({
-              day: item.day,
-              time: item.time
+              day: item.Dia || item.dia,
+              time: item.HoraInicio || item.horainicio
             });
             return acc;
           } else {
             // Create new subject entry
-            acc.push({
-              id: acc.length + 1, // Generate temporary ID
-              title: item.subject,
-              professor: item.teacher,
-              salon: item.classroom,
-              semester: item.semester,
-              credits: 0, // Default value as it's not in the database
+            const newSubject = {
+              id: item.IdMateria || item.idmateria || acc.length + 1,
+              title: subjectTitle,
+              professor: professorName,
+              salon: item.classroom || item.Salon || 'Por asignar',
+              semester: item.Semestre || item.semestre,
+              credits: item.credits || 0,
               hours: [{
-                day: item.day,
-                time: item.time
+                day: item.Dia || item.dia,
+                time: item.HoraInicio || item.horainicio
               }]
-            });
+            };
+            console.log('Creating new subject:', newSubject);
+            acc.push(newSubject);
             return acc;
           }
         }, []);
@@ -185,14 +200,30 @@ export default function HorariosSlug() {
 
   return (
     <div className="p-4">
-      <p className="text-3xl font-bold mb-4">
-        Horario del Semestre {semesterNum}
-      </p>
-      {filteredSubjects.length > 0 ? (
-        <CoordinadorSchedule subjects={filteredSubjects} />
+      {viewType === 'semestre' ? (
+        <>
+          <p className="text-3xl font-bold mb-4">
+            Horario del {viewType} {semesterNum}
+          </p>
+          {filteredSubjects.length > 0 ? (
+            <CoordinadorSchedule subjects={filteredSubjects} />
+          ) : (
+            <p className="text-center py-4">No hay materias disponibles para el {viewType} {semesterNum}</p>
+          )}
+        </>
       ) : (
-        <p className="text-center py-4">No hay materias disponibles para el semestre {semesterNum}</p>
+        <>
+          <p className="text-3xl font-bold mb-4">
+            Horario del {viewType} {semesterNum}
+          </p>
+          {filteredSubjects.length > 0 ? (
+            <CoordinadorSchedule subjects={filteredSubjects} />
+          ) : (
+            <p className="text-center py-4">No hay materias disponibles para el {viewType} {semesterNum}</p>
+          )}
+        </>
       )}
+     
       <div className="flex justify-between mt-8 gap-4">
         <Button 
           variant="outline" 

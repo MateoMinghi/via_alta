@@ -1,0 +1,3 @@
+-- This file previously contained the coordinator_degrees table creation
+-- The degree selection functionality has been removed
+-- Keeping this file empty to maintain file structure references

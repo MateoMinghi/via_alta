@@ -5,8 +5,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { generateSchedule, ScheduleItem } from '../../../../../../lib/utils/schedule-generator';
-import Schedule, { GeneralScheduleItem } from '@/lib/models/schedule';
+import { generateSchedule } from '../../../../../../lib/utils/schedule-generator';
+import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 import { cn } from '@/lib/utils';
 import { IndividualSubject } from '@/components/pages/horario-general/IndividualSubject';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -29,19 +29,25 @@ export default function Page() {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   // Estado para nueva clase
   const [newClass, setNewClass] = useState({
-    teacher: '',
-    subject: '',
-    day: 'Lunes',
-    time: '07:00',
-    classroom: '',
-    semester: 1, // Add default semester
+    IdProfesor: 0,
+    IdMateria: 0,
+    Dia: 'Lunes',
+    HoraInicio: '07:00',
+    HoraFin: '08:00',
+    Semestre: 1,
+    IdHorarioGeneral: 1, // Default value, deveria ser modificado segun el contexto
+    NombreCarrera: 'Ingeniería en Sistemas', // Default value,
+    IdCiclo: 1 // Default value
   });
+
+  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  const [selectedProfessor, setSelectedProfessor] = useState<number | null>(null);
+  const [selectedCareer, setSelectedCareer] = useState<string | null>(null);
 
   // Load schedule from database when component mounts
   useEffect(() => {
     loadScheduleFromDatabase();
   }, []);
-
   // Función para cargar el horario desde la base de datos
   const loadScheduleFromDatabase = async () => {
     try {
@@ -53,7 +59,23 @@ export default function Page() {
         throw new Error(result.error);
       }
       
-      setSchedule(result.data);
+      // Normalize data from database (lowercase keys to Pascal case)
+      const normalizedData = result.data.map((item: any) => {
+        // Convert database column names to match our expected format
+        return {
+          IdHorarioGeneral: item.idhorariogeneral || item.IdHorarioGeneral || 1,
+          NombreCarrera: item.nombrecarrera || item.NombreCarrera || '',
+          IdMateria: item.idmateria || item.IdMateria || 0,
+          IdProfesor: item.idprofesor || item.IdProfesor || 0,
+          IdCiclo: item.idciclo || item.IdCiclo || 1,
+          Dia: item.dia || item.Dia || '',
+          HoraInicio: item.horainicio || item.HoraInicio || '',
+          HoraFin: item.horafin || item.HoraFin || '',
+          Semestre: item.semestre || item.Semestre || 1
+        };
+      });
+      
+      setSchedule(normalizedData);
       setLastSaved(new Date().toLocaleString());
       toast.success('Horario cargado correctamente');
     } catch (error) {
@@ -91,15 +113,31 @@ export default function Page() {
       setIsLoading(false);
     }
   };
-
   /**
-   * Genera un nuevo horario utilizando el generador de horarios
+   * Genera un nuevo horario utilizando la API para generación de horarios en el servidor
    */
   async function handleGenerateSchedule() {
     try {
       setIsLoading(true);
-      const result = await generateSchedule();
-      setSchedule(result);
+      toast.info('Generando horario. Esto puede tardar unos momentos...');
+      
+      // Llamar a la API para generar el horario en el servidor
+      const response = await fetch('/api/schedule', {
+        method: 'PUT', // Usamos PUT para generar y guardar un nuevo horario
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Error al generar el horario');
+      }
+      
+      // Cargar el horario generado desde la base de datos
+      await loadScheduleFromDatabase();
+      
       toast.success('Horario generado correctamente');
     } catch (error) {
       console.error('Error al generar el horario:', error);
@@ -121,8 +159,22 @@ export default function Page() {
   }, []);
 
   // Funciones auxiliares para trabajar con incrementos de media hora
-  const timeToMinutes = (time: string): number => {
-    const [hour, minute] = time.split(':').map(Number);
+  const timeToMinutes = (time: string | undefined | null): number => {
+    if (!time) {
+      console.error('Time is undefined or null');
+      return 0;
+    }
+    const parts = time.split(':');
+    if (parts.length !== 2) {
+      console.error('Invalid time format:', time);
+      return 0;
+    }
+    const hour = Number(parts[0]);
+    const minute = Number(parts[1]);
+    if (isNaN(hour) || isNaN(minute)) {
+      console.error('Invalid time format:', time);
+      return 0;
+    }
     return hour * 60 + minute;
   };
 
@@ -132,12 +184,41 @@ export default function Page() {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
+  // Compute available filters from schedule
+  const availableFilters = useMemo(() => {
+    const careers = new Set<string>();
+    const professors = new Set<number>();
+    const semesters = new Set<number>();
+
+    schedule.forEach(item => {
+      careers.add(item.NombreCarrera);
+      professors.add(item.IdProfesor);
+      semesters.add(item.Semestre);
+    });
+
+    return {
+      careers: Array.from(careers).sort(),
+      professors: Array.from(professors).sort((a, b) => a - b),
+      semesters: Array.from(semesters).sort((a, b) => a - b)
+    };
+  }, [schedule]);
+
+  // Filter the schedule
+  const filteredSchedule = useMemo(() => {
+    return schedule.filter(item => {
+      const matchesSemester = selectedSemester === null || item.Semestre === selectedSemester;
+      const matchesProfessor = selectedProfessor === null || item.IdProfesor === selectedProfessor;
+      const matchesCareer = selectedCareer === null || item.NombreCarrera === selectedCareer;
+      return matchesSemester && matchesProfessor && matchesCareer;
+    });
+  }, [schedule, selectedSemester, selectedProfessor, selectedCareer]);
+
   /**
    * Crea una matriz bidimensional que representa el horario.
    * Solo se agrega la materia en la celda en que inicia.
    */
   const scheduleMatrix = useMemo(() => {
-    const matrix: { [key: string]: { [key: string]: ScheduleItem[] } } = {};
+    const matrix: { [key: string]: { [key: string]: GeneralScheduleItem[] } } = {};
     
     timeSlots.forEach(time => {
       matrix[time] = {};
@@ -145,42 +226,54 @@ export default function Page() {
         matrix[time][day] = [];
       });
     });
-    
-    // Helper functions to work with half-hour increments
-    const timeToMinutes = (time: string): number => {
-      const [hour, minute] = time.split(':').map(Number);
-      return hour * 60 + minute;
-    };
+      filteredSchedule.forEach(item => {
+      const dia = item.Dia;
+      const horaInicio = item.HoraInicio;
+      const horaFin = item.HoraFin;
+      
+      // Check if properties exist before using them
+      if (!horaInicio || !horaFin || !dia) {
+        console.warn('Invalid schedule item:', item);
+        return;
+      }
 
-    const minutesToTime = (minutes: number): string => {
-      const h = Math.floor(minutes / 60);
-      const m = minutes % 60;
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    };
-    
-    schedule.forEach(item => {
-      const start = timeToMinutes(item.time);
-      const end = timeToMinutes(item.endTime);
+      // Handle time formats with or without seconds
+      const formattedStartTime = horaInicio.includes(':') ? 
+        horaInicio.length > 5 ? horaInicio.substring(0, 5) : horaInicio :
+        `${horaInicio}:00`;
+        
+      const formattedEndTime = horaFin.includes(':') ? 
+        horaFin.length > 5 ? horaFin.substring(0, 5) : horaFin :
+        `${horaFin}:00`;
+      
+      const start = timeToMinutes(formattedStartTime);
+      const end = timeToMinutes(formattedEndTime);
+      
+      if (start === 0 || end === 0) {
+        console.warn('Invalid time format in schedule item:', item);
+        return;
+      }
+
       // Iterate in 30-minute steps so that a 1-hour class spans two cells
       for (let t = start; t < end; t += 30) {
         const slot = minutesToTime(t);
         if (timeSlots.includes(slot)) {
-          matrix[slot][item.day].push(item);
+          matrix[slot][dia].push(item);
         }
       }
     });
 
     return matrix;
-  }, [schedule, days, timeSlots]);
+  }, [filteredSchedule, days, timeSlots]);
   /**
    * Mueve una materia de una posición a otra en el horario
-   * @param {ScheduleItem} item - La materia a mover
+   * @param {GeneralScheduleItem} item - La materia a mover
    * @param {string} toDay - Día destino
    * @param {string} toTime - Hora destino
    * @returns {void}
    */
   const moveItem = (
-    dragItem: { item: ScheduleItem; occurrence: { day: string; time: string } },
+    dragItem: { item: GeneralScheduleItem; occurrence: { day: string; time: string } },
     toDay: string,
     toTime: string
   ) => {
@@ -189,17 +282,17 @@ export default function Page() {
       const newSchedule = [...prev];
       // Find the schedule item that exactly started at the dragged occurrence
       const movingIndex = newSchedule.findIndex(scheduleItem =>
-        scheduleItem.teacher === item.teacher &&
-        scheduleItem.subject === item.subject &&
-        scheduleItem.day === occurrence.day &&
-        scheduleItem.time === occurrence.time
+        scheduleItem.IdProfesor === item.IdProfesor &&
+        scheduleItem.IdMateria === item.IdMateria &&
+        scheduleItem.Dia === occurrence.day &&
+        scheduleItem.HoraInicio === occurrence.time
       );
   
       // If no item found, do nothing
       if (movingIndex === -1) return prev;
   
       // Calculate the duration of the class in minutes
-      const duration = timeToMinutes(item.endTime) - timeToMinutes(item.time);
+      const duration = timeToMinutes(item.HoraFin) - timeToMinutes(item.HoraInicio);
       
       // Calculate the new end time based on the destination time + original duration
       const toTimeMinutes = timeToMinutes(toTime);
@@ -211,9 +304,9 @@ export default function Page() {
       // Update the found item with the new day, time and end time
       newSchedule[movingIndex] = {
         ...newSchedule[movingIndex],
-        day: toDay,
-        time: toTime,
-        endTime: newEndTime
+        Dia: toDay,
+        HoraInicio: toTime,
+        HoraFin: newEndTime
       };
   
       return newSchedule;
@@ -221,7 +314,7 @@ export default function Page() {
   };
 
   // ESTO SE VA A TENER QUE CAMBIAR CUANDO TENGAMOS LAS MATERIAS DE LA API
-  const getSubjectColor = (subject: ScheduleItem): string => {
+  const getSubjectColor = (subject: GeneralScheduleItem): string => {
     // Color by semester instead of subject name
     const semesterColors: { [key: number]: string } = {
       1: 'text-blue-600',
@@ -233,12 +326,12 @@ export default function Page() {
       7: 'text-indigo-600',
       8: 'text-emerald-600'
     };
-    return semesterColors[subject.semester] || 'text-gray-600';
+    return semesterColors[subject.Semestre] || 'text-gray-600';
   };
 
   // Componente para una celda que se puede arrastrar
   const DraggableCell = ({ item, heightClass, occurrence }: 
-    { item: ScheduleItem; heightClass: string; occurrence: { day: string; time: string } }) => {
+    { item: GeneralScheduleItem; heightClass: string; occurrence: { day: string; time: string } }) => {
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'scheduleItem',
       item: { item, occurrence },
@@ -272,12 +365,12 @@ export default function Page() {
           e.stopPropagation();
           setSelectedSubject(item);
         }}
-        data-tooltip={`${item.subject}\nProfesor: ${item.teacher}\nSalón: ${item.classroom}`}
+        data-tooltip={`${item.NombreCarrera}\nProfesor: ${item.IdProfesor}\nSemestre: ${item.Semestre}`}
       >
         <div className={cn('font-medium text-center', getSubjectColor(item))}>
-          {getAbbreviatedName(item.subject)}
+          {getAbbreviatedName(item.NombreCarrera)}
         </div>
-        <div className="text-[10px] text-gray-500">S{item.semester}</div>
+        <div className="text-[10px] text-gray-500">S{item.Semestre}</div>
       </div>
     );
   };
@@ -288,7 +381,7 @@ export default function Page() {
     
     const [{ isOver }, dropRef] = useDrop(() => ({
       accept: 'scheduleItem',
-      drop: (dragItem: { item: ScheduleItem; occurrence: { day: string; time: string } }) => {
+      drop: (dragItem: { item: GeneralScheduleItem; occurrence: { day: string; time: string } }) => {
         moveItem(dragItem, day, time);
       },
       collect: (monitor) => ({
@@ -318,7 +411,7 @@ export default function Page() {
         <div className="flex flex-row gap-0.5 h-full">
           {items.map((item, index) => (
             <DraggableCell 
-              key={`${item.teacher}-${item.subject}-${index}`} 
+              key={`${item.IdProfesor}-${item.IdMateria}-${index}`} 
               item={item}
               occurrence={{ day, time }}
               heightClass={getWidthClass(items.length, index)}
@@ -333,38 +426,111 @@ export default function Page() {
   return (
     <DndProvider backend={HTML5Backend}>
       <main className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Horario General</h1>
-          <div className="flex items-center gap-4">
-            {lastSaved && (
-              <div className="text-sm text-muted-foreground">
-                Último guardado: {lastSaved}
+        <div className="flex flex-col gap-4 mb-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Horario General</h1>
+            <div className="flex items-center gap-4">
+              {lastSaved && (
+                <div className="text-sm text-muted-foreground">
+                  Último guardado: {lastSaved}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  onClick={saveScheduleToDatabase}
+                  variant="outline"
+                  className="border-red-700 text-red-700 hover:bg-red-50"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Guardando...' : 'Guardar Horario'}
+                </Button>
+                <Button
+                  onClick={() => setIsAddDialogOpen(true)}
+                  variant="outline"
+                  className="bg-red-700 text-white hover:bg-red-800"
+                >
+                  Agregar Clase
+                </Button>
+                <Button
+                  onClick={handleGenerateSchedule}
+                  className="bg-red-700 text-white hover:bg-red-800"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Generando...' : 'Generar Horario'}
+                </Button>
               </div>
-            )}
-            <div className="flex gap-2">
-              <Button
-                onClick={saveScheduleToDatabase}
-                variant="outline"
-                className="border-red-700 text-red-700 hover:bg-red-50"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Guardando...' : 'Guardar Horario'}
-              </Button>
-              <Button
-                onClick={() => setIsAddDialogOpen(true)}
-                variant="outline"
-                className="bg-red-700 text-white hover:bg-red-800"
-              >
-                Agregar Clase
-              </Button>
-              <Button
-                onClick={handleGenerateSchedule}
-                className="bg-red-700 text-white hover:bg-red-800"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Generando...' : 'Generar Horario'}
-              </Button>
             </div>
+          </div>
+
+          <div className="flex gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <Label>Semestre:</Label>              <Select 
+                value={selectedSemester?.toString() || "all"} 
+                onValueChange={(value) => setSelectedSemester(value === "all" ? null : parseInt(value))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Todos los semestres" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los semestres</SelectItem>
+                  {availableFilters.semesters.map((semester) => (
+                    <SelectItem key={semester} value={semester.toString()}>
+                      Semestre {semester}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>            <div className="flex items-center gap-2">
+              <Label>Profesor:</Label>
+              <Select 
+                value={selectedProfessor?.toString() || 'all'} 
+                onValueChange={(value) => setSelectedProfessor(value === 'all' ? null : parseInt(value))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Todos los profesores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los profesores</SelectItem>
+                  {availableFilters.professors.map((professor) => (
+                    <SelectItem key={professor} value={professor.toString()}>
+                      Profesor {professor}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>            <div className="flex items-center gap-2">
+              <Label>Carrera:</Label>
+              <Select 
+                value={selectedCareer || 'all'} 
+                onValueChange={(value) => setSelectedCareer(value === 'all' ? null : value)}
+              >
+                <SelectTrigger className="w-[280px]">
+                  <SelectValue placeholder="Todas las carreras" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las carreras</SelectItem>
+                  {availableFilters.careers.map((career) => (
+                    <SelectItem key={career} value={career}>
+                      {career}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(selectedSemester || selectedProfessor || selectedCareer) && (
+              <Button 
+                variant="ghost" 
+                onClick={() => {
+                  setSelectedSemester(null);
+                  setSelectedProfessor(null);
+                  setSelectedCareer(null);
+                }}
+                className="text-sm"
+              >
+                Limpiar filtros
+              </Button>
+            )}
           </div>
         </div>
 
@@ -400,10 +566,10 @@ export default function Page() {
             setSchedule(prev => {
               const newSchedule = [...prev];
               const index = newSchedule.findIndex(item => 
-                item.teacher === originalSubject.teacher && 
-                item.subject === originalSubject.subject && 
-                item.day === originalSubject.day && 
-                item.time === originalSubject.time
+                item.IdProfesor === originalSubject.IdProfesor && 
+                item.IdMateria === originalSubject.IdMateria && 
+                item.Dia === originalSubject.Dia && 
+                item.HoraInicio === originalSubject.HoraInicio
               );
               
               if (index !== -1) {
@@ -417,10 +583,10 @@ export default function Page() {
           onDelete={(subjectToDelete) => {
             setSchedule(prev => 
               prev.filter(item => 
-                !(item.teacher === subjectToDelete.teacher && 
-                  item.subject === subjectToDelete.subject && 
-                  item.day === subjectToDelete.day && 
-                  item.time === subjectToDelete.time)
+                !(item.IdProfesor === subjectToDelete.IdProfesor && 
+                  item.IdMateria === subjectToDelete.IdMateria && 
+                  item.Dia === subjectToDelete.Dia && 
+                  item.HoraInicio === subjectToDelete.HoraInicio)
               )
             );
             setSelectedSubject(null);
@@ -434,26 +600,28 @@ export default function Page() {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="teacher" className="text-right">Profesor</Label>
+                <Label htmlFor="IdProfesor" className="text-right">ID Profesor</Label>
                 <Input
-                  id="teacher"
-                  value={newClass.teacher}
-                  onChange={(e) => setNewClass({ ...newClass, teacher: e.target.value })}
+                  id="IdProfesor"
+                  type="number"
+                  value={newClass.IdProfesor}
+                  onChange={(e) => setNewClass({ ...newClass, IdProfesor: parseInt(e.target.value) })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="subject" className="text-right">Materia</Label>
+                <Label htmlFor="IdMateria" className="text-right">ID Materia</Label>
                 <Input
-                  id="subject"
-                  value={newClass.subject}
-                  onChange={(e) => setNewClass({ ...newClass, subject: e.target.value })}
+                  id="IdMateria"
+                  type="number"
+                  value={newClass.IdMateria}
+                  onChange={(e) => setNewClass({ ...newClass, IdMateria: parseInt(e.target.value) })}
                   className="col-span-3"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="day" className="text-right">Día</Label>
-                <Select value={newClass.day} onValueChange={(value) => setNewClass({ ...newClass, day: value })}>
+                <Label htmlFor="Dia" className="text-right">Día</Label>
+                <Select value={newClass.Dia} onValueChange={(value) => setNewClass({ ...newClass, Dia: value })}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue />
                   </SelectTrigger>
@@ -465,8 +633,8 @@ export default function Page() {
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="time" className="text-right">Hora</Label>
-                <Select value={newClass.time} onValueChange={(value) => setNewClass({ ...newClass, time: value })}>
+                <Label htmlFor="HoraInicio" className="text-right">Hora Inicio</Label>
+                <Select value={newClass.HoraInicio} onValueChange={(value) => setNewClass({ ...newClass, HoraInicio: value })}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue />
                   </SelectTrigger>
@@ -478,17 +646,21 @@ export default function Page() {
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="classroom" className="text-right">Salón</Label>
-                <Input
-                  id="classroom"
-                  value={newClass.classroom}
-                  onChange={(e) => setNewClass({ ...newClass, classroom: e.target.value })}
-                  className="col-span-3"
-                />
+                <Label htmlFor="HoraFin" className="text-right">Hora Fin</Label>
+                <Select value={newClass.HoraFin} onValueChange={(value) => setNewClass({ ...newClass, HoraFin: value })}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeSlots.map((time) => (
+                      <SelectItem key={time} value={time}>{time}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="semester" className="text-right">Semestre</Label>
-                <Select value={newClass.semester.toString()} onValueChange={(value) => setNewClass({ ...newClass, semester: parseInt(value) })}>
+                <Label htmlFor="Semestre" className="text-right">Semestre</Label>
+                <Select value={newClass.Semestre.toString()} onValueChange={(value) => setNewClass({ ...newClass, Semestre: parseInt(value) })}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue />
                   </SelectTrigger>
@@ -505,22 +677,18 @@ export default function Page() {
                 Cancelar
               </Button>
               <Button onClick={() => {
-                const endTime = new Date(`2000-01-01T${newClass.time}`);
-                endTime.setHours(endTime.getHours() + 1);
-                const endTimeStr = endTime.toTimeString().substring(0, 5);
-                
-                setSchedule([...schedule, {
-                  ...newClass,
-                  endTime: endTimeStr
-                }]);
+                setSchedule([...schedule, newClass]);
                 setIsAddDialogOpen(false);
                 setNewClass({
-                  teacher: '',
-                  subject: '',
-                  day: 'Lunes',
-                  time: '07:00',
-                  classroom: '',
-                  semester: 1,
+                  IdProfesor: 0,
+                  IdMateria: 0,
+                  Dia: 'Lunes',
+                  HoraInicio: '07:00',
+                  HoraFin: '08:00',
+                  Semestre: 1,
+                  IdHorarioGeneral: 1,
+                  NombreCarrera: 'Ingeniería en Sistemas',
+                  IdCiclo: 1
                 });
               }}>
                 Agregar

@@ -34,7 +34,6 @@ async function getAuthToken(): Promise<string> {
   if (!response.ok) {
     throw new Error('Failed to authenticate');
   }
-  
   const data = await response.json();
   return data.token;
 }
@@ -108,7 +107,7 @@ export function useGetStudents() {
                         isIrregular: student.irregular || false,
                     };
                 });
-                
+                //formattedStudents[0].status = 'requiere-cambios'; // Set the first student as active for testing
                 setResult(formattedStudents);
             } catch (error: any) {
                 setError(error.message);
@@ -120,7 +119,6 @@ export function useGetStudents() {
 
         fetchStudents();
     }, []);
-
     return { loading, result, error };
 }
 

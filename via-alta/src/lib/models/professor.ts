@@ -26,14 +26,23 @@ class Professor {
   }
 
   /**
-   * Busca un profesor por su ID.
+   * Busca un profesor por su ID de forma case-insensitive y trimmeando espacios.
    * @param {string} id - El ID del profesor.
    * @returns {Promise<ProfessorData | null>} Los datos del profesor encontrado, o null si no existe.
    */
   static async findById(id: string): Promise<ProfessorData | null> {
-    const query = "SELECT * FROM Profesor WHERE IdProfesor = $1";
-    const result = await pool.query(query, [id]);
-    return result.rows[0] as ProfessorData || null; // Retorna null si no se encuentra el profesor
+    const trimmedId = id.trim(); // Trim whitespace
+    const query = "SELECT * FROM Profesor WHERE LOWER(IdProfesor) = LOWER($1)"; // Case-insensitive search
+    const result = await pool.query(query, [trimmedId]);
+    if (!result.rows.length) return null;
+    const row = result.rows[0];
+    // Map lower-case properties to match ProfessorData interface
+    const professor: ProfessorData = {
+      IdProfesor: row.idprofesor,
+      Nombre: row.nombre,
+      Clases: row.clases,
+    };
+    return professor;
   }
 
   /**

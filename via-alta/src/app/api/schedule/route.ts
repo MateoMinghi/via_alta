@@ -1,44 +1,40 @@
-import { NextResponse } from 'next/server';
-import Schedule from '@/lib/models/schedule';
+import { NextRequest, NextResponse } from 'next/server';
+import { generateGeneralSchedule } from '@/lib/utils/schedule-generator';
 
-// Este archivo define las rutas de la API para el horario.
-// Actúa como el controlador en la arquitectura MVC,
-// recibiendo las solicitudes y utilizando el modelo Schedule para interactuar con la base de datos.
-
-// Función para manejar las solicitudes GET a la ruta /api/schedule
-export async function GET() {
+export async function POST(request: NextRequest) {
   try {
-    // Llama al método del modelo para obtener el horario general
-    const schedule = await Schedule.getGeneralSchedule();
-    // Retorna la respuesta con los datos del horario
-    return NextResponse.json({ success: true, data: schedule });
+    // Get the optional cycleId from the request body
+    const body = await request.json();
+    const { idCiclo } = body;
+    
+    console.log(`Schedule generation request received${idCiclo ? ` for cycle ID: ${idCiclo}` : ''}`);
+    
+    // Call the schedule generator function
+    const success = await generateGeneralSchedule(idCiclo);
+    
+    if (success) {
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Horario general generado exitosamente' 
+      });
+    } else {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'No se pudo generar el horario general' 
+      }, { status: 500 });
+    }
   } catch (error) {
-    console.error('Error fetching schedule:', error);
-    // Retorna una respuesta de error si falla la obtención del horario
-    return NextResponse.json(
-      { success: false, error: 'Error fetching schedule' },
-      { status: 500 }
-    );
+    console.error('Error al generar el horario general:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Error desconocido' 
+    }, { status: 500 });
   }
 }
 
-// Función para manejar las solicitudes POST a la ruta /api/schedule
-export async function POST(request: Request) {
-  try {
-    // Obtiene el cuerpo de la solicitud
-    const body = await request.json();
-    const { schedule } = body;
-    
-    // Llama al método del modelo para guardar el horario general
-    await Schedule.saveGeneralSchedule(schedule);
-    // Retorna una respuesta de éxito
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error saving schedule:', error);
-    // Retorna una respuesta de error si falla el guardado del horario
-    return NextResponse.json(
-      { success: false, error: 'Error saving schedule' },
-      { status: 500 }
-    );
-  }
+// Handle GET requests - useful for testing endpoint availability
+export async function GET() {
+  return NextResponse.json({ 
+    message: 'El endpoint está disponible. Use POST para generar el horario general.' 
+  });
 }
