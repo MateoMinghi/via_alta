@@ -67,6 +67,13 @@ export default function SalonCRUD() {
         body: JSON.stringify({ id: nuevoSalon.idsalon, campo: "nota", valor: nuevoSalon.nota }),
       });
     } else {
+      // Validación: verificar si el id ya existe
+      const existe = salones.some(salon => salon.idsalon === nuevoSalon.idsalon);
+      if (existe) {
+        alert(`Error: Ya existe un salón con el ID ${nuevoSalon.idsalon}`);
+        return;
+      }
+
       await fetch("/api/classroom", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
