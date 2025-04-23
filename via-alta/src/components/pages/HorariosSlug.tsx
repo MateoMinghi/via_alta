@@ -36,6 +36,19 @@ export default function HorariosSlug() {
 
   const semesterNum = getSemesterNumber(slug as string);
 
+  // Helper to map raw API data to GeneralScheduleItem
+  const mapRawScheduleItem = (raw: any): GeneralScheduleItem => ({
+    IdHorarioGeneral: raw.IdHorarioGeneral ?? raw.idhorariogeneral,
+    NombreCarrera: raw.NombreCarrera ?? raw.nombrecarrera,
+    IdGrupo: raw.IdGrupo ?? raw.idgrupo,
+    Dia: raw.Dia ?? raw.dia,
+    HoraInicio: (raw.HoraInicio ?? raw.horainicio ?? '').slice(0,5),
+    HoraFin: (raw.HoraFin ?? raw.horafin ?? '').slice(0,5),
+    Semestre: raw.Semestre ?? raw.semestre,
+    MateriaNombre: raw.MateriaNombre ?? raw.materianombre,
+    ProfesorNombre: raw.ProfesorNombre ?? raw.profesornombre,
+  });
+
   // Fetch and filter schedule items for the specific semester
   const fetchSchedule = async () => {
     try {
@@ -45,11 +58,15 @@ export default function HorariosSlug() {
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch schedule');
       }
-      // Filter schedule items for the current semester
-      const scheduleForSemester = result.data.filter((item: GeneralScheduleItem) => {
-        const itemSemester = item.Semestre;
-        return itemSemester === semesterNum;
+      // Map and filter schedule items for the current semester
+      const mapped = result.data.map(mapRawScheduleItem);
+      const scheduleForSemester = mapped.filter((item: GeneralScheduleItem) => {
+        const itemSemester =
+          typeof item.Semestre !== 'undefined' ? Number(item.Semestre) :
+          typeof item.semestre !== 'undefined' ? Number(item.semestre) : null;
+        return itemSemester === Number(semesterNum);
       });
+      console.log('Filtered schedule for semester', semesterNum, scheduleForSemester); // DEBUG
       setFilteredSchedule(scheduleForSemester);
       if (scheduleForSemester.length === 0) {
         toast.warning(`No hay materias disponibles para el semestre ${semesterNum}`);
