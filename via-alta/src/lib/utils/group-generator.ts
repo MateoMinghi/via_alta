@@ -14,7 +14,7 @@ export interface GroupGenerationParams {
   idGrupo?: number; // Optional - if not provided, will be auto-generated
   idMateria?: number; // Optional - will be determined from professor's classes if not provided
   idProfesor: string; // Required - the professor who will teach the group
-  idSalon: number; // Required - the classroom where the group will be held
+  idSalon?: number; // Optional - the classroom where the group will be held
   idCiclo?: number; // Optional - will use the latest cycle if not provided
 }
 
@@ -134,14 +134,16 @@ export async function generateGroup(params: GroupGenerationParams) {
   }
 
   // Create the group with the subject's semester
-  const groupData = {
+  const groupData: any = {
     IdGrupo: groupId,
     IdMateria: idMateria,
     IdProfesor: params.idProfesor,
-    IdSalon: params.idSalon,
     IdCiclo: idCiclo,
     Semestre: subject.semestre // Use the subject's semester as required (lowercase)
   };
+  if (params.idSalon !== undefined) {
+    groupData.IdSalon = params.idSalon;
+  }
   console.log("Prepared group data for creation:", groupData);
 
   // Create the group in the database
@@ -201,20 +203,22 @@ async function validateGroupParams(params: GroupGenerationParams): Promise<Group
     });
   }
 
-  // Check if the classroom exists
-  try {
-    const classroom = await Classroom.findById(params.idSalon.toString());
-    if (!classroom) {
+  // Check if the classroom exists only if idSalon is provided
+  if (params.idSalon !== undefined) {
+    try {
+      const classroom = await Classroom.findById(params.idSalon.toString());
+      if (!classroom) {
+        errors.push({
+          field: 'idSalon',
+          message: `Classroom with ID ${params.idSalon} not found`
+        });
+      }
+    } catch (error) {
       errors.push({
         field: 'idSalon',
-        message: `Classroom with ID ${params.idSalon} not found`
+        message: `Error finding classroom: ${error instanceof Error ? error.message : String(error)}`
       });
     }
-  } catch (error) {
-    errors.push({
-      field: 'idSalon',
-      message: `Error finding classroom: ${error instanceof Error ? error.message : String(error)}`
-    });
   }
   // Check if the cycle exists
   if (params.idCiclo !== undefined) {
@@ -559,16 +563,9 @@ export async function generateGroupsForAllProfessors(idSalon: number, idCiclo?: 
   const result = await pool.query(query);
   const professors = result.rows;
 
-  // Get all classrooms from the database
-  const classrooms = await Classroom.findAll();
-  if (!classrooms || classrooms.length === 0) {
-    throw new Error('No classrooms available in the database');
-  }
-
-  // Prepare parameters for each professor, assign classrooms in round-robin
-  const groupParams: GroupGenerationParams[] = professors.map((professor, idx) => ({
+  // Prepare parameters for each professor, do NOT assign classrooms
+  const groupParams: GroupGenerationParams[] = professors.map((professor) => ({
     idProfesor: professor.idprofesor,
-    idSalon: classrooms[idx % classrooms.length].idsalon,
     idCiclo: idCiclo
   }));
 
