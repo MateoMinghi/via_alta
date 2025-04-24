@@ -25,6 +25,7 @@ function parseTime(timeString: string): number {
 // Type for the schedule grid slot
 type ScheduleSlot = {
   professorId?: string;
+  semester?: number;
 };
 
 // Type for the availability map
@@ -119,7 +120,8 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
 
 
     // 3. Initialize Schedule Grid & Tracking
-    const scheduleGrid = new Map<string, ScheduleSlot>(); // Key: "Day-Hour" (e.g., "Lunes-9"), Value: { professorId }
+    // Track all assignments per slot to enforce unique semester and professor per timeslot
+    const scheduleGrid = new Map<string, ScheduleSlot[]>(); // Key: "Day-Hour", Value: list of { professorId, semester }
     const assignedHours = new Map<number, number>(); // Key: GroupId, Value: Hours assigned
     const scheduleItems: GeneralScheduleItem[] = [];
     const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -173,24 +175,16 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
             }
 
             const gridKey = `${day}-${hour}`;
-            const existingAssignment = scheduleGrid.get(gridKey);
-
-            // Check for conflicts
-            let conflict = false;
-            if (existingAssignment) {
-              // Professor conflict: Same professor assigned to a different group in the same slot
-              if (existingAssignment.professorId && existingAssignment.professorId !== group.idprofesor) {
-                 // redundant sanity check
-              }
-              // Professor busy: This professor is already assigned (implicitly to this group or another)
-              if (existingAssignment.professorId === group.idprofesor) {
-                  conflict = true;
-              }
-            }
+            // Gather existing assignments for this slot
+            const assignments = scheduleGrid.get(gridKey) || [];
+            // Conflict if same professor or same semester already scheduled in this slot
+            const conflict = assignments.some(a => a.professorId === group.idprofesor || a.semester === group.Semestre);
 
             // If no conflict, assign the group
             if (!conflict) {
-              scheduleGrid.set(gridKey, { professorId: group.idprofesor });
+              // Record this assignment alongside any existing ones
+              assignments.push({ professorId: group.idprofesor, semester: group.Semestre });
+              scheduleGrid.set(gridKey, assignments);
               currentAssignedBlocks++;
               assignedHours.set(group.idgrupo, currentAssignedBlocks);
 
