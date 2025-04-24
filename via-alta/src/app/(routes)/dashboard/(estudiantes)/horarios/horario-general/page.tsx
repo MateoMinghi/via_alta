@@ -174,6 +174,7 @@ export default function HorarioGeneralPage() {
   // Generate schedule handler
   const handleGenerateSchedule = async () => {
     setIsLoading(true);
+    setSchedule([]); // Clear current schedule to force UI update
     try {
       console.log('Generating schedule...');
       const res = await fetch('/api/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
@@ -181,19 +182,17 @@ export default function HorarioGeneralPage() {
       console.log('Generation response:', data);
       
       if (data.success) {
-        // After generating, fetch the new schedule
+        // After generating, fetch the new schedule (with cache-busting param)
         console.log('Fetching updated schedule...');
-        const res2 = await fetch('/api/schedule');
+        const res2 = await fetch(`/api/schedule?ts=${Date.now()}`);
         const data2 = await res2.json();
         console.log('Updated schedule data:', data2);
         
+        // Always update the state, even if data is the same
+        setSchedule(data2.success ? data2.data.map(mapRawScheduleItem) : []);
         if (data2.success) {
-          console.log('Schedule data received, count:', data2.data?.length || 0);
-          setSchedule(data2.data.map(mapRawScheduleItem));
           toast.success('Horario general generado correctamente');
         } else {
-          console.log('Failed to fetch updated schedule:', data2);
-          setSchedule([]);
           toast.error('Error al obtener el horario actualizado');
         }
       } else {
