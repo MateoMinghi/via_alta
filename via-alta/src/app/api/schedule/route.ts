@@ -3,10 +3,26 @@ import { generateGeneralSchedule } from '@/lib/utils/schedule-generator';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the optional cycleId from the request body
+    // Check if we're updating an existing schedule
     const body = await request.json();
-    const { idCiclo } = body;
+    const { schedule } = body;
+
+    // If schedule is provided, save the updated schedule
+    if (schedule && Array.isArray(schedule)) {
+      // Import the GeneralSchedule model here to avoid circular dependencies
+      const { default: GeneralSchedule } = await import('@/lib/models/general-schedule');
+      
+      console.log(`Updating schedule with ${schedule.length} items`);
+      await GeneralSchedule.saveGeneralSchedule(schedule);
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Horario general actualizado exitosamente' 
+      });
+    }
     
+    // Otherwise, generate a new schedule
+    const { idCiclo } = body;
     console.log(`Schedule generation request received${idCiclo ? ` for cycle ID: ${idCiclo}` : ''}`);
     
     // Call the schedule generator function
@@ -24,7 +40,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
   } catch (error) {
-    console.error('Error al generar el horario general:', error);
+    console.error('Error al generar/actualizar el horario general:', error);
     return NextResponse.json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Error desconocido' 

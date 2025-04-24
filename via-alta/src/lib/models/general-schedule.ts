@@ -13,24 +13,48 @@ export interface GeneralScheduleItem {
   ProfesorNombre?: string;
 }
 
-class GeneralSchedule {
-  // Method to save the general schedule
+class GeneralSchedule {  // Method to save the general schedule
   static async saveGeneralSchedule(scheduleItems: GeneralScheduleItem[]) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       
-      // Delete existing schedule if there are new items
+      // Get all unique group IDs to be updated
       if (scheduleItems.length > 0) {
-        await client.query('DELETE FROM HorarioGeneral WHERE IdHorarioGeneral = $1', [scheduleItems[0].IdHorarioGeneral]);
+        const cycleId = scheduleItems[0].IdHorarioGeneral;
+        const groupIds = [...new Set(scheduleItems.map(item => item.IdGrupo))];
+        
+        console.log(`Updating schedule for cycle ${cycleId} with ${groupIds.length} unique groups`);
+        
+        // Delete existing entries for these specific groups in this cycle
+        await client.query(
+          'DELETE FROM HorarioGeneral WHERE IdHorarioGeneral = $1 AND IdGrupo = ANY($2)',
+          [cycleId, groupIds]
+        );
+        
+        console.log(`Deleted existing entries for groups in cycle ${cycleId}`);
       }
       
-      // Insert all new schedule items
+      // Insert all schedule items with ON CONFLICT DO NOTHING to prevent duplicates
       const insertQuery = `
         INSERT INTO HorarioGeneral 
         (IdHorarioGeneral, NombreCarrera, IdGrupo, Dia, HoraInicio, HoraFin)
         VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT DO NOTHING
       `;
+      
+      // Log groupings for debugging
+      const groupingMap = new Map<string, number>();
+      for (const item of scheduleItems) {
+        const key = `${item.IdGrupo}-${item.Dia}-${item.HoraInicio}`;
+        groupingMap.set(key, (groupingMap.get(key) || 0) + 1);
+      }
+      
+      for (const [key, count] of groupingMap.entries()) {
+        if (count > 1) {
+          console.log(`Potential duplicate: ${key} appears ${count} times`);
+        }
+      }
       
       for (const item of scheduleItems) {
         await client.query(insertQuery, [

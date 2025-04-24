@@ -352,7 +352,32 @@ export default function HorarioGeneralPage() {
     
     // Update UI only - no API call
     setSchedule(prev => prev.map(item => item.IdGrupo === itemId ? updatedItem : item));
-    toast.success('Horario actualizado solo en la UI (no persiste en la base de datos)');
+    toast.info('Cambios realizados. Haga clic en "Guardar Horario" para persistir los cambios.');
+  };
+
+  // Function to save schedule changes to the database
+  const handleSaveSchedule = async () => {
+    setIsLoading(true);
+    try {
+      console.log('Saving schedule changes...');
+      const res = await fetch('/api/schedule', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ schedule }) 
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        toast.success('Horario guardado exitosamente');
+      } else {
+        toast.error(`Error al guardar el horario: ${data.error || 'Error desconocido'}`);
+      }
+    } catch (err) {
+      console.error('Error saving schedule:', err);
+      toast.error('Error al guardar el horario');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -385,15 +410,23 @@ export default function HorarioGeneralPage() {
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
-            </div>
+            </div>          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleSaveSchedule}
+              className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Guardando...' : 'Guardar Horario'}
+            </button>
+            <button
+              onClick={handleGenerateSchedule}
+              className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Generando...' : 'Generar horario general'}
+            </button>
           </div>
-          <button
-            onClick={handleGenerateSchedule}
-            className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Generando...' : 'Generar horario general'}
-          </button>
         </div>
         
         <div className="w-full flex justify-between flex-col gap-4">
