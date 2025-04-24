@@ -83,6 +83,21 @@ class GeneralSchedule {
     const result = await pool.query(query);
     return result.rows;
   }
+
+  // Method to delete all schedule rows for a specific cycle
+  static async deleteForCycle(idCiclo: number) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM HorarioGeneral WHERE IdHorarioGeneral = $1', [idCiclo]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 export default GeneralSchedule;

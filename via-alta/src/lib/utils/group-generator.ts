@@ -546,6 +546,17 @@ async function deleteAllGroups(): Promise<void> {
 }
 
 /**
+ * Deletes all groups for a specific cycle from the database.
+ *
+ * @param idCiclo - The cycle ID for which to delete groups
+ * @returns void
+ */
+async function deleteGroupsForCycle(idCiclo: number): Promise<void> {
+  const query = 'DELETE FROM Grupo WHERE IdCiclo = $1';
+  await pool.query(query, [idCiclo]);
+}
+
+/**
  * Generates groups for all professors in the database.
  * Creates one group per professor based on their assigned classes.
  * 
@@ -554,10 +565,16 @@ async function deleteAllGroups(): Promise<void> {
  * @returns Object containing created groups and any errors that occurred
  */
 export async function generateGroupsForAllProfessors(idSalon: number, idCiclo?: number) {
-  // First, delete all existing groups
-  console.log("Deleting all existing groups...");
-  await deleteAllGroups();
-  console.log("Existing groups deleted.");
+  // First, delete all existing groups for the cycle (if idCiclo provided)
+  if (idCiclo) {
+    console.log(`Deleting all groups for cycle ${idCiclo}...`);
+    await deleteGroupsForCycle(idCiclo);
+    console.log(`Existing groups for cycle ${idCiclo} deleted.`);
+  } else {
+    console.log("Deleting all existing groups (no cycle specified)...");
+    await deleteAllGroups();
+    console.log("Existing groups deleted.");
+  }
   // Get all professors from the database
   const query = 'SELECT * FROM Profesor WHERE Clases IS NOT NULL AND Clases <> \'\'';
   const result = await pool.query(query);

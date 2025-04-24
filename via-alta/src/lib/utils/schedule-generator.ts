@@ -3,7 +3,7 @@ import Subject from "../models/subject";
 import Availability from "../models/availability";
 import GeneralSchedule, { GeneralScheduleItem } from "../models/general-schedule";
 import Cycle from "../models/cycle"; 
-import { getGroups } from "./group-generator"; 
+import { getGroups, generateGroupsForAllProfessors } from "./group-generator"; 
 // Helper function to get the latest cycle ID
 async function getLatestCycleId(): Promise<number | null> {
   const query = `SELECT IdCiclo FROM Ciclo ORDER BY FechaInicio DESC LIMIT 1`;
@@ -85,6 +85,16 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
       return false;
     }
     console.log(`Generating schedule for Cycle ID: ${targetCycleId}`);
+
+    // 1.1 Delete existing general schedule for this cycle
+    console.log("Clearing existing general schedule for this cycle...");
+    await GeneralSchedule.deleteForCycle(targetCycleId);
+    console.log("Existing general schedule cleared.");
+
+    // 1.2 Delete all groups and generate new ones
+    console.log("Deleting all groups and generating new groups for all professors...");
+    await generateGroupsForAllProfessors(null as any, targetCycleId);
+    console.log("Groups regenerated.");
 
     // 2. Fetch Data
     console.log("Fetching groups...");
