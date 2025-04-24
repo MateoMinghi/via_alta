@@ -25,7 +25,6 @@ function parseTime(timeString: string): number {
 // Type for the schedule grid slot
 type ScheduleSlot = {
   professorId?: string;
-  salonId?: number;
 };
 
 // Type for the availability map
@@ -120,7 +119,7 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
 
 
     // 3. Initialize Schedule Grid & Tracking
-    const scheduleGrid = new Map<string, ScheduleSlot>(); // Key: "Day-Hour" (e.g., "Lunes-9"), Value: { professorId, salonId }
+    const scheduleGrid = new Map<string, ScheduleSlot>(); // Key: "Day-Hour" (e.g., "Lunes-9"), Value: { professorId }
     const assignedHours = new Map<number, number>(); // Key: GroupId, Value: Hours assigned
     const scheduleItems: GeneralScheduleItem[] = [];
     const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -153,7 +152,7 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
         ...daysOfWeek.slice(0, dayOffset),
       ];
 
-      console.log(`Processing Group ${group.idgrupo} (Subject: ${subject.Nombre}, Prof: ${group.professor_name}, Salon: ${group.idsalon}, Required Blocks: ${requiredBlocks})`);
+      console.log(`Processing Group ${group.idgrupo} (Subject: ${subject.Nombre}, Prof: ${group.professor_name}, Required Blocks: ${requiredBlocks})`);
 
       // Iterate through rotated days and professor's available slots for that day
       daysLoop:
@@ -181,24 +180,17 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
             if (existingAssignment) {
               // Professor conflict: Same professor assigned to a different group in the same slot
               if (existingAssignment.professorId && existingAssignment.professorId !== group.idprofesor) {
-                 // This check is slightly redundant as we iterate by professor availability,
-                 // but good for sanity. The main professor conflict is handled by the grid check below.
+                 // redundant sanity check
               }
               // Professor busy: This professor is already assigned (implicitly to this group or another)
               if (existingAssignment.professorId === group.idprofesor) {
                   conflict = true;
-                  // console.log(`Conflict: Professor ${group.idprofesor} already scheduled at ${day} ${hour}:00`);
-              }
-              // Salon conflict: Same salon assigned to a different group in the same slot
-              if (existingAssignment.salonId === group.idsalon) {
-                conflict = true;
-                // console.log(`Conflict: Salon ${group.idsalon} already scheduled at ${day} ${hour}:00`);
               }
             }
 
             // If no conflict, assign the group
             if (!conflict) {
-              scheduleGrid.set(gridKey, { professorId: group.idprofesor, salonId: group.idsalon });
+              scheduleGrid.set(gridKey, { professorId: group.idprofesor });
               currentAssignedBlocks++;
               assignedHours.set(group.idgrupo, currentAssignedBlocks);
 
