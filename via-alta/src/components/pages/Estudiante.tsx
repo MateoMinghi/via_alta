@@ -60,7 +60,7 @@ export default function Estudiante() {
       academicHistory,
       loading: historyLoading,
       error: historyError
-    } = useGetStudentAcademicHistory(updatedUser?.ivd_id);
+    } = useGetStudentAcademicHistory(updatedUser?.ivd_id?.toString());
 
     // Hook para manejar solicitudes de cambios en el horario
     const { 
@@ -168,7 +168,7 @@ export default function Estudiante() {
       
       // Identificar el plan de estudios completo del estudiante
       // Agrupar por semestres para facilitar el análisis
-      const studyPlan = academicHistory.reduce((acc, course) => {
+      const studyPlan = academicHistory.reduce<Record<number, any[]>>((acc, course) => {
         if (!acc[course.course_semester]) {
           acc[course.course_semester] = [];
         }
@@ -354,7 +354,7 @@ export default function Estudiante() {
           <EstudianteSchedule 
             subjects={filteredSubjects} 
             isRegular={updatedUser?.regular !== false}
-            recommendedCourses={recommendedCourses?.slice(0, 3).map(c => c.course_name) || []} 
+            recommendedCourses={recommendedCourses || []} 
           />
         ) : (
           <p className="text-center py-4 bg-gray-50 rounded-md">
