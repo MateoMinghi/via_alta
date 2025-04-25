@@ -839,7 +839,7 @@ return (
         )}
 
         {/* Después las materias ya programadas */}
-        <p className="text-2xl font-bold mb-2">Lista de Materias</p>
+        <p className="text-2xl font-bold mb-2">Lista de Materias Seleccionadas</p>
         <ScheduledSubjectsDropArea 
           subjects={scheduledSubjects}
           onAddSubject={handleSubjectSelect}
