@@ -14,6 +14,7 @@ import EstudianteStatusBanner from '../EstudianteStatusBanner';
 import EstudianteHeader from '../EstudianteHeader';
 import { useGetStudentAcademicHistory } from '@/api/useGetStudentAcademicHistory';
 
+
 /**
  * Interfaz que define la estructura de una materia en el horario
  * Representa una materia con sus datos principales y horarios
