@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { cn } from '@/lib/utils';
 import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 import GroupInfoDialog from './GroupInfoDialog';
+import { Pencil, Trash2 } from 'lucide-react';
 
 // Días de la semana
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -71,9 +72,18 @@ function timeToMinutes(time: string | undefined | null): number {
 }
 
 // Main component
-export default function CoordinadorSchedule({ subjects }: { subjects: GeneralScheduleItem[] }) {
-  const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
+export default function CoordinadorSchedule({ 
+  subjects, 
+  onEdit, 
+  onDelete 
+}: { 
+  subjects: GeneralScheduleItem[],
+  onEdit?: (group: GeneralScheduleItem) => void,
+  onDelete?: (group: GeneralScheduleItem) => void
+}) {
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
 
   // Matrix for schedule
   const scheduleMatrix = useMemo(() => {
@@ -100,30 +110,51 @@ export default function CoordinadorSchedule({ subjects }: { subjects: GeneralSch
     return matrix;
   }, [subjects]);
 
+  // Handler for clicking a subject - now only handles dialog
+  const handleSubjectClick = (e: React.MouseEvent, item: GeneralScheduleItem) => {
+    e.stopPropagation();
+    setSelectedGroup(item);
+    setDialogOpen(true);
+  };
+
+  // Handler for clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const isDialog = target.closest('[role="dialog"]');
+      
+      if (!isDialog) {
+        setSelectedGroupId(null);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Cell renderer
   const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time]?.[day] || [];
+
     return (
-      <div className={cn(
-        'border border-gray-200 p-1 relative h-full',
-        items.length > 0 ? 'bg-blue-50/50' : 'bg-white'
-      )}>
+      <div 
+        className="border border-gray-200 p-1 relative h-full"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex flex-row gap-0.5 h-full">
           {items.map((item, idx) => (
             <div
-              key={`${item.IdHorarioGeneral}-${idx}`}
+              key={`${item.IdGrupo}-${idx}`}
               className={cn(
-                'p-1 text-xs rounded-md border shadow-sm h-full flex-1 min-w-0 cursor-pointer',
+                'subject-cell p-2 text-xs rounded-md border shadow-sm h-full flex-1 min-w-0 relative',
                 getSubjectColor(item.MateriaNombre || ''),
-                'truncate font-medium'
+                'cursor-pointer hover:shadow-md transition-all duration-200'
               )}
-              onClick={() => {
-                setSelectedGroup(item);
-                setDialogOpen(true);
-              }}
-              title={item.MateriaNombre}
+              onClick={(e) => handleSubjectClick(e, item)}
             >
-              <div>{item.MateriaNombre}</div>
+              <div className="font-medium truncate">
+                {item.MateriaNombre}
+              </div>
             </div>
           ))}
         </div>
@@ -158,7 +189,16 @@ export default function CoordinadorSchedule({ subjects }: { subjects: GeneralSch
         </div>
       </div>
       {/* Dialog for group info */}
-      <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
+      <GroupInfoDialog 
+        open={dialogOpen} 
+        onClose={() => {
+          setDialogOpen(false);
+          setSelectedGroup(null);
+        }} 
+        group={selectedGroup}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
     </div>
   );
 }

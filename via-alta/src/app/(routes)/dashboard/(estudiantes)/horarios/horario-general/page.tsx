@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import CoordinadorSchedule from '@/components/CoordinadorSchedule';
 import GroupInfoDialog from '@/components/GroupInfoDialog';
 import AddGroupDialog from '@/components/AddGroupDialog';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
@@ -10,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { X, Lock, Plus, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // Define item types for drag and drop
 const ItemTypes = {
@@ -54,6 +56,9 @@ interface GeneralScheduleItem {
   Semestre?: number;
   MateriaNombre?: string;
   ProfesorNombre?: string;
+  IdMateria?: number;
+  IdProfesor?: number;
+  IdSalon?: number;
 }
 
 // Function to get subject color based on subject name
@@ -131,12 +136,18 @@ export default function HorarioGeneralPage() {
     Semestre: raw.Semestre ?? raw.semestre,
     MateriaNombre: raw.MateriaNombre ?? raw.materianombre,
     ProfesorNombre: raw.ProfesorNombre ?? raw.profesornombre,
+    IdMateria: raw.IdMateria ?? raw.idmateria,
+    IdProfesor: raw.IdProfesor ?? raw.idprofesor,
+    IdSalon: raw.IdSalon ?? raw.idsalon,
   });
   const [schedule, setSchedule] = useState<GeneralScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addGroupDialogOpen, setAddGroupDialogOpen] = useState(false);
+  const [editGroupData, setEditGroupData] = useState<GeneralScheduleItem | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<GeneralScheduleItem | null>(null);
   
   const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
   const [selectedMajor, setSelectedMajor] = useState<string>('All');
@@ -252,88 +263,6 @@ export default function HorarioGeneralPage() {
     }
   }
 
-  // Crear una representación matricial del cronograma
-  const scheduleMatrix = React.useMemo(() => {
-    const matrix: { [time: string]: { [day: string]: GeneralScheduleItem[] } } = {};
-    
-    // Inicializar matriz vacía
-    timeSlots.forEach(time => {
-      matrix[time] = {};
-      daysOfWeek.forEach(day => {
-        matrix[time][day] = [];
-      });
-    });
-    
-    // Rellenar con elementos del cronograma
-    filteredSchedule.forEach(item => {
-      const normalizedDay = normalizeDay(item.Dia);
-      const startTime = timeToMinutes(item.HoraInicio);
-      const endTime = timeToMinutes(item.HoraFin);
-      
-      // Agrega un elemento a cada intervalo de tiempo que abarca
-      timeSlots.forEach(slot => {
-        const slotTime = timeToMinutes(slot);
-        if (slotTime >= startTime && slotTime < endTime) {
-          if (matrix[slot]?.[normalizedDay]) {
-            matrix[slot][normalizedDay].push(item);
-          }
-        }
-      });
-    });
-    
-    return matrix;
-  }, [filteredSchedule]);
-
-  // Componente de celda para mostrar elementos en un día y hora específicos
-  const Cell = ({ day, time }: { day: string; time: string }) => {
-    const items = scheduleMatrix[time]?.[day] || [];
-    
-    // Añadir funcionalidad de destino de colocación
-    const [{ isOver, canDrop }, drop] = useDrop(() => ({
-      accept: ItemTypes.SCHEDULE_ITEM,
-      drop: (item: { id: number }) => {
-        handleDropItem(item.id, day, time);
-        return { day, time };
-      },
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-        canDrop: monitor.canDrop(),
-      }),
-    }));
-
-    const getWidthClass = (total: number, index: number) => {
-      switch(total) {
-        case 1: return 'w-full';
-        case 2: return 'w-[calc(50%-2px)]';
-        case 3: return 'w-[calc(33.333%-2px)]';
-        default: return 'w-[calc(25%-2px)]';
-      }
-    };
-
-    return drop(
-      <div
-        className={cn(
-          'border border-gray-200 p-1 relative h-full',
-          items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
-          isOver && 'bg-gray-100'
-        )}
-      >
-        <div className="flex flex-row gap-0.5 h-full">
-          {items.map((item, index) => (
-            <DraggableScheduleItem 
-              key={`${item.IdHorarioGeneral}-${index}`} 
-              item={item} 
-              onClick={() => {
-                setSelectedGroup(item);
-                setDialogOpen(true);
-              }}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   // Manejar gota: actualizar el día del elemento y la hora de inicio/finalización (solo UI)
   const handleDropItem = (itemId: number, newDay: string, newTime: string) => {
     // Encontrar el item que estamos actualizando
@@ -384,9 +313,46 @@ export default function HorarioGeneralPage() {
 
   // Function to add a new group to the schedule
   const handleAddGroup = (newGroup: GeneralScheduleItem) => {
-    // Add new group to the current schedule
-    setSchedule([...schedule, newGroup]);
-    toast.info('Nuevo grupo añadido. Haga clic en "Guardar Horario" para persistir los cambios.');
+    // When editing an existing group
+    if (editGroupData) {
+      // Replace the existing group with the updated one
+      setSchedule(prevSchedule => 
+        prevSchedule.map(group => 
+          group.IdGrupo === editGroupData.IdGrupo ? newGroup : group
+        )
+      );
+      setEditGroupData(null);
+      toast.success('Grupo actualizado. Haga clic en "Guardar Horario" para persistir los cambios.');
+    } else {
+      // Add new group to the current schedule
+      setSchedule([...schedule, newGroup]);
+      toast.success('Nuevo grupo añadido. Haga clic en "Guardar Horario" para persistir los cambios.');
+    }
+  };
+
+  // Function to handle editing a group
+  const handleEditGroup = (group: GeneralScheduleItem) => {
+    setEditGroupData(group);
+    setAddGroupDialogOpen(true);
+  };
+
+  // Function to handle deleting a group
+  const handleDeleteGroup = (group: GeneralScheduleItem) => {
+    setGroupToDelete(group);
+    setDeleteConfirmOpen(true);
+  };
+
+  // Function to confirm deletion of a group
+  const confirmDeleteGroup = () => {
+    if (!groupToDelete) return;
+    
+    setSchedule(prevSchedule => 
+      prevSchedule.filter(group => group.IdGrupo !== groupToDelete.IdGrupo)
+    );
+    
+    setDeleteConfirmOpen(false);
+    setGroupToDelete(null);
+    toast.success('Grupo eliminado. Haga clic en "Guardar Horario" para persistir los cambios.');
   };
 
   return (
@@ -423,7 +389,10 @@ export default function HorarioGeneralPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => setAddGroupDialogOpen(true)}
+              onClick={() => {
+                setEditGroupData(null);
+                setAddGroupDialogOpen(true);
+              }}
               className="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-600 disabled:opacity-50"
               disabled={isLoading}
             >
@@ -447,46 +416,47 @@ export default function HorarioGeneralPage() {
         </div>
         
         <div className="w-full flex justify-between flex-col gap-4">
-          {/* Horario grid usando el mismo layout que EstudianteSchedule */}
-          <div className="overflow-x-auto">
-            <div className="min-w-[800px]">
-              <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
-                {/* Encabezados con días de la semana */}
-                <div className="h-10" />
-                {daysOfWeek.map((day) => (
-                  <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
-                    {day}
-                  </div>
-                ))}
-
-                {/* Filas de horarios para cada franja horaria */}
-                {timeSlots.map((time) => (
-                  <React.Fragment key={time}>
-                    {/* Columna de horas */}
-                    <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
-                      {time}
-                    </div>
-                    {/* Celdas para cada día en esa franja horaria */}
-                    {daysOfWeek.map((day) => (
-                      <Cell key={`${day}-${time}`} day={day} time={time} />
-                    ))}
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-          </div>
+          {/* Using the CoordinadorSchedule component with edit and delete options */}
+          <CoordinadorSchedule 
+            subjects={filteredSchedule} 
+            onEdit={handleEditGroup} 
+            onDelete={handleDeleteGroup} 
+          />
         </div>
         
-        {/* Dialog para añadir un nuevo grupo */}
+        {/* Dialog para añadir o editar un grupo */}
         <AddGroupDialog 
           isOpen={addGroupDialogOpen}
-          onClose={() => setAddGroupDialogOpen(false)}
+          onClose={() => {
+            setAddGroupDialogOpen(false);
+            setEditGroupData(null);
+          }}
           onAdd={handleAddGroup}
           currentCycleId={schedule.length > 0 ? schedule[0].IdHorarioGeneral : 1}
+          editGroupData={editGroupData}
         />
         
         {/* Dialog para mostrar información de grupo cuando se hace clic */}
         <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
+        
+        {/* Dialog de confirmación para eliminar grupo */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Está seguro de eliminar este grupo?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Está a punto de eliminar el grupo {groupToDelete?.IdGrupo} - {groupToDelete?.MateriaNombre}. 
+                Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteGroup} className="bg-red-600 hover:bg-red-700">
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         
         {isLoading && (
           <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">

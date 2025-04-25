@@ -1,5 +1,15 @@
+'use client';
+
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogPortal,
+  DialogOverlay,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -21,13 +31,15 @@ interface AddGroupDialogProps {
   onClose: () => void;
   onAdd: (newGroup: GeneralScheduleItem) => void;
   currentCycleId?: number;
+  editGroupData?: GeneralScheduleItem | null;
 }
 
 export default function AddGroupDialog({ 
   isOpen, 
   onClose, 
   onAdd,
-  currentCycleId = 1 // Default cycle ID if not provided
+  currentCycleId = 1, // Default cycle ID if not provided
+  editGroupData = null // Optional data for editing an existing group
 }: AddGroupDialogProps) {
   // Initial empty group state
   const initialGroup: GeneralScheduleItem = {
@@ -52,14 +64,20 @@ export default function AddGroupDialog({
   const [careersLoading, setCareersLoading] = useState(true);
   const { result: subjects, loading: subjectsLoading } = useGetSubjects();
 
-  // Reset form when dialog opens/closes
+  // Reset form when dialog opens/closes or when editGroupData changes
   useEffect(() => {
     if (isOpen) {
-      setNewGroup({...initialGroup, IdHorarioGeneral: currentCycleId});
+      // If we're editing a group, use that data; otherwise start fresh
+      if (editGroupData) {
+        setNewGroup(editGroupData);
+      } else {
+        setNewGroup({...initialGroup, IdHorarioGeneral: currentCycleId});
+      }
+      
       fetchProfessors();
       fetchCareers();
     }
-  }, [isOpen, currentCycleId]);
+  }, [isOpen, currentCycleId, editGroupData]);
 
   // Fetch professors from database
   const fetchProfessors = async () => {
@@ -121,10 +139,10 @@ export default function AddGroupDialog({
       
       if (data.success && Array.isArray(data.data)) {
         if (data.data.length > 0) {
-          // Handle both PascalCase and camelCase property names
+          // Handle both PascalCase and camelCase property names with proper type checking
           const careerNames = Array.from(new Set(data.data.map((item: any) => 
-            item.NombreCarrera || item.nombrecarrera
-          ))).filter(Boolean);
+            (item.NombreCarrera || item.nombrecarrera) as string
+          ))).filter((name): name is string => typeof name === 'string');
           
           console.log("Formatted careers:", careerNames);
           
@@ -206,174 +224,178 @@ export default function AddGroupDialog({
     
     setIsLoading(true);
     try {
-      // Add the new group
+      // Add or update the group
       onAdd(newGroup);
-      toast.success("Grupo agregado correctamente");
+      toast.success(editGroupData ? "Grupo actualizado correctamente" : "Grupo agregado correctamente");
       onClose();
     } catch (error) {
-      console.error("Error adding group:", error);
-      toast.error("Error al agregar el grupo");
+      console.error(editGroupData ? "Error updating group:" : "Error adding group:", error);
+      toast.error(editGroupData ? "Error al actualizar el grupo" : "Error al agregar el grupo");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Agregar Nuevo Grupo</DialogTitle>
-        </DialogHeader>
-        
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-IdGrupo" className="text-right">ID Grupo</Label>
-            <Input
-              id="edit-IdGrupo"
-              type="number"
-              value={newGroup.IdGrupo}
-              onChange={(e) => setNewGroup({...newGroup, IdGrupo: parseInt(e.target.value) || 0})}
-              className="col-span-3"
-            />
+    <Dialog open={isOpen}>
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{editGroupData ? "Editar Grupo" : "Agregar Nuevo Grupo"}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-IdGrupo" className="text-right">ID Grupo</Label>
+              <Input
+                id="edit-IdGrupo"
+                type="number"
+                value={newGroup.IdGrupo}
+                onChange={(e) => setNewGroup({...newGroup, IdGrupo: parseInt(e.target.value) || 0})}
+                className="col-span-3"
+                readOnly={editGroupData !== null} // Make read-only when editing
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-MateriaNombre" className="text-right">Materia</Label>
+              <Select 
+                value={newGroup.MateriaNombre || ""} 
+                onValueChange={(value) => setNewGroup({...newGroup, MateriaNombre: value})}
+                disabled={subjectsLoading}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Seleccionar materia" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects && subjects.map((subject: any) => (
+                    <SelectItem key={subject.id} value={subject.name}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                  {(!subjects || subjects.length === 0) && (
+                    <SelectItem value="default">No hay materias disponibles</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-ProfesorNombre" className="text-right">Profesor</Label>
+              <Select 
+                value={newGroup.ProfesorNombre || ""} 
+                onValueChange={(value) => setNewGroup({...newGroup, ProfesorNombre: value})}
+                disabled={professorsLoading}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Seleccionar profesor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {professors && professors.map((prof) => (
+                    <SelectItem key={prof.id} value={prof.name}>
+                      {prof.name}
+                    </SelectItem>
+                  ))}
+                  {(!professors || professors.length === 0) && (
+                    <SelectItem value="default">No hay profesores disponibles</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-NombreCarrera" className="text-right">Carrera</Label>
+              <Select 
+                value={newGroup.NombreCarrera || ""} 
+                onValueChange={(value) => setNewGroup({...newGroup, NombreCarrera: value})}
+                disabled={careersLoading}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Seleccionar carrera" />
+                </SelectTrigger>
+                <SelectContent>
+                  {careers.map((career) => (
+                    <SelectItem key={career} value={career}>
+                      {career}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-Dia" className="text-right">Día</Label>
+              <Select 
+                value={newGroup.Dia} 
+                onValueChange={(value) => setNewGroup({...newGroup, Dia: value})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {days.map((day) => (
+                    <SelectItem key={day} value={day}>{day}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-HoraInicio" className="text-right">Hora Inicio</Label>
+              <Select 
+                value={newGroup.HoraInicio} 
+                onValueChange={(value) => setNewGroup({...newGroup, HoraInicio: value})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeSlots.map((time) => (
+                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-HoraFin" className="text-right">Hora Fin</Label>
+              <Select 
+                value={newGroup.HoraFin} 
+                onValueChange={(value) => setNewGroup({...newGroup, HoraFin: value})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeSlots.map((time) => (
+                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-Semestre" className="text-right">Semestre</Label>
+              <Select 
+                value={newGroup.Semestre?.toString() || '1'} 
+                onValueChange={(value) => setNewGroup({...newGroup, Semestre: parseInt(value)})}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1,2,3,4,5,6,7,8].map((sem) => (
+                    <SelectItem key={sem} value={sem.toString()}>{`Semestre ${sem}`}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-MateriaNombre" className="text-right">Materia</Label>
-            <Select 
-              value={newGroup.MateriaNombre || ""} 
-              onValueChange={(value) => setNewGroup({...newGroup, MateriaNombre: value})}
-              disabled={subjectsLoading}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Seleccionar materia" />
-              </SelectTrigger>
-              <SelectContent>
-                {subjects && subjects.map((subject: any) => (
-                  <SelectItem key={subject.id} value={subject.name}>
-                    {subject.name}
-                  </SelectItem>
-                ))}
-                {(!subjects || subjects.length === 0) && (
-                  <SelectItem value="default">No hay materias disponibles</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-ProfesorNombre" className="text-right">Profesor</Label>
-            <Select 
-              value={newGroup.ProfesorNombre || ""} 
-              onValueChange={(value) => setNewGroup({...newGroup, ProfesorNombre: value})}
-              disabled={professorsLoading}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Seleccionar profesor" />
-              </SelectTrigger>
-              <SelectContent>
-                {professors && professors.map((prof) => (
-                  <SelectItem key={prof.id} value={prof.name}>
-                    {prof.name}
-                  </SelectItem>
-                ))}
-                {(!professors || professors.length === 0) && (
-                  <SelectItem value="default">No hay profesores disponibles</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-NombreCarrera" className="text-right">Carrera</Label>
-            <Select 
-              value={newGroup.NombreCarrera || ""} 
-              onValueChange={(value) => setNewGroup({...newGroup, NombreCarrera: value})}
-              disabled={careersLoading}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Seleccionar carrera" />
-              </SelectTrigger>
-              <SelectContent>
-                {careers.map((career) => (
-                  <SelectItem key={career} value={career}>
-                    {career}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-Dia" className="text-right">Día</Label>
-            <Select 
-              value={newGroup.Dia} 
-              onValueChange={(value) => setNewGroup({...newGroup, Dia: value})}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {days.map((day) => (
-                  <SelectItem key={day} value={day}>{day}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-HoraInicio" className="text-right">Hora Inicio</Label>
-            <Select 
-              value={newGroup.HoraInicio} 
-              onValueChange={(value) => setNewGroup({...newGroup, HoraInicio: value})}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {timeSlots.map((time) => (
-                  <SelectItem key={time} value={time}>{time}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-HoraFin" className="text-right">Hora Fin</Label>
-            <Select 
-              value={newGroup.HoraFin} 
-              onValueChange={(value) => setNewGroup({...newGroup, HoraFin: value})}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {timeSlots.map((time) => (
-                  <SelectItem key={time} value={time}>{time}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="edit-Semestre" className="text-right">Semestre</Label>
-            <Select 
-              value={newGroup.Semestre?.toString() || '1'} 
-              onValueChange={(value) => setNewGroup({...newGroup, Semestre: parseInt(value)})}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1,2,3,4,5,6,7,8].map((sem) => (
-                  <SelectItem key={sem} value={sem.toString()}>{`Semestre ${sem}`}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button onClick={handleAdd} disabled={isLoading}>
-            {isLoading ? "Agregando..." : "Agregar Grupo"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAdd} disabled={isLoading}>
+              {isLoading ? (editGroupData ? "Actualizando..." : "Agregando...") : (editGroupData ? "Actualizar" : "Agregar")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </DialogPortal>
     </Dialog>
   );
 }
