@@ -4,9 +4,6 @@ import React, { useState, useEffect } from 'react';
 import GroupInfoDialog from '@/components/GroupInfoDialog';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { X, Lock, Plus, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
