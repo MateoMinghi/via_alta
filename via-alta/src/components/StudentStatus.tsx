@@ -163,8 +163,10 @@ export default function StudentStatus({ students }: StudentStatusProps) {
 
   return (
     <div className="w-full mx-auto">
-      <Tabs defaultValue="table" value={viewMode} onValueChange={setViewMode} className="w-full mb-4">
-        <TabsList className="grid w-[200px] grid-cols-2 mb-4">
+    <Tabs defaultValue="table" value={viewMode} onValueChange={setViewMode} className="w-full mb-4">
+      <div className="flex justify-between items-center mb-4">
+        {/* Grupo de tabs */}
+        <TabsList className="flex gap-2">
           <TabsTrigger value="table" className="flex items-center gap-2">
             <List className="h-4 w-4" />
             <span>Lista</span>
@@ -174,6 +176,13 @@ export default function StudentStatus({ students }: StudentStatusProps) {
             <span>Bloques</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Botón separado */}
+        <Button variant="secondary" className="bg-red-700 text-white">
+          Confirmar inscripciones
+        </Button>
+      </div>
+
         
         <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
           <div className="relative flex-1">

@@ -171,10 +171,10 @@ export default function HorarioGeneralPage() {
     fetchSchedule();
   }, []);
   
-  // Generate schedule handler
+  // Generar controlador de horario
   const handleGenerateSchedule = async () => {
     setIsLoading(true);
-    setSchedule([]); // Clear current schedule to force UI update
+    setSchedule([]); // Borrar la programación actual para forzar la actualización de la interfaz de usuario
     try {
       console.log('Generating schedule...');
       const res = await fetch('/api/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
@@ -182,13 +182,13 @@ export default function HorarioGeneralPage() {
       console.log('Generation response:', data);
       
       if (data.success) {
-        // After generating, fetch the new schedule (with cache-busting param)
+        // Después de generar, obtenga la nueva programación (con parámetro de eliminación de caché)
         console.log('Fetching updated schedule...');
         const res2 = await fetch(`/api/schedule?ts=${Date.now()}`);
         const data2 = await res2.json();
         console.log('Updated schedule data:', data2);
         
-        // Always update the state, even if data is the same
+        // Actualizar siempre el estado, incluso si los datos son los mismos
         setSchedule(data2.success ? data2.data.map(mapRawScheduleItem) : []);
         if (data2.success) {
           toast.success('Horario general generado correctamente');
@@ -207,21 +207,21 @@ export default function HorarioGeneralPage() {
     }
   };
 
-  // Helper to convert HH:MM to minutes
+  // Ayuda para convertir HH:MM a minutos
   const timeToMinutes = (time: string | undefined | null): number => {
     if (!time) return 0;
     const [h, m] = time.split(":").map(Number);
     return h * 60 + m;
   };
 
-  // Helper to get time string from minutes
+  // Ayudante para obtener la cadena de tiempo en minutos
   const minutesToTime = (minutes: number): string => {
     const h = Math.floor(minutes / 60).toString().padStart(2, '0');
     const m = (minutes % 60).toString().padStart(2, '0');
     return `${h}:${m}`;
   };
   
-  // Normalizes day names
+  // Normaliza los nombres de los días
   function normalizeDay(day: string): string {
     switch (day.toLowerCase()) {
       case 'monday':
@@ -250,11 +250,11 @@ export default function HorarioGeneralPage() {
     }
   }
 
-  // Create a matrix representation of the schedule
+  // Crear una representación matricial del cronograma
   const scheduleMatrix = React.useMemo(() => {
     const matrix: { [time: string]: { [day: string]: GeneralScheduleItem[] } } = {};
     
-    // Initialize empty matrix
+    // Inicializar matriz vacía
     timeSlots.forEach(time => {
       matrix[time] = {};
       daysOfWeek.forEach(day => {
@@ -262,13 +262,13 @@ export default function HorarioGeneralPage() {
       });
     });
     
-    // Fill with schedule items
+    // Rellenar con elementos del cronograma
     filteredSchedule.forEach(item => {
       const normalizedDay = normalizeDay(item.Dia);
       const startTime = timeToMinutes(item.HoraInicio);
       const endTime = timeToMinutes(item.HoraFin);
       
-      // Add item to each time slot it spans
+      // Agrega un elemento a cada intervalo de tiempo que abarca
       timeSlots.forEach(slot => {
         const slotTime = timeToMinutes(slot);
         if (slotTime >= startTime && slotTime < endTime) {
@@ -282,11 +282,11 @@ export default function HorarioGeneralPage() {
     return matrix;
   }, [filteredSchedule]);
 
-  // Cell component to display items at a specific day and time
+  // Componente de celda para mostrar elementos en un día y hora específicos
   const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time]?.[day] || [];
     
-    // Add drop target functionality
+    // Añadir funcionalidad de destino de colocación
     const [{ isOver, canDrop }, drop] = useDrop(() => ({
       accept: ItemTypes.SCHEDULE_ITEM,
       drop: (item: { id: number }) => {
@@ -332,13 +332,13 @@ export default function HorarioGeneralPage() {
     );
   };
 
-  // Handle drop: update item's day and start/end time (UI only)
+  // Manejar gota: actualizar el día del elemento y la hora de inicio/finalización (solo UI)
   const handleDropItem = (itemId: number, newDay: string, newTime: string) => {
-    // Find the item we're updating
+    // Encontrar el item que estamos actualizando
     const itemToUpdate = schedule.find(item => item.IdGrupo === itemId);
     if (!itemToUpdate) return;
     
-    // Calculate duration in minutes
+    // Calculo de dutación en minutos
     const duration = timeToMinutes(itemToUpdate.HoraFin) - timeToMinutes(itemToUpdate.HoraInicio);
     const newStart = timeToMinutes(newTime);
     const newEnd = newStart + duration;
