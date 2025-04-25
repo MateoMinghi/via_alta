@@ -1,4 +1,5 @@
-'use client'
+'use client';
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -18,14 +19,9 @@ interface Subject {
   professor: string;                     // Profesor que la imparte
   credits: number;                       // Créditos que vale la materia
   semester: number;                      // Semestre al que pertenece
-  hours: { 
-    day: string; 
-    time: string;
-    timeStart?: string;    // Hora de inicio en formato HH:MM
-    timeEnd?: string;      // Hora de finalización en formato HH:MM
-  }[];                                   // Horarios de la materia (día y hora)
+  hours: { day: string; time: string }[];// Horarios de la materia (día y hora)
   isObligatory?: boolean;                // Indica si es obligatoria
-  isRecommended?: boolean;               // Indica si es recomendada basado en historial académico
+  isRecommended?: boolean;               // Indica si es recomendada basado en histo prial académico
 }
 
 /**
@@ -34,7 +30,6 @@ interface Subject {
 interface SubjectsProps {
   subjects: Subject[];                   // Lista de materias disponibles
   isRegular?: boolean;                   // Indica si el estudiante es regular
-  recommendedCourses?: string[];         // Nombres de materias recomendadas
 }
 
 /**
@@ -64,7 +59,7 @@ const timeSlots = [
   '14:30', '15:00', '15:30', '16:00'
 ];  
 
-export default function EstudianteSchedule({ subjects, isRegular = false, recommendedCourses = [] }: SubjectsProps) {
+export default function EstudianteSchedule({ subjects, isRegular = false }: SubjectsProps) {
   // Estados para manejar los diferentes tipos de materias
   const [obligatorySubjects, setObligatorySubjects] = useState<Subject[]>([]); // Materias obligatorias
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);   // Materias disponibles para elegir
@@ -128,30 +123,34 @@ export default function EstudianteSchedule({ subjects, isRegular = false, recomm
   };
 
   /**
+   * Encuentra una materia programada en un día y hora específicos
+   */
+  const findSubject = (day: string, time: string) => {
+    return scheduledSubjects.find((subject) => subject.hours.some(
+      (hour) => hour.day.toLowerCase() === day.toLowerCase() && hour.time === time,
+    ));
+  };
+
+  /**
    * Normaliza los nombres de los días para manejar diferentes formatos
    */
   function normalizeDay(day: string): string {
     switch (day.toLowerCase()) {
       case 'monday':
       case 'lun':
-      case 'lunes': 
+      case 'lun': 
         return 'Lunes';
       case 'tuesday':
       case 'mar':
-      case 'martes':
         return 'Martes';
       case 'wednesday':
       case 'mié':
-      case 'miércoles':
-      case 'miercoles':
         return 'Miércoles';
       case 'thursday':
       case 'jue':
-      case 'jueves':
         return 'Jueves';
       case 'friday':
       case 'vie':
-      case 'viernes':
         return 'Viernes';    
       default:
         return day;
@@ -162,9 +161,8 @@ export default function EstudianteSchedule({ subjects, isRegular = false, recomm
    * Convierte una hora en formato HH:MM a minutos para cálculos
    */
   function timeToMinutes(time: string): number {
-    if (!time) return 0;
     const [h, m] = time.split(':').map(Number);
-    return h * 60 + (isNaN(m) ? 0 : m);
+    return h * 60 + m;
   }
   
   /**
@@ -174,26 +172,6 @@ export default function EstudianteSchedule({ subjects, isRegular = false, recomm
     const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
     const mm = String(minutes % 60).padStart(2, '0');
     return `${hh}:${mm}`;
-  }
-  
-  /**
-   * Calcula la hora de finalización basada en la hora de inicio
-   * Si la hora de finalización está presente en los datos, la usa
-   * Si no, asume una clase de 1 hora de duración
-   */
-  function calculateEndTime(hour: { day: string; time: string; timeStart?: string; timeEnd?: string }): string {
-    // Si ya tiene hora de finalización explícita, la usamos
-    if (hour.timeEnd) return hour.timeEnd;
-    
-    // Si tiene hora de inicio pero no de fin, calculamos hora de fin (1 hora después del inicio)
-    const startTimeStr = hour.timeStart || hour.time.split(' - ')[0] || hour.time;
-    if (startTimeStr) {
-      const startMinutes = timeToMinutes(startTimeStr);
-      const endMinutes = startMinutes + 60; // Duración estándar de 1 hora
-      return minutesToTime(endMinutes);
-    }
-    
-    return ''; // Si no hay información de hora
   }
 
   /**
@@ -216,43 +194,16 @@ export default function EstudianteSchedule({ subjects, isRegular = false, recomm
     scheduledSubjects.forEach(subject => {
       if (!subject?.hours) return;
       subject.hours.forEach(hour => {
-        if (!hour?.day) return;
-        
-        // Obtener la hora de inicio (prioriza timeStart si existe)
-        const timeStart = hour.timeStart || (hour.time.includes('-') ? hour.time.split('-')[0].trim() : hour.time);
-        if (!timeStart) return;
-        
-        // Normalizar el día a un formato estándar
+        if (!hour?.time || !hour.day) return;
         const normalizedDay = normalizeDay(hour.day);
-        
-        // Calcular el tiempo de inicio y fin en minutos
-        const start = timeToMinutes(timeStart);
-        
-        // Usar timeEnd si existe, o extraer del formato "HH:MM - HH:MM", o calcular una hora después del inicio
-        let endTime = hour.timeEnd;
-        if (!endTime && hour.time.includes('-')) {
-          endTime = hour.time.split('-')[1].trim();
-        }
-        if (!endTime) {
-          endTime = calculateEndTime(hour);
-        }
-        
-        const end = timeToMinutes(endTime);
-        
-        // Verificar que los tiempos sean válidos
-        if (isNaN(start) || isNaN(end) || end <= start) {
-          console.warn(`Invalid time range for subject ${subject.title}: ${timeStart} - ${endTime}`);
-          return;
-        }
+        const start = timeToMinutes(hour.time);
+        const end = start + 60; // Duración de una clase (1 hora)
   
         // Agregar la materia a cada slot de 30 minutos que ocupa
         for (let t = start; t < end; t += 30) {
           const slot = minutesToTime(t);
           if (matrix[slot]?.[normalizedDay]) {
-            // Verificar si ya existe esta materia en este slot para evitar duplicados
-            if (!matrix[slot][normalizedDay].some(s => s.id === subject.id)) {
-              matrix[slot][normalizedDay].push(subject);
-            }
+            matrix[slot][normalizedDay].push(subject);
           }
         }
       });
@@ -285,12 +236,7 @@ export default function EstudianteSchedule({ subjects, isRegular = false, recomm
           ...s,
           hours: s.hours.map(hour =>
             (hour.day.toLowerCase() === occurrence.day.toLowerCase() && hour.time === occurrence.time)
-              ? { 
-                day: toDay, 
-                time: toTime,
-                timeStart: toTime,
-                timeEnd: minutesToTime(timeToMinutes(toTime) + 60) // Añadir 1 hora al tiempo de inicio
-              }
+              ? { day: toDay, time: toTime }
               : hour
           )
         };
@@ -572,14 +518,10 @@ export default function EstudianteSchedule({ subjects, isRegular = false, recomm
           <div className="flex flex-wrap gap-1">
             {subject.hours.map((hour, index) => (
               <span 
-                key={`${hour.day}-${hour.time}-${index}`} 
+                key={`${hour.day}-${hour.time}`} 
                 className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs"
               >
-                <span className="font-medium">{hour.day.substring(0, 3)}</span>&nbsp;&nbsp;
-                {hour.timeStart && hour.timeEnd ? 
-                  `${hour.timeStart} - ${hour.timeEnd}` : 
-                  hour.time.includes('-') ? hour.time : `${hour.time} - ${minutesToTime(timeToMinutes(hour.time) + 60)}`
-                }
+                <span className="font-medium">{hour.day.substring(0, 3)}</span>&nbsp;&nbsp;{hour.time}
               </span>
             ))}
           </div>
@@ -601,10 +543,6 @@ export default function EstudianteSchedule({ subjects, isRegular = false, recomm
     );
   };
 
-  /**
-   * Tarjeta para materias disponibles para seleccionar
-   * Se pueden arrastrar al horario o agregar con un clic
-   */
   const DraggableSubjectCard = ({ subject, onAdd }: DraggableSubjectCardProps) => {
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: 'available-subject',
@@ -679,14 +617,10 @@ export default function EstudianteSchedule({ subjects, isRegular = false, recomm
           <div className="flex flex-wrap gap-1">
             {subject.hours.map((hour, index) => (
               <span 
-                key={`${hour.day}-${hour.time}-${index}`} 
+                key={`${hour.day}-${hour.time}`} 
                 className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs"
               >
-                <span className="font-medium">{hour.day.substring(0, 3)}</span>&nbsp;&nbsp;
-                {hour.timeStart && hour.timeEnd ? 
-                  `${hour.timeStart} - ${hour.timeEnd}` : 
-                  hour.time.includes('-') ? hour.time : `${hour.time} - ${minutesToTime(timeToMinutes(hour.time) + 60)}`
-                }
+                <span className="font-medium">{hour.day.substring(0, 3)}</span>&nbsp;&nbsp;{hour.time}
               </span>
             ))}
           </div>
@@ -821,95 +755,97 @@ export default function EstudianteSchedule({ subjects, isRegular = false, recomm
           </div>
         )}
         {subjects.map((subject) => (
-          <DraggableSubjectCard key={subject.id} subject={subject} onAdd={handleSubjectSelect} />
+          <DraggableSubjectCard key={subject.id} subject={subject} onAdd={onAddSubject} />
         ))}
       </div>
     );
   };
 
-  // Estructura principal del componente de horario
-  return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
-        {/* Cuadrícula del horario semanal con horas */}
-        <div className="overflow-x-auto flex-1">
-          <div className="min-w-[800px]">
-            <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
-              {/* Encabezados con días de la semana */}
-              <div className="h-10" />
-              {daysOfWeek.map((day) => (
-                <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
-                  {day}
-                </div>
-              ))}
+// Estructura principal del componente de horario
+return (
+  <DndProvider backend={HTML5Backend}>
+    <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
+      {/* Cuadrícula del horario semanal con horas */}
+      <div className="overflow-x-auto flex-1">
+        <div className="min-w-[800px]">
+          <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
+            {/* Encabezados con días de la semana */}
+            <div className="h-10" />
+            {daysOfWeek.map((day) => (
+              <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
+                {day}
+              </div>
+            ))}
 
-              {/* Filas de horarios para cada franja horaria */}
-              {timeSlots.map((time) => (
-                <React.Fragment key={time}>
-                  {/* Columna de horas */}
-                  <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
-                    {time}
-                  </div>
-                  {/* Celdas para cada día en esa franja horaria */}
-                  {daysOfWeek.map((day) => (
-                    <Cell key={`${day}-${time}`} day={day} time={time} />
-                  ))}
-                </React.Fragment>
-              ))}
-            </div>
+            {/* Filas de horarios para cada franja horaria */}
+            {timeSlots.map((time) => (
+              <React.Fragment key={time}>
+                {/* Columna de horas */}
+                <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
+                  {time}
+                </div>
+                {/* Celdas para cada día en esa franja horaria */}
+                {daysOfWeek.map((day) => (
+                  <Cell key={`${day}-${time}`} day={day} time={time} />
+                ))}
+              </React.Fragment>
+            ))}
           </div>
         </div>
-
-        {/* Panel lateral con materias programadas y disponibles */}
-        <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
-          {/* Sección de materias en el horario actual */}
-          <p className="text-2xl font-bold mb-2">Lista de Materias</p>
-          <ScheduledSubjectsDropArea 
-            subjects={scheduledSubjects}
-            onAddSubject={handleSubjectSelect}
-          />
-          
-          {/* Sección de materias recomendadas basadas en historial académico */}
-          {!isRegular && isIrregularStudent && (
-            <div className="mt-6 mb-2">
-              <div className="flex items-center gap-2 mb-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                <p className="text-sm font-semibold">Materias Recomendadas</p>
-              </div>
-              <p className="text-xs text-gray-500 mb-2">Basadas en tu historial académico, te recomendamos estas materias para completar tu carga.</p>
-              <div className="space-y-2">
-                {availableSubjects
-                  .filter(subject => 
-                    subject.isRecommended && 
-                    !scheduledSubjects.some(s => s.id === subject.id)
-                  )
-                  .map(subject => (
-                    <DraggableSubjectCard
-                      key={subject.id}
-                      subject={{...subject, isObligatory: false}}
-                      onAdd={handleSubjectSelect}
-                    />
-                  ))
-                }
-              </div>
-            </div>
-          )}
-          
-          {/* Sección de materias opcionales disponibles */}
-          {!isRegular && isIrregularStudent && availableSubjects.filter(s => !s.isRecommended).length > 0 && (
-            <div className="mt-6 mb-4">
-              <p className="text-lg font-semibold mb-2">Materias Opcionales</p>
-              <AvailableSubjectsDropArea 
-                subjects={availableSubjects.filter(subject => 
-                  !subject.isRecommended && !scheduledSubjects.some(s => s.id === subject.id)
-                )}
-                onAddSubject={handleSubjectSelect}
-                onRemoveFromSchedule={removeScheduledSubject}
-              />
-            </div>
-          )}
-        </div>
       </div>
-    </DndProvider>
-  );
+
+      {/* Panel lateral con materias programadas y disponibles */}
+      <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
+        {/* Materias recomendadas primero */}
+        {!isRegular && isIrregularStudent && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <p className="text-sm font-semibold">Materias Recomendadas</p>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              Basadas en tu historial académico, te recomendamos estas materias para completar tu carga.
+            </p>
+            <div className="space-y-2">
+              {availableSubjects
+                .filter(subject => 
+                  subject.isRecommended && 
+                  !scheduledSubjects.some(s => s.id === subject.id)
+                )
+                .map(subject => (
+                  <DraggableSubjectCard
+                    key={subject.id}
+                    subject={{...subject, isObligatory: false}}
+                    onAdd={handleSubjectSelect}
+                  />
+                ))
+              }
+            </div>
+          </div>
+        )}
+
+        {/* Sección de materias opcionales después de recomendadas */}
+        {!isRegular && isIrregularStudent && availableSubjects.filter(s => !s.isRecommended).length > 0 && (
+          <div className="mb-6">
+            <p className="text-lg font-semibold mb-2">Materias Opcionales</p>
+            <AvailableSubjectsDropArea 
+              subjects={availableSubjects.filter(subject => 
+                !subject.isRecommended && !scheduledSubjects.some(s => s.id === subject.id)
+              )}
+              onAddSubject={handleSubjectSelect}
+              onRemoveFromSchedule={removeScheduledSubject}
+            />
+          </div>
+        )}
+
+        {/* Después las materias ya programadas */}
+        <p className="text-2xl font-bold mb-2">Lista de Materias</p>
+        <ScheduledSubjectsDropArea 
+          subjects={scheduledSubjects}
+          onAddSubject={handleSubjectSelect}
+        />
+      </div>
+    </div>
+  </DndProvider>
+);
 }
