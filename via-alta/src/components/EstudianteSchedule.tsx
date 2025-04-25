@@ -761,89 +761,91 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
     );
   };
 
-  // Estructura principal del componente de horario
-  return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
-        {/* Cuadrícula del horario semanal con horas */}
-        <div className="overflow-x-auto flex-1">
-          <div className="min-w-[800px]">
-            <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
-              {/* Encabezados con días de la semana */}
-              <div className="h-10" />
-              {daysOfWeek.map((day) => (
-                <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
-                  {day}
-                </div>
-              ))}
+// Estructura principal del componente de horario
+return (
+  <DndProvider backend={HTML5Backend}>
+    <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
+      {/* Cuadrícula del horario semanal con horas */}
+      <div className="overflow-x-auto flex-1">
+        <div className="min-w-[800px]">
+          <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
+            {/* Encabezados con días de la semana */}
+            <div className="h-10" />
+            {daysOfWeek.map((day) => (
+              <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
+                {day}
+              </div>
+            ))}
 
-              {/* Filas de horarios para cada franja horaria */}
-              {timeSlots.map((time) => (
-                <React.Fragment key={time}>
-                  {/* Columna de horas */}
-                  <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
-                    {time}
-                  </div>
-                  {/* Celdas para cada día en esa franja horaria */}
-                  {daysOfWeek.map((day) => (
-                    <Cell key={`${day}-${time}`} day={day} time={time} />
-                  ))}
-                </React.Fragment>
-              ))}
-            </div>
+            {/* Filas de horarios para cada franja horaria */}
+            {timeSlots.map((time) => (
+              <React.Fragment key={time}>
+                {/* Columna de horas */}
+                <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
+                  {time}
+                </div>
+                {/* Celdas para cada día en esa franja horaria */}
+                {daysOfWeek.map((day) => (
+                  <Cell key={`${day}-${time}`} day={day} time={time} />
+                ))}
+              </React.Fragment>
+            ))}
           </div>
         </div>
-
-        {/* Panel lateral con materias programadas y disponibles */}
-        <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
-          {/* Sección de materias en el horario actual */}
-          <p className="text-2xl font-bold mb-2">Lista de Materias</p>
-          <ScheduledSubjectsDropArea 
-            subjects={scheduledSubjects}
-            onAddSubject={handleSubjectSelect}
-          />
-          
-          {/* Sección de materias recomendadas basadas en historial académico */}
-          {!isRegular && isIrregularStudent && (
-            <div className="mt-6 mb-2">
-              <div className="flex items-center gap-2 mb-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                <p className="text-sm font-semibold">Materias Recomendadas</p>
-              </div>
-              <p className="text-xs text-gray-500 mb-2">Basadas en tu historial académico, te recomendamos estas materias para completar tu carga.</p>
-              <div className="space-y-2">
-                {availableSubjects
-                  .filter(subject => 
-                    subject.isRecommended && 
-                    !scheduledSubjects.some(s => s.id === subject.id)
-                  )
-                  .map(subject => (
-                    <DraggableSubjectCard
-                      key={subject.id}
-                      subject={{...subject, isObligatory: false}}
-                      onAdd={handleSubjectSelect}
-                    />
-                  ))
-                }
-              </div>
-            </div>
-          )}
-          
-          {/* Sección de materias opcionales disponibles */}
-          {!isRegular && isIrregularStudent && availableSubjects.filter(s => !s.isRecommended).length > 0 && (
-            <div className="mt-6 mb-4">
-              <p className="text-lg font-semibold mb-2">Materias Opcionales</p>
-              <AvailableSubjectsDropArea 
-                subjects={availableSubjects.filter(subject => 
-                  !subject.isRecommended && !scheduledSubjects.some(s => s.id === subject.id)
-                )}
-                onAddSubject={handleSubjectSelect}
-                onRemoveFromSchedule={removeScheduledSubject}
-              />
-            </div>
-          )}
-        </div>
       </div>
-    </DndProvider>
-  );
+
+      {/* Panel lateral con materias programadas y disponibles */}
+      <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
+        {/* Materias recomendadas primero */}
+        {!isRegular && isIrregularStudent && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <p className="text-sm font-semibold">Materias Recomendadas</p>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              Basadas en tu historial académico, te recomendamos estas materias para completar tu carga.
+            </p>
+            <div className="space-y-2">
+              {availableSubjects
+                .filter(subject => 
+                  subject.isRecommended && 
+                  !scheduledSubjects.some(s => s.id === subject.id)
+                )
+                .map(subject => (
+                  <DraggableSubjectCard
+                    key={subject.id}
+                    subject={{...subject, isObligatory: false}}
+                    onAdd={handleSubjectSelect}
+                  />
+                ))
+              }
+            </div>
+          </div>
+        )}
+
+        {/* Sección de materias opcionales después de recomendadas */}
+        {!isRegular && isIrregularStudent && availableSubjects.filter(s => !s.isRecommended).length > 0 && (
+          <div className="mb-6">
+            <p className="text-lg font-semibold mb-2">Materias Opcionales</p>
+            <AvailableSubjectsDropArea 
+              subjects={availableSubjects.filter(subject => 
+                !subject.isRecommended && !scheduledSubjects.some(s => s.id === subject.id)
+              )}
+              onAddSubject={handleSubjectSelect}
+              onRemoveFromSchedule={removeScheduledSubject}
+            />
+          </div>
+        )}
+
+        {/* Después las materias ya programadas */}
+        <p className="text-2xl font-bold mb-2">Lista de Materias</p>
+        <ScheduledSubjectsDropArea 
+          subjects={scheduledSubjects}
+          onAddSubject={handleSubjectSelect}
+        />
+      </div>
+    </div>
+  </DndProvider>
+);
 }
