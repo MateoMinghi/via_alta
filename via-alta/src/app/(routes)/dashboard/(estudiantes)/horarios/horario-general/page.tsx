@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import GroupInfoDialog from '@/components/GroupInfoDialog';
+import AddGroupDialog from '@/components/AddGroupDialog';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Button } from '@/components/ui/button';
@@ -135,6 +136,7 @@ export default function HorarioGeneralPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [addGroupDialogOpen, setAddGroupDialogOpen] = useState(false);
   
   const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
   const [selectedMajor, setSelectedMajor] = useState<string>('All');
@@ -380,6 +382,13 @@ export default function HorarioGeneralPage() {
     }
   };
 
+  // Function to add a new group to the schedule
+  const handleAddGroup = (newGroup: GeneralScheduleItem) => {
+    // Add new group to the current schedule
+    setSchedule([...schedule, newGroup]);
+    toast.info('Nuevo grupo añadido. Haga clic en "Guardar Horario" para persistir los cambios.');
+  };
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="w-full pb-8 flex flex-col gap-4">
@@ -410,8 +419,16 @@ export default function HorarioGeneralPage() {
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
-            </div>          </div>
+            </div>          
+          </div>
           <div className="flex gap-3">
+            <button
+              onClick={() => setAddGroupDialogOpen(true)}
+              className="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-600 disabled:opacity-50"
+              disabled={isLoading}
+            >
+              Agregar Grupo
+            </button>
             <button
               onClick={handleSaveSchedule}
               className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
@@ -459,6 +476,14 @@ export default function HorarioGeneralPage() {
             </div>
           </div>
         </div>
+        
+        {/* Dialog para añadir un nuevo grupo */}
+        <AddGroupDialog 
+          isOpen={addGroupDialogOpen}
+          onClose={() => setAddGroupDialogOpen(false)}
+          onAdd={handleAddGroup}
+          currentCycleId={schedule.length > 0 ? schedule[0].IdHorarioGeneral : 1}
+        />
         
         {/* Dialog para mostrar información de grupo cuando se hace clic */}
         <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
