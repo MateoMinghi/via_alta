@@ -14,6 +14,7 @@ import EstudianteStatusBanner from '../EstudianteStatusBanner';
 import EstudianteHeader from '../EstudianteHeader';
 import { useGetStudentAcademicHistory } from '@/api/useGetStudentAcademicHistory';
 
+
 /**
  * Interfaz que define la estructura de una materia en el horario
  * Representa una materia con sus datos principales y horarios
@@ -244,7 +245,7 @@ export default function Estudiante() {
         const effectiveStudentId = updatedUser.ivd_id?.toString() || updatedUser.id?.toString();
         
         // Llamamos a la API para confirmar el horario
-        const result = await confirmSchedule(scheduleData, true);
+        const result = await confirmSchedule(scheduleData);
         
         if (result?.success) {
           if (result.testMode) {
@@ -350,6 +351,13 @@ export default function Estudiante() {
           <p className="text-gray-700 mt-2">
             A continuación se muestra el horario propuesto para tu semestre. Por favor, revísalo cuidadosamente y confírmalo si estás de acuerdo. Si requieres cambios, utiliza la opción "Solicitar Cambios"
           </p>
+          <p className="flex items-center gap-1 text-gray-700 mt-2">
+            Se recomienda que agregues alguna de las materias recomendadas a tu horario, ya que son importantes para tu formación académica.
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 flex-shrink-0">
+              <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </p>
+
         </div>
 
         {/* Horario del estudiante o mensaje si no hay materias */}

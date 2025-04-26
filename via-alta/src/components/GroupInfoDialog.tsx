@@ -1,26 +1,19 @@
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Clock, User, School, MapPin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Pencil, Trash2 } from 'lucide-react';
+import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 
 interface GroupInfoDialogProps {
   open: boolean;
   onClose: () => void;
-  group: {
-    IdGrupo: number;
-    MateriaNombre?: string;
-    ProfesorNombre?: string;
-    NombreCarrera?: string;
-    Semestre?: number;
-    Dia?: string;
-    HoraInicio?: string;
-    HoraFin?: string;
-    IdHorarioGeneral?: number;
-    salon?: string;
-    credits?: number;
-  } | null;
+  group: GeneralScheduleItem | null;
+  onEdit?: (group: GeneralScheduleItem) => void;
+  onDelete?: (group: GeneralScheduleItem) => void;
 }
 
-const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group }) => {
+const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group, onEdit, onDelete }) => {
   if (!group) return null;
   
   // Get a color for the header based on the first letter of the subject name
@@ -34,6 +27,22 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group 
   const colorIndex = (firstLetter.charCodeAt(0) - 65) % colorOptions.length;
   const headerColor = colorOptions[colorIndex >= 0 ? colorIndex : 0];
   
+
+
+  const handleEdit = () => {
+    if (onEdit && group) {
+      onEdit(group);
+      onClose();
+    }
+  };
+
+  const handleDelete = () => {
+    if (onDelete && group) {
+      onDelete(group);
+      onClose();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="p-0 overflow-hidden max-w-md">
@@ -131,6 +140,27 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group 
             {/* Eliminado el campo de ID Horario */}
           </div>
         </div>    
+        <DialogFooter className="mt-6 flex justify-between sm:justify-end gap-2">
+          {onEdit && (
+            <Button 
+              onClick={handleEdit}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <Pencil size={16} />
+              Editar
+            </Button>
+          )}
+          {onDelete && (
+            <Button 
+              onClick={handleDelete} 
+              variant="destructive"
+              className="flex items-center gap-2"
+            >
+              <Trash2 size={16} />
+              Eliminar
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

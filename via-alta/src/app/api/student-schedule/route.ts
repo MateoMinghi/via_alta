@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import pool from '@/config/database';
+import Schedule from '@/lib/models/schedule';
+import Student from '@/lib/models/student'; // Assuming you have a Student model
 
 // Configuracion de la API
 const API_BASE_URL = process.env.API_BASE_URL;
@@ -111,23 +113,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Use effectiveStudentId for all database operations
-    const studentScheduleQuery = `
-      SELECT h.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon
-      FROM Horario h
-      JOIN Grupo g ON h.idGrupo = g.IdGrupo
-      LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
-      LEFT JOIN Profesor p ON g.IdProfesor = p.IdProfesor
-      LEFT JOIN salon s ON g.IdSalon = s.idsalon
-      WHERE h.idAlumno = $1
-    `;
-    const studentScheduleResult = await pool.query(studentScheduleQuery, [effectiveStudentId]);
+    // Usar el modelo Schedule para obtener el horario del estudiante
+    const studentScheduleResult = await Schedule.findDetailedStudentSchedule(effectiveStudentId);
     
-    if (studentScheduleResult.rows.length > 0) {
+    if (studentScheduleResult.length > 0) {
       // Si el estudiante tiene un horario individual, devolverlo
       return NextResponse.json({ 
         success: true, 
-        data: studentScheduleResult.rows,
+        data: studentScheduleResult,
         isIndividual: true
       });
     }
@@ -135,29 +128,18 @@ export async function GET(request: NextRequest) {
     // Si no hay horario individual, obtener el horario general
     console.log('Fetching schedule for student:', effectiveStudentId, 'semester:', semester);
 
-    const generalScheduleQuery = `
-      SELECT hg.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon
-      FROM HorarioGeneral hg
-      JOIN Grupo g ON hg.IdGrupo = g.IdGrupo
-      LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
-      LEFT JOIN Profesor p ON g.IdProfesor = p.IdProfesor
-      LEFT JOIN salon s ON g.IdSalon = s.idsalon
-      WHERE g.Semestre = $1
-      ORDER BY hg.Dia, hg.HoraInicio
-    `;
+    // Usar el modelo Schedule para obtener el horario general
+    const generalScheduleResult = await Schedule.findGeneralScheduleBySemester(semester);
     
-    console.log('Running query with semester:', semester);
-    const generalScheduleResult = await pool.query(generalScheduleQuery, [semester]);
+    console.log('Query result rows:', generalScheduleResult.length);
     
-    console.log('Query result rows:', generalScheduleResult.rows.length);
-    
-    if (generalScheduleResult.rows.length > 0) {
-      console.log('Sample data:', generalScheduleResult.rows[0]);
+    if (generalScheduleResult.length > 0) {
+      console.log('Sample data:', generalScheduleResult[0]);
     }
 
     return NextResponse.json({ 
       success: true, 
-      data: generalScheduleResult.rows,
+      data: generalScheduleResult,
       isIndividual: false
     });
   } catch (error) {
@@ -172,7 +154,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { studentId, schedule, testMode } = await request.json();
+    const { studentId, schedule } = await request.json();
     
     if (!studentId || !schedule || !Array.isArray(schedule)) {
       return NextResponse.json({ 
@@ -181,81 +163,85 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    console.log(`Starting schedule confirmation for student: ${studentId}`);
-    console.log(`Schedule items count: ${schedule.length}, Test mode: ${testMode ? 'enabled' : 'disabled'}`);
+    console.log('[SCHEDULE CONFIRMATION] Beginning process for student ID:', studentId);
+    console.log(`[SCHEDULE CONFIRMATION] Schedule items count: ${schedule.length}`);
     
-    const client = await pool.connect();
-    console.log('Database connection established');
+    const client = await Schedule.getClient();
+    console.log('[SCHEDULE CONFIRMATION] Database connection established');
     
     try {
       await client.query('BEGIN');
-      console.log('Transaction started');
+      console.log('[SCHEDULE CONFIRMATION] Transaction started');
       
       // Primero, verificamos si el estudiante existe en la tabla Alumno
-      const checkStudentQuery = 'SELECT * FROM Alumno WHERE IdAlumno = $1';
-      const studentExists = await client.query(checkStudentQuery, [studentId]);
-      console.log(`Student check complete: ${studentExists.rows.length > 0 ? 'exists' : 'does not exist'} in Alumno table`);
+      const studentExists = await Student.checkExists(studentId);
       
-      // Si no existe, lo creamos
-      if (studentExists.rows.length === 0) {
-        console.log(`Creating new student record in Alumno table for ID: ${studentId}`);
-        await client.query('INSERT INTO Alumno (IdAlumno, Confirmacion) VALUES ($1, FALSE)', [studentId]);
-        console.log('Student record created successfully');
-      }
-      
-      // Borrar el horario existente del estudiante
-      const deleteResult = await client.query('DELETE FROM Horario WHERE idAlumno = $1', [studentId]);
-      console.log(`Deleted ${deleteResult.rowCount} existing schedule items for student: ${studentId}`);
-      
-      // Insertar el nuevo horario
-      const currentDate = new Date();
-      let insertedCount = 0;
-      for (const item of schedule) {
-        // Handle case sensitivity in property names
-        const idGrupo = item.IdGrupo || item.idgrupo;
+      if (studentExists) {
+        console.log(`[SCHEDULE CONFIRMATION] Student ${studentId} found in database`);
+      } else {
+        console.log(`[SCHEDULE CONFIRMATION] Student ${studentId} not found, creating new record`);
         
-        if (!idGrupo) {
-          console.warn('Skipping item without group ID:', item);
-          continue;
+        // Si no existe, lo creamos y esperamos a que la inserción se complete
+        await Student.createWithStatus(studentId, false);
+        console.log(`[SCHEDULE CONFIRMATION] Created new student record for ID: ${studentId}`);
+        
+        // Verificar que el estudiante se creó correctamente
+        const verifyStudent = await Student.checkExists(studentId);
+        
+        if (!verifyStudent) {
+          console.error(`[SCHEDULE CONFIRMATION] Failed to create student record for ID: ${studentId}`);
+          throw new Error(`Failed to create student record for ID: ${studentId}`);
         }
         
-        const query = `
-          INSERT INTO Horario (fecha, idGrupo, idAlumno)
-          VALUES ($1, $2, $3)
-        `;
-        await client.query(query, [currentDate, idGrupo, studentId]);
-        insertedCount++;
+        console.log(`[SCHEDULE CONFIRMATION] Verified student record was created for ID: ${studentId}`);
       }
-      console.log(`Successfully inserted ${insertedCount} schedule items for student: ${studentId}`);
       
-      // If in test mode, don't update confirmation status
-      if (!testMode) {
-        await client.query('UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1', [studentId]);
-        console.log(`Student ${studentId} confirmation status updated to TRUE`);
+      // Borrar horarios existentes para el estudiante
+      const deletedCount = await Schedule.deleteStudentSchedule(studentId);
+      console.log(`[SCHEDULE CONFIRMATION] Deleted ${deletedCount} existing schedule items for student: ${studentId}`);
+      
+      // Extraer los IDs de grupo del horario
+      const groupIds = schedule.map(item => item.IdGrupo || item.idgrupo).filter(Boolean);
+      console.log(`[SCHEDULE CONFIRMATION] Extracted ${groupIds.length} valid group IDs for insertion`);
+      
+      // Insertar nuevos horarios
+      let insertedCount = 0;
+      const currentDate = new Date();
+      
+      if (groupIds.length > 0) {
+        for (const groupId of groupIds) {
+          console.log(`[SCHEDULE CONFIRMATION] Inserting schedule for group ID ${groupId} and student ${studentId}`);
+          await Schedule.addScheduleEntry(studentId, groupId, currentDate);
+          insertedCount++;
+        }
+        console.log(`[SCHEDULE CONFIRMATION] Successfully inserted ${insertedCount} schedule items`);
       } else {
-        console.log(`Test mode active: Not updating confirmation status for student: ${studentId}`);
+        console.warn(`[SCHEDULE CONFIRMATION] No valid group IDs to insert for student: ${studentId}`);
       }
+      
+      // Siempre confirmamos el horario del estudiante
+      await Student.confirmSchedule(studentId);
+      console.log(`[SCHEDULE CONFIRMATION] Updated confirmation status to TRUE for student: ${studentId}`);
       
       // Terminar la transacción
       await client.query('COMMIT');
-      console.log('Transaction committed successfully');
+      console.log('[SCHEDULE CONFIRMATION] Transaction committed successfully');
       
       return NextResponse.json({ 
         success: true, 
-        message: testMode ? 'Schedule saved in test mode' : 'Schedule confirmed successfully',
-        testMode,
+        message: 'Schedule confirmed successfully',
         itemsProcessed: insertedCount
       });
     } catch (error) {
       await client.query('ROLLBACK');
-      console.error('Transaction error:', error);
+      console.error('[SCHEDULE CONFIRMATION] Transaction error:', error);
       throw error;
     } finally {
       client.release();
-      console.log('Database connection released');
+      console.log('[SCHEDULE CONFIRMATION] Database connection released');
     }
   } catch (error) {
-    console.error('Error saving student schedule:', error);
+    console.error('[SCHEDULE CONFIRMATION] Error saving student schedule:', error);
     return NextResponse.json({ 
       success: false, 
       message: 'Error saving schedule',
