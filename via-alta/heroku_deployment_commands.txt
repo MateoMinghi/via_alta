@@ -1,0 +1,5 @@
+heroku git:remote -a ivd-inscripciones-ceams
+git push heroku develop:main
+
+## commands for reseting the db
+./reset_heroku_db.sh
