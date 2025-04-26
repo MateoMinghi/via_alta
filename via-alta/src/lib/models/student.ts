@@ -93,7 +93,3 @@ class Student {
 }
 
 export default Student;
-export function confirmAllSchedules() {
-  throw new Error('Function not implemented.');
-}
-
