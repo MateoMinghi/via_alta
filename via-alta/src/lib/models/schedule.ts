@@ -154,6 +154,24 @@ class Schedule {
     const result = await pool.query(query, [id]);
     return result.rows[0] as ScheduleData;
   }
+
+  // Método para eliminar todos los horarios de un estudiante
+  static async deleteStudentSchedule(studentId: string) {
+    const query = 'DELETE FROM Horario WHERE idAlumno = $1';
+    const result = await pool.query(query, [studentId]);
+    return result.rowCount;
+  }
+
+  // Método para eliminar horarios por ID de grupo
+  static async addScheduleEntry(studentId: string, groupId: string | number, date: Date = new Date()) {
+    const query = 'INSERT INTO Horario (fecha, idGrupo, idAlumno) VALUES ($1, $2, $3) RETURNING *';
+    const result = await pool.query(query, [date, groupId, studentId]);
+    return result.rows[0];
+  }
+
+  static async getClient() {
+    return await pool.connect();
+  }
 }
 
 export default Schedule;

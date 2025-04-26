@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
     console.log('[SCHEDULE CONFIRMATION] Beginning process for student ID:', studentId);
     console.log(`[SCHEDULE CONFIRMATION] Schedule items count: ${schedule.length}`);
     
-    const client = await pool.connect();
+    const client = await Schedule.getClient();
     console.log('[SCHEDULE CONFIRMATION] Database connection established');
     
     try {
@@ -174,23 +174,21 @@ export async function POST(request: NextRequest) {
       console.log('[SCHEDULE CONFIRMATION] Transaction started');
       
       // Primero, verificamos si el estudiante existe en la tabla Alumno
-      const checkStudentQuery = 'SELECT * FROM Alumno WHERE IdAlumno = $1';
-      const studentExists = await client.query(checkStudentQuery, [studentId]);
+      const studentExists = await Student.checkExists(studentId);
       
-      if (studentExists.rows.length > 0) {
+      if (studentExists) {
         console.log(`[SCHEDULE CONFIRMATION] Student ${studentId} found in database`);
       } else {
         console.log(`[SCHEDULE CONFIRMATION] Student ${studentId} not found, creating new record`);
         
         // Si no existe, lo creamos y esperamos a que la inserción se complete
-        await client.query('INSERT INTO Alumno (IdAlumno, Confirmacion) VALUES ($1, FALSE)', [studentId]);
+        await Student.createWithStatus(studentId, false);
         console.log(`[SCHEDULE CONFIRMATION] Created new student record for ID: ${studentId}`);
         
         // Verificar que el estudiante se creó correctamente
-        const verifyStudentQuery = 'SELECT * FROM Alumno WHERE IdAlumno = $1';
-        const verifyResult = await client.query(verifyStudentQuery, [studentId]);
+        const verifyStudent = await Student.checkExists(studentId);
         
-        if (verifyResult.rows.length === 0) {
+        if (!verifyStudent) {
           console.error(`[SCHEDULE CONFIRMATION] Failed to create student record for ID: ${studentId}`);
           throw new Error(`Failed to create student record for ID: ${studentId}`);
         }
@@ -199,9 +197,8 @@ export async function POST(request: NextRequest) {
       }
       
       // Borrar horarios existentes para el estudiante
-      const deleteQuery = 'DELETE FROM Horario WHERE idAlumno = $1';
-      const deleteResult = await client.query(deleteQuery, [studentId]);
-      console.log(`[SCHEDULE CONFIRMATION] Deleted ${deleteResult.rowCount} existing schedule items for student: ${studentId}`);
+      const deletedCount = await Schedule.deleteStudentSchedule(studentId);
+      console.log(`[SCHEDULE CONFIRMATION] Deleted ${deletedCount} existing schedule items for student: ${studentId}`);
       
       // Extraer los IDs de grupo del horario
       const groupIds = schedule.map(item => item.IdGrupo || item.idgrupo).filter(Boolean);
@@ -214,11 +211,7 @@ export async function POST(request: NextRequest) {
       if (groupIds.length > 0) {
         for (const groupId of groupIds) {
           console.log(`[SCHEDULE CONFIRMATION] Inserting schedule for group ID ${groupId} and student ${studentId}`);
-          const insertQuery = `
-            INSERT INTO Horario (fecha, idGrupo, idAlumno)
-            VALUES ($1, $2, $3)
-          `;
-          await client.query(insertQuery, [currentDate, groupId, studentId]);
+          await Schedule.addScheduleEntry(studentId, groupId, currentDate);
           insertedCount++;
         }
         console.log(`[SCHEDULE CONFIRMATION] Successfully inserted ${insertedCount} schedule items`);
@@ -226,8 +219,8 @@ export async function POST(request: NextRequest) {
         console.warn(`[SCHEDULE CONFIRMATION] No valid group IDs to insert for student: ${studentId}`);
       }
       
-      // Simepre confirmamos el horario del estudiante
-      await client.query('UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1', [studentId]);
+      // Siempre confirmamos el horario del estudiante
+      await Student.confirmSchedule(studentId);
       console.log(`[SCHEDULE CONFIRMATION] Updated confirmation status to TRUE for student: ${studentId}`);
       
       // Terminar la transacción

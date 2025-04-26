@@ -228,6 +228,20 @@ class Student {
       };
     }
   }
+
+  // Verifica si un estudiante existe en la tabla Alumno
+  static async checkExists(studentId: string) {
+    const query = 'SELECT * FROM Alumno WHERE IdAlumno = $1';
+    const result = await pool.query(query, [studentId]);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  }
+
+  // Crear un nuevo registro de estudiante con confirmación
+  static async createWithStatus(studentId: string, confirmation: boolean = false) {
+    const query = 'INSERT INTO Alumno (IdAlumno, Confirmacion) VALUES ($1, $2) RETURNING *';
+    const result = await pool.query(query, [studentId, confirmation]);
+    return result.rows[0];
+  }
 }
 
 export default Student;
