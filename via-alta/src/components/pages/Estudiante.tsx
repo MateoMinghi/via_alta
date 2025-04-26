@@ -243,20 +243,15 @@ export default function Estudiante() {
         const effectiveStudentId = updatedUser.ivd_id?.toString() || updatedUser.id?.toString();
         
         // Llamamos a la API para confirmar el horario
-        const result = await confirmSchedule(scheduleData, true);
+        const result = await confirmSchedule(scheduleData);
         
         if (result?.success) {
-          if (result.testMode) {
-            // Si es modo de prueba (desarrollo)
-            toast.success('Horario guardado en modo de prueba (puedes seguir haciendo cambios)');
-          } else {
-            // Confirmación exitosa en producción
-            localStorage.setItem('studentStatus', 'inscrito');
-            localStorage.removeItem('studentComments');
-            setComentarios('');
-            toast.success('Horario confirmado correctamente');
-            router.push('/estudiante/confirmacion');
-          }
+        
+          localStorage.setItem('studentStatus', 'inscrito');
+          localStorage.removeItem('studentComments');
+          setComentarios('');
+          toast.success('Horario confirmado correctamente');
+          router.push('/estudiante/confirmacion');
         } else {
           throw new Error(result?.message || "Error al confirmar horario");
         }
