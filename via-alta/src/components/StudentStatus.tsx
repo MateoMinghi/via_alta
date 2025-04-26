@@ -206,7 +206,10 @@ export default function StudentStatus({ students }: StudentStatusProps) {
             Confirmar inscripciones
           </Button>
         </div>
-        
+
+
+
+        {/* Aquí continuarían los contenidos de los tabs como el listado de alumnos por semestre... */}
         <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -370,6 +373,30 @@ export default function StudentStatus({ students }: StudentStatusProps) {
           <p className="mt-4">{selectedComment}</p>
         </DialogContent>
       </Dialog>
+        
+        {/* Diálogo de confirmación */}
+        <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>¿Estás seguro de confirmar las inscripciones?</DialogTitle>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-red-700 text-white"
+                onClick={() => {
+                  setIsConfirmDialogOpen(false);
+                  // Aquí podrías llamar a una función que haga la confirmación real
+                  console.log('Confirmado');
+                }}
+              >
+                Confirmar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }
