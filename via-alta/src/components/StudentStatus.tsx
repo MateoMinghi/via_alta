@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
 interface Student {
   id: string;
@@ -56,6 +57,8 @@ export default function StudentStatus({ students }: StudentStatusProps) {
   const [viewMode, setViewMode] = useState('table');
   const [isModifyingStatus, setIsModifyingStatus] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<{ success: number; failed: number } | null>(null);
 
   const groupedStudents = filteredStudents.reduce(
     (acc, student) => {
@@ -177,10 +180,43 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     }
   };
 
-  const modifyStatus = (status: string) => {
+  const modifyStatus = async (status: string) => {
+    if (status === 'true') {
+      setIsConfirmDialogOpen(true);
+    }
+  };
 
-    setIsModifyingStatus(true);
-    setIsConfirmDialogOpen(true);
+  const confirmAllSchedules = async () => {
+    try {
+      setProcessingStatus(true);
+      setIsConfirmDialogOpen(false);
+
+      const response = await fetch('/api/confirm-all-schedules', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`Inscripciones confirmadas: ${result.data.confirmed} estudiantes procesados`);
+        setConfirmationResult({
+          success: result.data.confirmed,
+          failed: result.data.failed || 0,
+        });
+
+        window.location.reload();
+      } else {
+        toast.error(`Error al confirmar inscripciones: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error al confirmar inscripciones:', error);
+      toast.error('Error al procesar la confirmación de inscripciones');
+    } finally {
+      setProcessingStatus(false);
+    }
   };
 
   return (
@@ -202,14 +238,12 @@ export default function StudentStatus({ students }: StudentStatusProps) {
             variant="secondary"
             className="bg-red-700 text-white"
             onClick={() => modifyStatus('true')}
+            disabled={processingStatus}
           >
-            Confirmar inscripciones
+            {processingStatus ? 'Procesando...' : 'Confirmar inscripciones'}
           </Button>
         </div>
 
-
-
-        {/* Aquí continuarían los contenidos de los tabs como el listado de alumnos por semestre... */}
         <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -222,7 +256,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
               className="pl-10 bg-gray-50 border-gray-200"
             />
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-md border border-gray-200">
               {['inscrito', 'requiere-cambios', 'no-inscrito'].map((status) => (
@@ -307,7 +341,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
             )}
           </div>
         </TabsContent>
-        
+
         <TabsContent value="grid">
           <div>
             <p className="font-bold text-xl text-via mb-4">ESTUDIANTES ACTIVOS POR SEMESTRE</p>
@@ -373,30 +407,29 @@ export default function StudentStatus({ students }: StudentStatusProps) {
           <p className="mt-4">{selectedComment}</p>
         </DialogContent>
       </Dialog>
-        
-        {/* Diálogo de confirmación */}
-        <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>¿Estás seguro de confirmar las inscripciones?</DialogTitle>
-            </DialogHeader>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                className="bg-red-700 text-white"
-                onClick={() => {
-                  setIsConfirmDialogOpen(false);
-                  // Aquí podrías llamar a una función que haga la confirmación real
-                  console.log('Confirmado');
-                }}
-              >
-                Confirmar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar todas las inscripciones pendientes</DialogTitle>
+          </DialogHeader>
+          <p className="py-4">Esta acción realizará lo siguiente:</p>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            <li>Confirmará automáticamente la inscripción de todos los estudiantes que no lo hayan hecho</li>
+            <li>Registrará los horarios correspondientes para cada estudiante según su semestre</li>
+            <li>Cambiará el estado de todos los estudiantes a "Inscrito"</li>
+          </ul>
+          <p className="py-2 text-amber-600 font-medium">Esta acción no se puede deshacer. ¿Deseas continuar?</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button className="bg-red-700 text-white" onClick={confirmAllSchedules}>
+              Confirmar todos
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
