@@ -1,20 +1,34 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import confirmStudentsEnrollment from '@/lib/models/student';
 import { useRouter } from 'next/navigation';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Search, Calendar, ChevronDown, ChevronRight, LayoutGrid, List,
+  Search,
+  Calendar,
+  ChevronDown,
+  ChevronRight,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Student {
   id: string;
@@ -40,6 +54,8 @@ export default function StudentStatus({ students }: StudentStatusProps) {
   const [isCommentOpen, setIsCommentOpen] = useState(false);
   const [expandedSemesters, setExpandedSemesters] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState('table');
+  const [isModifyingStatus, setIsModifyingStatus] = useState(false);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 
   const groupedStudents = filteredStudents.reduce(
     (acc, student) => {
@@ -161,29 +177,36 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     }
   };
 
+  const modifyStatus = (status: string) => {
+
+    setIsModifyingStatus(true);
+    setIsConfirmDialogOpen(true);
+  };
+
   return (
     <div className="w-full mx-auto">
-    <Tabs defaultValue="table" value={viewMode} onValueChange={setViewMode} className="w-full mb-4">
-      <div className="flex justify-between items-center mb-4">
-        {/* Grupo de tabs */}
-        <TabsList className="flex gap-2">
-          <TabsTrigger value="table" className="flex items-center gap-2">
-            <List className="h-4 w-4" />
-            <span>Lista</span>
-          </TabsTrigger>
-          <TabsTrigger value="grid" className="flex items-center gap-2">
-            <LayoutGrid className="h-4 w-4" />
-            <span>Bloques</span>
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="table" value={viewMode} onValueChange={setViewMode} className="w-full mb-4">
+        <div className="flex justify-between items-center mb-4">
+          <TabsList className="flex gap-2">
+            <TabsTrigger value="table" className="flex items-center gap-2">
+              <List className="h-4 w-4" />
+              <span>Lista</span>
+            </TabsTrigger>
+            <TabsTrigger value="grid" className="flex items-center gap-2">
+              <LayoutGrid className="h-4 w-4" />
+              <span>Bloques</span>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Botón separado */}
-        <Button variant="secondary" className="bg-red-700 text-white">
-          Confirmar inscripciones
-        </Button>
-      </div>
+          <Button
+            variant="secondary"
+            className="bg-red-700 text-white"
+            onClick={() => modifyStatus('true')}
+          >
+            Confirmar inscripciones
+          </Button>
+        </div>
 
-        
         <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -196,7 +219,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
               className="pl-10 bg-gray-50 border-gray-200"
             />
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-md border border-gray-200">
               {['inscrito', 'requiere-cambios', 'no-inscrito'].map((status) => (
@@ -209,144 +232,105 @@ export default function StudentStatus({ students }: StudentStatusProps) {
           </div>
         </div>
 
+        {/* Aquí continuarían los contenidos de los tabs como el listado de alumnos por semestre... */}
         <TabsContent value="table">
-          <div className="border rounded-md overflow-hidden">
-            {sortedSemesters.length > 0 ? (
-              sortedSemesters.map((semester) => (
-                <div key={semester} className="border-b last:border-b-0">
-                  <div
-                    className="bg-gray-100 p-3 font-medium flex items-center cursor-pointer"
-                    onClick={() => toggleSemester(semester)}
-                  >
-                    {expandedSemesters[semester] ? (
-                      <ChevronDown className="h-4 w-4 mr-2" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 mr-2" />
-                    )}
-                    <span>
-                      {semester === 'irregular'
-                        ? `Estudiantes Irregulares (${groupedStudents[semester].length})`
-                        : `Semestre ${semester} (${groupedStudents[semester].length} estudiantes)`}
-                    </span>
-                  </div>
-
-                  {expandedSemesters[semester] && (
-                    <Table>
-                      <TableHeader className="bg-gray-50">
-                        <TableRow>
-                          <TableHead className="text-center self-center font-medium">Matrícula</TableHead>
-                          <TableHead className="text-center self-center font-medium">Nombre de Alumno</TableHead>
-                          <TableHead className="text-center self-center font-medium">Status de Inscripción</TableHead>
-                          <TableHead className="" />
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {groupedStudents[semester].map((student) => (
-                          <TableRow key={student.id} className="border-b border-gray-200 last:border-b-0">
-                            <TableCell className="text-center self-center font-medium text-gray-500">
-                              {student.ivd_id || 'N/A'}
-                            </TableCell>
-                            <TableCell className="text-center self-center">
-                              {student.name} {student.first_surname} {student.second_surname}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-center">
-                                <div className={`w-4 h-4 rounded-full ${getStatusColor(student.status)}`} />
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-center">
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  className="flex items-center gap-1 text-white"
-                                  onClick={() => handleViewSchedule(student.id)}
-                                >
-                                  <Calendar className="h-4 w-4" />
-                                  <span>Ver horario</span>
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </div>
-              ))
+  <div className="border rounded-md overflow-hidden">
+    {sortedSemesters.length > 0 ? (
+      sortedSemesters.map((semester) => (
+        <div key={semester} className="border-b last:border-b-0">
+          <div
+            className="bg-gray-100 p-3 font-medium flex items-center cursor-pointer"
+            onClick={() => toggleSemester(semester)}
+          >
+            {expandedSemesters[semester] ? (
+              <ChevronDown className="h-4 w-4 mr-2" />
             ) : (
-              <div className="p-6 text-center text-gray-500">
-                No se encontraron estudiantes que coincidan con la búsqueda.
-              </div>
+              <ChevronRight className="h-4 w-4 mr-2" />
             )}
+            <span>
+              {semester === 'irregular'
+                ? `Estudiantes Irregulares (${groupedStudents[semester].length})`
+                : `Semestre ${semester} (${groupedStudents[semester].length} estudiantes)`}
+            </span>
           </div>
-        </TabsContent>
-        
-        <TabsContent value="grid">
-          <div>
-            <p className="font-bold text-xl text-via mb-4">ESTUDIANTES ACTIVOS POR SEMESTRE</p>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {sortedSemesters.map((semester) => (
-                <Card key={semester}>
-                  <CardHeader>
-                    <CardTitle>
-                      {semester === 'irregular' ? 'Estudiantes Irregulares' : `Semestre ${semester}`}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Total: {groupedStudents[semester].length} estudiantes
-                    </p>
-                    <div className="max-h-60 overflow-y-auto">
-                      <ul className="divide-y">
-                        {groupedStudents[semester].map((student) => (
-                          <li key={student.id} className="py-2">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex justify-between items-center">
-                                <span className="font-medium">
-                                  {student.name} {student.first_surname} {student.second_surname}
-                                </span>
-                                <span
-                                  className={`px-2 py-1 text-xs rounded text-white ${getStatusColor(student.status)}`}
-                                >
-                                  {student.status === 'active' ? 'no inscrito' : student.status.replace('-', ' ') || 'no inscrito'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center text-sm text-gray-500">
-                                <div>
-                                  <span className="font-medium">Matrícula:</span> {student.ivd_id || 'N/A'}
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex items-center gap-1 border-via text-via hover:bg-red-50"
-                                  onClick={() => handleViewSchedule(student.id)}
-                                >
-                                  <Calendar className="h-3 w-3" />
-                                  <span className="text-xs">Horario</span>
-                                </Button>
-                              </div>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
 
-      <Dialog open={isCommentOpen} onOpenChange={setIsCommentOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Comentario del Estudiante</DialogTitle>
-          </DialogHeader>
-          <p className="mt-4">{selectedComment}</p>
-        </DialogContent>
-      </Dialog>
+          {expandedSemesters[semester] && (
+            <Table>
+              <TableHeader className="bg-gray-50">
+                <TableRow>
+                  <TableHead className="text-center self-center font-medium">Matrícula</TableHead>
+                  <TableHead className="text-center self-center font-medium">Nombre de Alumno</TableHead>
+                  <TableHead className="text-center self-center font-medium">Status de Inscripción</TableHead>
+                  <TableHead className="" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupedStudents[semester].map((student) => (
+                  <TableRow key={student.id} className="border-b border-gray-200 last:border-b-0">
+                    <TableCell className="text-center self-center font-medium text-gray-500">
+                      {student.ivd_id || 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-center self-center">
+                      {student.name} {student.first_surname} {student.second_surname}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-center">
+                        <div className={`w-4 h-4 rounded-full ${getStatusColor(student.status)}`} />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-center">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex items-center gap-1 text-white"
+                          onClick={() => handleViewSchedule(student.id)}
+                        >
+                          <Calendar className="h-4 w-4" />
+                          <span>Ver horario</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      ))
+    ) : (
+      <div className="p-6 text-center text-gray-500">
+        No se encontraron estudiantes que coincidan con la búsqueda.
+      </div>
+    )}
+  </div>
+</TabsContent>
+
+
+        {/* Diálogo de confirmación */}
+        <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>¿Estás seguro de confirmar las inscripciones?</DialogTitle>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-red-700 text-white"
+                onClick={() => {
+                  setIsConfirmDialogOpen(false);
+                  // Aquí podrías llamar a una función que haga la confirmación real
+                  console.log('Confirmado');
+                }}
+              >
+                Confirmar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </Tabs>
     </div>
   );
 }

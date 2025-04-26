@@ -435,7 +435,7 @@ export default function EstudianteSchedule({ subjects, isRegular = false }: Subj
     );
   };
 
-  /**
+  /*
    * Componente que muestra una tarjeta para las materias programadas en el horario
    * Permite arrastrar materias no obligatorias para eliminarlas o modificar su horario
    */

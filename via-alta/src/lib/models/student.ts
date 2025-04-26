@@ -82,6 +82,18 @@ class Student {
     const result = await pool.query(query, [id]);
     return result.rows[0] as StudentData;
   }
+
+  // Actualiza todos los registros de la tabla Alumno y pone Confirmacion en TRUE
+  static async confirmAllSchedules() {
+    const query = "UPDATE Alumno SET Confirmacion = TRUE RETURNING *";
+    const result = await pool.query(query);
+    return result.rows as StudentData[];
+  }
+
 }
 
 export default Student;
+export function confirmAllSchedules() {
+  throw new Error('Function not implemented.');
+}
+
