@@ -30,6 +30,7 @@ interface Subject {
 interface SubjectsProps {
   subjects: Subject[];                   // Lista de materias disponibles
   isRegular?: boolean;                   // Indica si el estudiante es regular
+  recommendedCourses?: string[];         // Lista de materias recomendadas
 }
 
 /**
@@ -59,7 +60,7 @@ const timeSlots = [
   '14:30', '15:00', '15:30', '16:00'
 ];  
 
-export default function EstudianteSchedule({ subjects, isRegular = false }: SubjectsProps) {
+export default function EstudianteSchedule({ subjects, isRegular = false, recommendedCourses = [] }: SubjectsProps) {
   // Estados para manejar los diferentes tipos de materias
   const [obligatorySubjects, setObligatorySubjects] = useState<Subject[]>([]); // Materias obligatorias
   const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);   // Materias disponibles para elegir
