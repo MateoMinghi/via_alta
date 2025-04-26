@@ -181,32 +181,52 @@ export async function POST(request: NextRequest) {
         console.log(`[SCHEDULE CONFIRMATION] Student ${studentId} found in database`);
       } else {
         console.log(`[SCHEDULE CONFIRMATION] Student ${studentId} not found, creating new record`);
-      }
-      
-      // Si no existe, lo creamos
-      if (studentExists.rows.length === 0) {
+        
+        // Si no existe, lo creamos y esperamos a que la inserción se complete
         await client.query('INSERT INTO Alumno (IdAlumno, Confirmacion) VALUES ($1, FALSE)', [studentId]);
         console.log(`[SCHEDULE CONFIRMATION] Created new student record for ID: ${studentId}`);
+        
+        // Verificar que el estudiante se creó correctamente
+        const verifyStudentQuery = 'SELECT * FROM Alumno WHERE IdAlumno = $1';
+        const verifyResult = await client.query(verifyStudentQuery, [studentId]);
+        
+        if (verifyResult.rows.length === 0) {
+          console.error(`[SCHEDULE CONFIRMATION] Failed to create student record for ID: ${studentId}`);
+          throw new Error(`Failed to create student record for ID: ${studentId}`);
+        }
+        
+        console.log(`[SCHEDULE CONFIRMATION] Verified student record was created for ID: ${studentId}`);
       }
       
-      // Delete existing schedule using Schedule model
-      const deleteCount = await Schedule.deleteAllForStudent(studentId);
-      console.log(`[SCHEDULE CONFIRMATION] Deleted ${deleteCount} existing schedule items for student: ${studentId}`);
+      // Borrar horarios existentes para el estudiante
+      const deleteQuery = 'DELETE FROM Horario WHERE idAlumno = $1';
+      const deleteResult = await client.query(deleteQuery, [studentId]);
+      console.log(`[SCHEDULE CONFIRMATION] Deleted ${deleteResult.rowCount} existing schedule items for student: ${studentId}`);
       
-      // Extract just the group IDs from the schedule items
+      // Extraer los IDs de grupo del horario
       const groupIds = schedule.map(item => item.IdGrupo || item.idgrupo).filter(Boolean);
       console.log(`[SCHEDULE CONFIRMATION] Extracted ${groupIds.length} valid group IDs for insertion`);
       
-      // Use Schedule model to bulk insert the new schedule items
+      // Insertar nuevos horarios
       let insertedCount = 0;
+      const currentDate = new Date();
+      
       if (groupIds.length > 0) {
-        insertedCount = await Schedule.bulkCreate(studentId, groupIds);
+        for (const groupId of groupIds) {
+          console.log(`[SCHEDULE CONFIRMATION] Inserting schedule for group ID ${groupId} and student ${studentId}`);
+          const insertQuery = `
+            INSERT INTO Horario (fecha, idGrupo, idAlumno)
+            VALUES ($1, $2, $3)
+          `;
+          await client.query(insertQuery, [currentDate, groupId, studentId]);
+          insertedCount++;
+        }
         console.log(`[SCHEDULE CONFIRMATION] Successfully inserted ${insertedCount} schedule items`);
       } else {
         console.warn(`[SCHEDULE CONFIRMATION] No valid group IDs to insert for student: ${studentId}`);
       }
       
-      // Always update confirmation status - test mode removed
+      // Simepre confirmamos el horario del estudiante
       await client.query('UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1', [studentId]);
       console.log(`[SCHEDULE CONFIRMATION] Updated confirmation status to TRUE for student: ${studentId}`);
       
