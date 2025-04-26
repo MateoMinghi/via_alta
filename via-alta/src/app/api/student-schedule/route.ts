@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import pool from '@/config/database';
+import Schedule from '@/lib/models/schedule';
+import Student from '@/lib/models/student'; // Assuming you have a Student model
 
 // Configuracion de la API
 const API_BASE_URL = process.env.API_BASE_URL;
@@ -111,23 +113,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Use effectiveStudentId for all database operations
-    const studentScheduleQuery = `
-      SELECT h.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon
-      FROM Horario h
-      JOIN Grupo g ON h.idGrupo = g.IdGrupo
-      LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
-      LEFT JOIN Profesor p ON g.IdProfesor = p.IdProfesor
-      LEFT JOIN salon s ON g.IdSalon = s.idsalon
-      WHERE h.idAlumno = $1
-    `;
-    const studentScheduleResult = await pool.query(studentScheduleQuery, [effectiveStudentId]);
+    // Usar el modelo Schedule para obtener el horario del estudiante
+    const studentScheduleResult = await Schedule.findDetailedStudentSchedule(effectiveStudentId);
     
-    if (studentScheduleResult.rows.length > 0) {
+    if (studentScheduleResult.length > 0) {
       // Si el estudiante tiene un horario individual, devolverlo
       return NextResponse.json({ 
         success: true, 
-        data: studentScheduleResult.rows,
+        data: studentScheduleResult,
         isIndividual: true
       });
     }
@@ -135,29 +128,18 @@ export async function GET(request: NextRequest) {
     // Si no hay horario individual, obtener el horario general
     console.log('Fetching schedule for student:', effectiveStudentId, 'semester:', semester);
 
-    const generalScheduleQuery = `
-      SELECT hg.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon
-      FROM HorarioGeneral hg
-      JOIN Grupo g ON hg.IdGrupo = g.IdGrupo
-      LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
-      LEFT JOIN Profesor p ON g.IdProfesor = p.IdProfesor
-      LEFT JOIN salon s ON g.IdSalon = s.idsalon
-      WHERE g.Semestre = $1
-      ORDER BY hg.Dia, hg.HoraInicio
-    `;
+    // Usar el modelo Schedule para obtener el horario general
+    const generalScheduleResult = await Schedule.findGeneralScheduleBySemester(semester);
     
-    console.log('Running query with semester:', semester);
-    const generalScheduleResult = await pool.query(generalScheduleQuery, [semester]);
+    console.log('Query result rows:', generalScheduleResult.length);
     
-    console.log('Query result rows:', generalScheduleResult.rows.length);
-    
-    if (generalScheduleResult.rows.length > 0) {
-      console.log('Sample data:', generalScheduleResult.rows[0]);
+    if (generalScheduleResult.length > 0) {
+      console.log('Sample data:', generalScheduleResult[0]);
     }
 
     return NextResponse.json({ 
       success: true, 
-      data: generalScheduleResult.rows,
+      data: generalScheduleResult,
       isIndividual: false
     });
   } catch (error) {
@@ -203,32 +185,21 @@ export async function POST(request: NextRequest) {
         console.log('Student record created successfully');
       }
       
-      // Borrar el horario existente del estudiante
-      const deleteResult = await client.query('DELETE FROM Horario WHERE idAlumno = $1', [studentId]);
-      console.log(`Deleted ${deleteResult.rowCount} existing schedule items for student: ${studentId}`);
+      // Borrar los horarios existentes del estudiante
+      const deleteCount = await Schedule.deleteAllForStudent(studentId);
+      console.log(`Deleted ${deleteCount} existing schedule items for student: ${studentId}`);
       
-      // Insertar el nuevo horario
-      const currentDate = new Date();
+      // Extraer los IDs de grupo del horario
+      const groupIds = schedule.map(item => item.IdGrupo || item.idgrupo).filter(Boolean);
+      
+      // Usar el modelo Schedule para insertar los nuevos horarios
       let insertedCount = 0;
-      for (const item of schedule) {
-        // Handle case sensitivity in property names
-        const idGrupo = item.IdGrupo || item.idgrupo;
-        
-        if (!idGrupo) {
-          console.warn('Skipping item without group ID:', item);
-          continue;
-        }
-        
-        const query = `
-          INSERT INTO Horario (fecha, idGrupo, idAlumno)
-          VALUES ($1, $2, $3)
-        `;
-        await client.query(query, [currentDate, idGrupo, studentId]);
-        insertedCount++;
+      if (groupIds.length > 0) {
+        insertedCount = await Schedule.bulkCreate(studentId, groupIds);
       }
       console.log(`Successfully inserted ${insertedCount} schedule items for student: ${studentId}`);
       
-      // If in test mode, don't update confirmation status
+      // Si el modo de prueba no está activo, actualizamos la confirmación del estudiante
       if (!testMode) {
         await client.query('UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1', [studentId]);
         console.log(`Student ${studentId} confirmation status updated to TRUE`);
