@@ -6,8 +6,8 @@ import { useParams } from 'next/navigation';
 import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 import { toast } from 'sonner';
 import HorarioSemestre from '../HorarioSemestre';
-import HorarioGeneralPage from '@/app/(routes)/dashboard/(estudiantes)/horarios/horario-general/page';
 import HorarioAlumno from '../HorarioAlumno';
+import HorarioAlumnoModificado from '../HorarioAlumnoModificado';
 
 export default function HorariosSlug() {
   const [loading, setLoading] = useState(true);
@@ -147,7 +147,9 @@ export default function HorariosSlug() {
       ) : (
         <HorarioAlumno
           schedule={filteredSchedule}
+          alumnoId={slug as string}
         />
+      
       )}
     </div>
   );
