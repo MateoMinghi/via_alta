@@ -68,7 +68,6 @@ export function useGetStudentSchedule(studentId: string | undefined, semester: n
       console.log('Confirming schedule for student:', studentId);
       console.log('Schedule data being sent:', schedule);
       
-    
       const validScheduleItems = schedule.filter(item => {
         const idGrupo = item.idgrupo;
         if (!idGrupo) {
