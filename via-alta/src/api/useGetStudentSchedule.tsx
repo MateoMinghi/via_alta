@@ -65,7 +65,7 @@ export function useGetStudentSchedule(studentId: string | undefined, semester: n
   }, [studentId, semester]); // Dependencias: ID del estudiante y semestre
 
   // Función para confirmar (enviar) el horario del estudiante
-  const confirmSchedule = async (schedule: ScheduleItem[], testMode = true) => {
+  const confirmSchedule = async (schedule: ScheduleItem[]) => {
     if (!studentId) {
       throw new Error("Student ID is required to confirm schedule");
     }
@@ -97,7 +97,7 @@ export function useGetStudentSchedule(studentId: string | undefined, semester: n
         body: JSON.stringify({
           studentId,
           schedule: validScheduleItems,
-          testMode, // Modo de prueba
+          testMode: false,
         }),
       });
 
@@ -107,10 +107,8 @@ export function useGetStudentSchedule(studentId: string | undefined, semester: n
         throw new Error(data.message || "Failed to confirm schedule");
       }
 
-      // Solo actualiza isIndividual si no es modo de prueba
-      if (!testMode) {
-        setIsIndividual(true);
-      }
+      //Actualiza el estado con los datos del horario confirmado
+      setIsIndividual(true);
 
       return data;
     } catch (err) {

@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { studentId, schedule, testMode } = await request.json();
+    const { studentId, schedule } = await request.json();
     
     if (!studentId || !schedule || !Array.isArray(schedule)) {
       return NextResponse.json({ 
@@ -163,70 +163,72 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    console.log(`Starting schedule confirmation for student: ${studentId}`);
-    console.log(`Schedule items count: ${schedule.length}, Test mode: ${testMode ? 'enabled' : 'disabled'}`);
+    console.log('[SCHEDULE CONFIRMATION] Beginning process for student ID:', studentId);
+    console.log(`[SCHEDULE CONFIRMATION] Schedule items count: ${schedule.length}`);
     
     const client = await pool.connect();
-    console.log('Database connection established');
+    console.log('[SCHEDULE CONFIRMATION] Database connection established');
     
     try {
       await client.query('BEGIN');
-      console.log('Transaction started');
+      console.log('[SCHEDULE CONFIRMATION] Transaction started');
       
       // Primero, verificamos si el estudiante existe en la tabla Alumno
       const checkStudentQuery = 'SELECT * FROM Alumno WHERE IdAlumno = $1';
       const studentExists = await client.query(checkStudentQuery, [studentId]);
-      console.log(`Student check complete: ${studentExists.rows.length > 0 ? 'exists' : 'does not exist'} in Alumno table`);
+      
+      if (studentExists.rows.length > 0) {
+        console.log(`[SCHEDULE CONFIRMATION] Student ${studentId} found in database`);
+      } else {
+        console.log(`[SCHEDULE CONFIRMATION] Student ${studentId} not found, creating new record`);
+      }
       
       // Si no existe, lo creamos
       if (studentExists.rows.length === 0) {
-        console.log(`Creating new student record in Alumno table for ID: ${studentId}`);
         await client.query('INSERT INTO Alumno (IdAlumno, Confirmacion) VALUES ($1, FALSE)', [studentId]);
-        console.log('Student record created successfully');
+        console.log(`[SCHEDULE CONFIRMATION] Created new student record for ID: ${studentId}`);
       }
       
-      // Borrar los horarios existentes del estudiante
+      // Delete existing schedule using Schedule model
       const deleteCount = await Schedule.deleteAllForStudent(studentId);
-      console.log(`Deleted ${deleteCount} existing schedule items for student: ${studentId}`);
+      console.log(`[SCHEDULE CONFIRMATION] Deleted ${deleteCount} existing schedule items for student: ${studentId}`);
       
-      // Extraer los IDs de grupo del horario
+      // Extract just the group IDs from the schedule items
       const groupIds = schedule.map(item => item.IdGrupo || item.idgrupo).filter(Boolean);
+      console.log(`[SCHEDULE CONFIRMATION] Extracted ${groupIds.length} valid group IDs for insertion`);
       
-      // Usar el modelo Schedule para insertar los nuevos horarios
+      // Use Schedule model to bulk insert the new schedule items
       let insertedCount = 0;
       if (groupIds.length > 0) {
         insertedCount = await Schedule.bulkCreate(studentId, groupIds);
-      }
-      console.log(`Successfully inserted ${insertedCount} schedule items for student: ${studentId}`);
-      
-      // Si el modo de prueba no está activo, actualizamos la confirmación del estudiante
-      if (!testMode) {
-        await client.query('UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1', [studentId]);
-        console.log(`Student ${studentId} confirmation status updated to TRUE`);
+        console.log(`[SCHEDULE CONFIRMATION] Successfully inserted ${insertedCount} schedule items`);
       } else {
-        console.log(`Test mode active: Not updating confirmation status for student: ${studentId}`);
+        console.warn(`[SCHEDULE CONFIRMATION] No valid group IDs to insert for student: ${studentId}`);
       }
+      
+      // Always update confirmation status - test mode removed
+      await client.query('UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1', [studentId]);
+      console.log(`[SCHEDULE CONFIRMATION] Updated confirmation status to TRUE for student: ${studentId}`);
       
       // Terminar la transacción
       await client.query('COMMIT');
-      console.log('Transaction committed successfully');
+      console.log('[SCHEDULE CONFIRMATION] Transaction committed successfully');
       
       return NextResponse.json({ 
         success: true, 
-        message: testMode ? 'Schedule saved in test mode' : 'Schedule confirmed successfully',
-        testMode,
+        message: 'Schedule confirmed successfully',
         itemsProcessed: insertedCount
       });
     } catch (error) {
       await client.query('ROLLBACK');
-      console.error('Transaction error:', error);
+      console.error('[SCHEDULE CONFIRMATION] Transaction error:', error);
       throw error;
     } finally {
       client.release();
-      console.log('Database connection released');
+      console.log('[SCHEDULE CONFIRMATION] Database connection released');
     }
   } catch (error) {
-    console.error('Error saving student schedule:', error);
+    console.error('[SCHEDULE CONFIRMATION] Error saving student schedule:', error);
     return NextResponse.json({ 
       success: false, 
       message: 'Error saving schedule',
