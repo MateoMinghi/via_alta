@@ -35,27 +35,43 @@ async function getAuthToken(): Promise<string> {
 
 // Funcion para obtener los detalles del estudiante desde el sistema central
 async function getStudentDetails(studentId: string): Promise<any> {
-  const token = await getAuthToken();
-  
-  const response = await fetch(`${API_BASE_URL}/v1/users/${studentId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch student details from central system');
+  try {
+    const token = await getAuthToken();
+    
+    console.log(`Attempting to fetch details for student ${studentId} from central system...`);
+    
+    const response = await fetch(`${API_BASE_URL}/v1/users/find_one?ivd_id=${studentId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    console.log(`API response status: ${response.status} ${response.statusText}`);
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch student details from central system (Status ${response.status})`);
+      return null; 
+    }
+    
+    const responseData = await response.json();
+    
+    
+    if (responseData.data) {
+      const studentData = responseData.data;
+      
+      
+      if (studentData.current_students_plan?.plan?.degree?.name) {
+        studentData.degree = studentData.current_students_plan.plan.degree.name;
+      }
+      
+      return studentData; 
+    }
+    
+    return responseData; 
+  } catch (error) {
+    console.error('Error in getStudentDetails:', error);
+    return null; 
   }
-  
-  const responseData = await response.json();
-  
-  // Return the full data structure with proper extraction of ivd_id
-  if (responseData.data) {
-    const studentData = responseData.data;
-    return studentData;  // Return the student data object directly
-  }
-  
-  return responseData; // Fallback to the whole response if data property is missing
 }
 
 export async function GET(request: NextRequest) {
@@ -63,6 +79,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const studentId = searchParams.get('studentId');
     const providedSemester = searchParams.get('semester');
+    const providedDegree = searchParams.get('degree');
 
     if (!studentId) {
       return NextResponse.json({ 
@@ -73,43 +90,54 @@ export async function GET(request: NextRequest) {
 
     console.log(`GET request received for student: ${studentId}`);
 
-    // Validar detalles del estudiante para determinar el semestre
+    // Validar detalles del estudiante para determinar el semestre y carrera
     let semester = providedSemester;
-    let effectiveStudentId = studentId; // Use this for all database operations
+    let degree = providedDegree;
+    let effectiveStudentId = studentId; // Usar parametro studentId por defecto
     
-    if (!semester) {
+    if (!semester || !degree) {
       try {
         const studentDetails = await getStudentDetails(studentId);
         
-        // Make sure we're using ivd_id instead of id for database operations
-        if (studentDetails.ivd_id) {
-          effectiveStudentId = studentDetails.ivd_id.toString();
-          console.log(`Using ivd_id (${effectiveStudentId}) instead of provided ID (${studentId})`);
+        if (studentDetails) {
+          
+          if (studentDetails.ivd_id) {
+            effectiveStudentId = studentDetails.ivd_id.toString();
+            console.log(`Using ivd_id (${effectiveStudentId}) instead of provided ID (${studentId})`);
+          }
+          
+          semester = semester || studentDetails.semester?.toString();
+          degree = degree || studentDetails.degree || studentDetails.major;
+          
+          
+          console.log('Student details retrieved:', {
+            ivd_id: studentDetails.ivd_id, 
+            semester: studentDetails.semester,
+            degree: degree
+          });
+        } else {
+          console.warn(`No student details found for ID: ${studentId}, using provided values`);
         }
         
-        semester = studentDetails.semester?.toString();
-        
-        // Log effective ID being used (should be ivd_id when available)
-        console.log('Student details retrieved:', {
-          originalId: studentId,
-          effectiveId: effectiveStudentId,
-          ivd_id: studentDetails.ivd_id, 
-          semester: studentDetails.semester
-        });
         
         if (!semester) {
           return NextResponse.json({ 
             success: false, 
-            message: 'Could not determine student semester from central system' 
+            message: 'Could not determine student semester. Please provide a semester parameter.' 
           }, { status: 400 });
         }
       } catch (error) {
+        
         console.error('Error fetching student details from central system:', error);
-        return NextResponse.json({ 
-          success: false, 
-          message: 'Error fetching student details from central system',
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }, { status: 500 });
+        
+        
+        if (!semester) {
+          return NextResponse.json({ 
+            success: false, 
+            message: 'Semester parameter is required when central system is unavailable',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          }, { status: 400 });
+        }
       }
     }
 
@@ -126,10 +154,27 @@ export async function GET(request: NextRequest) {
     }
 
     // Si no hay horario individual, obtener el horario general
-    console.log('Fetching schedule for student:', effectiveStudentId, 'semester:', semester);
+    console.log('Fetching schedule for student:', effectiveStudentId, 'semester:', semester, 'degree:', degree);
 
     // Usar el modelo Schedule para obtener el horario general
-    const generalScheduleResult = await Schedule.findGeneralScheduleBySemester(semester);
+    let generalScheduleResult;
+    if (degree) {
+      console.log(`Executing SQL query with semester = ${semester} AND NombreCarrera = ${degree}`);
+      
+      generalScheduleResult = await Schedule.findGeneralScheduleBySemesterAndDegree(semester, degree);
+      
+      //Si no hay resultados, intentar solo con el semestre
+      if (generalScheduleResult.length === 0) {
+        console.log(` No results found for semester=${semester} and degree=${degree}`);
+        console.log(`   - Falling back to semester-only filter`);
+        console.log(`   - Note: This may be because the degree name in the database doesn't match "${degree}"`);
+        generalScheduleResult = await Schedule.findGeneralScheduleBySemester(semester);
+      }
+    } else {
+      console.log(` No degree information available for student ${effectiveStudentId}`);
+      console.log(`   - Filtering schedule by semester only (${semester})`);
+      generalScheduleResult = await Schedule.findGeneralScheduleBySemester(semester);
+    }
     
     console.log('Query result rows:', generalScheduleResult.length);
     

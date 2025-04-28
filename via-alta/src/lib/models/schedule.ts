@@ -100,7 +100,23 @@ class Schedule {
     const result = await pool.query(query, [semester]);
     return result.rows as GeneralScheduleData[];
   }
-  
+
+  // Método para encontrar horarios generales por semestre y carrera
+  static async findGeneralScheduleBySemesterAndDegree(semester: string, degree: string) {
+    const query = `
+      SELECT hg.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon
+      FROM HorarioGeneral hg
+      JOIN Grupo g ON hg.IdGrupo = g.IdGrupo
+      LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
+      LEFT JOIN Profesor p ON g.IdProfesor = p.IdProfesor
+      LEFT JOIN salon s ON g.IdSalon = s.idsalon
+      WHERE g.Semestre = $1 AND hg.NombreCarrera = $2
+      ORDER BY hg.Dia, hg.HoraInicio
+    `;
+    const result = await pool.query(query, [semester, degree]);
+    return result.rows as GeneralScheduleData[];
+  }
+
   // Metodo para eliminar todos los horarios de un estudiante
   static async deleteAllForStudent(studentId: string) {
     const query = 'DELETE FROM Horario WHERE idAlumno = $1';
