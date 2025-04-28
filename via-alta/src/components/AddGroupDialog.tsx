@@ -84,27 +84,15 @@ export default function AddGroupDialog({
       fetchProfessors();
       fetchCareers();
       fetchClassrooms();
-
-      // Log subjects for debugging
-      console.log("🔍 [DEBUG] Current subjects in dropdown:", subjects);
     }
   }, [isOpen, currentCycleId, editGroupData, subjects]);
   
-  // Add debug log for subjects when they change
-  useEffect(() => {
-    console.log("🔍 [DEBUG] Subjects data changed:", subjects);
-    console.log("🔍 [DEBUG] Subjects loading state:", subjectsLoading);
-  }, [subjects, subjectsLoading]);
-
   // Fetch professors from database
   const fetchProfessors = async () => {
     setProfessorsLoading(true);
     try {
-      console.log("Fetching professors from database...");
       const response = await fetch('/api/professors');
       const data = await response.json();
-      
-      console.log("Professors API response:", data);
       
       if (data.success && Array.isArray(data.data)) {
         // Check if we have any professors 
@@ -113,10 +101,8 @@ export default function AddGroupDialog({
             id: prof.IdProfesor || prof.idprofesor,
             name: prof.Nombre || prof.nombre
           }));
-          console.log("Formatted professors:", formattedProfessors);
           setProfessors(formattedProfessors);
         } else {
-          console.warn("No professors found in database");
           // Add some default professors if none were found
           setProfessors([
             { id: 1, name: "Profesor Default 1" },
@@ -125,7 +111,6 @@ export default function AddGroupDialog({
           toast.warning("No se encontraron profesores en la base de datos. Usando valores predeterminados.");
         }
       } else {
-        console.error("Invalid response format from API:", data);
         setProfessors([
           { id: 1, name: "Profesor Default 1" },
           { id: 2, name: "Profesor Default 2" },
@@ -133,7 +118,6 @@ export default function AddGroupDialog({
         toast.warning("Formato de respuesta inválido. Usando valores predeterminados.");
       }
     } catch (error) {
-      console.error("Error fetching professors:", error);
       setProfessors([
         { id: 1, name: "Profesor Default 1" },
         { id: 2, name: "Profesor Default 2" },
@@ -148,11 +132,8 @@ export default function AddGroupDialog({
   const fetchCareers = async () => {
     setCareersLoading(true);
     try {
-      console.log("Fetching careers from database...");
       const response = await fetch('/api/schedule/degree-programs');
       const data = await response.json();
-      
-      console.log("Careers API response:", data);
       
       if (data.success && Array.isArray(data.data)) {
         if (data.data.length > 0) {
@@ -161,28 +142,18 @@ export default function AddGroupDialog({
             (item.NombreCarrera || item.nombrecarrera) as string
           ))).filter((name): name is string => typeof name === 'string');
           
-          console.log("Formatted careers:", careerNames);
-          
           if (careerNames.length > 0) {
             setCareers(careerNames);
             return;
-          } else {
-            console.warn("No careers found in response data");
           }
-        } else {
-          console.warn("Empty careers array in response");
         }
-      } else {
-        console.error("Invalid response format from API:", data);
       }
       
       // If we get here, use default careers
-      console.log("Using default careers:", DEFAULT_CAREERS);
       setCareers(DEFAULT_CAREERS);
       toast.warning("No se encontraron carreras en la base de datos. Usando valores predeterminados.");
       
     } catch (error) {
-      console.error("Error fetching careers:", error);
       setCareers(DEFAULT_CAREERS);
       toast.error("Error cargando carreras. Usando valores predeterminados.");
     } finally {
@@ -194,11 +165,8 @@ export default function AddGroupDialog({
   const fetchClassrooms = async () => {
     setClassroomsLoading(true);
     try {
-      console.log("Fetching classrooms from database...");
       const response = await fetch('/api/classroom');
       const data = await response.json();
-      
-      console.log("Classrooms API response:", data);
       
       // Data is directly an array of classrooms, not wrapped in a data property
       if (Array.isArray(data)) {
@@ -209,10 +177,8 @@ export default function AddGroupDialog({
             tipo: classroom.tipo,
             cupo: classroom.cupo
           }));
-          console.log("Formatted classrooms:", formattedClassrooms);
           setClassrooms(formattedClassrooms);
         } else {
-          console.warn("No classrooms found in database");
           // Add some default classrooms if none were found
           setClassrooms([
             { idsalon: 1, tipo: "Aula", cupo: 30 },
@@ -221,7 +187,6 @@ export default function AddGroupDialog({
           toast.warning("No se encontraron salones en la base de datos. Usando valores predeterminados.");
         }
       } else {
-        console.error("Invalid response format from API:", data);
         setClassrooms([
           { idsalon: 1, tipo: "Aula", cupo: 30 },
           { idsalon: 2, tipo: "Laboratorio", cupo: 20 },
@@ -229,7 +194,6 @@ export default function AddGroupDialog({
         toast.warning("Formato de respuesta inválido. Usando valores predeterminados.");
       }
     } catch (error) {
-      console.error("Error fetching classrooms:", error);
       setClassrooms([
         { idsalon: 1, tipo: "Aula", cupo: 30 },
         { idsalon: 2, tipo: "Laboratorio", cupo: 20 },
@@ -247,16 +211,13 @@ export default function AddGroupDialog({
       const data = await response.json();
       
       if (data.success && data.nextId) {
-        console.log(`Generated next group ID: ${data.nextId}`);
         return data.nextId;
       } else {
-        console.warn("Could not get next group ID from API, using fallback method");
         // Fallback to a random ID if the API fails
         const randomId = Math.floor(1000 + Math.random() * 9000);
         return randomId;
       }
     } catch (error) {
-      console.error("Error generating unique group ID:", error);
       // Fallback to a random ID
       const randomId = Math.floor(1000 + Math.random() * 9000);
       return randomId;
@@ -310,26 +271,17 @@ export default function AddGroupDialog({
   };
 
   const handleAdd = async () => {
-    console.log("🔍 [DEBUG] Add button clicked, starting validation");
     if (!validateGroup()) {
-      console.log("🔍 [DEBUG] Validation failed");
       return;
     }
     
     setIsLoading(true);
     try {
-      // Debug logging
-      console.log("🔍 [DEBUG] Starting group creation with group data:", newGroup);
-      console.log("🔍 [DEBUG] Available professors:", professors);
-      console.log("🔍 [DEBUG] Available subjects:", subjects);
-      
       // Find professor ID from name
       const selectedProfessor = professors.find(prof => prof.name === newGroup.ProfesorNombre);
       if (!selectedProfessor) {
-        console.error(`🔍 [DEBUG] Professor not found: "${newGroup.ProfesorNombre}"`);
         throw new Error("No se pudo encontrar el ID del profesor seleccionado");
       }
-      console.log("🔍 [DEBUG] Selected professor:", selectedProfessor);
       
       // Make sure professor ID is properly formatted (should be a string like "P001")
       const professorId = typeof selectedProfessor.id === 'string' 
@@ -337,20 +289,17 @@ export default function AddGroupDialog({
         : String(selectedProfessor.id);
         
       if (!professorId) {
-        console.error("🔍 [DEBUG] Empty professor ID");
         throw new Error("El ID del profesor seleccionado está vacío");
       }
       
       // Find subject ID from name
       const selectedSubject = subjects?.find((subj: any) => subj.name === newGroup.MateriaNombre);
       if (!selectedSubject) {
-        console.error(`🔍 [DEBUG] Subject not found: "${newGroup.MateriaNombre}"`);
         throw new Error("No se pudo encontrar el ID de la materia seleccionada");
       }
       
       // Ensure subject ID is a valid integer
       if (!selectedSubject.id || isNaN(parseInt(selectedSubject.id.toString()))) {
-        console.error(`🔍 [DEBUG] Invalid subject ID: ${selectedSubject.id}`);
         throw new Error(`ID de materia inválido: ${selectedSubject.id}`);
       }
       
@@ -366,9 +315,6 @@ export default function AddGroupDialog({
         semestre: newGroup.Semestre
       };
       
-      console.log("🔍 [DEBUG] Sending group data to API:", groupParams);
-      console.log("🔍 [DEBUG] Using endpoint:", endpoint);
-      
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -376,17 +322,12 @@ export default function AddGroupDialog({
           body: JSON.stringify(groupParams)
         });
         
-        // Log raw response
-        console.log("🔍 [DEBUG] Raw response status:", response.status);
         const responseText = await response.text();
-        console.log("🔍 [DEBUG] Raw response text:", responseText);
         
         // Parse the response as JSON
         const data = responseText ? JSON.parse(responseText) : {};
-        console.log("🔍 [DEBUG] Parsed response data:", data);
         
         if (data.success) {
-          console.log("🔍 [DEBUG] Group created successfully, now creating schedule entry");
           // Now create/update the general schedule entry
           try {
             const scheduleResponse = await fetch('/api/schedule', {
@@ -401,39 +342,29 @@ export default function AddGroupDialog({
               })
             });
             
-            // Log raw schedule response
-            console.log("🔍 [DEBUG] Schedule API status:", scheduleResponse.status);
             const scheduleResponseText = await scheduleResponse.text();
-            console.log("🔍 [DEBUG] Schedule API response text:", scheduleResponseText);
             
             // Parse the schedule response as JSON
             const scheduleData = scheduleResponseText ? JSON.parse(scheduleResponseText) : {};
-            console.log("🔍 [DEBUG] Schedule API parsed response:", scheduleData);
             
             if (scheduleData.success) {
-              console.log("🔍 [DEBUG] Schedule entry created successfully");
               toast.success(editGroupData ? "Grupo actualizado correctamente" : "Grupo agregado correctamente");
               
               // If everything was successful, update the UI with the complete group data
               const completeGroupData = {
                 ...newGroup,
                 IdMateria: parseInt(selectedSubject.id.toString()),
-                IdProfesor: professorId
+                IdProfesor: typeof professorId === 'string' ? parseInt(professorId) || 0 : professorId
               };
-              console.log("🔍 [DEBUG] Updating UI with complete group data:", completeGroupData);
               onAdd(completeGroupData);
               onClose();
             } else {
               throw new Error(scheduleData.error || "Error al guardar el horario general");
             }
           } catch (scheduleError) {
-            console.error("🔍 [DEBUG] Error during schedule API call:", scheduleError);
             throw scheduleError;
           }
         } else {
-          // Log detailed error information for debugging
-          console.error("🔍 [DEBUG] API error details:", data);
-          
           // Provide more specific error messages based on common cases
           if (data.error && data.error.includes("Subject with ID")) {
             throw new Error(`La materia seleccionada (ID: ${selectedSubject.id}) no existe en la base de datos. Por favor, actualice la lista de materias o seleccione una materia diferente.`);
@@ -443,12 +374,11 @@ export default function AddGroupDialog({
             throw new Error(data.error || "Error al crear/actualizar el grupo");
           }
         }
-      } catch (fetchError) {
-        console.error("🔍 [DEBUG] Fetch error:", fetchError);
+      } catch (error) {
+        const fetchError = error as Error;
         throw new Error(`Error de red: ${fetchError.message}`);
       }
     } catch (error) {
-      console.error("🔍 [DEBUG]", editGroupData ? "Error updating group:" : "Error adding group:", error);
       toast.error(editGroupData ? `Error al actualizar el grupo: ${error instanceof Error ? error.message : 'Error desconocido'}` : 
                                 `Error al agregar el grupo: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
