@@ -4,6 +4,12 @@ import Availability from "../models/availability";
 import GeneralSchedule, { GeneralScheduleItem } from "../models/general-schedule";
 import Cycle from "../models/cycle"; 
 import { getGroups, generateGroupsForAllProfessors } from "./group-generator"; 
+import fs from 'fs';
+import path from 'path';
+
+// Flag file path to track generation status
+const GENERATION_FLAG_PATH = path.join(process.cwd(), 'schedule-generation-in-progress');
+
 // Helper function to get the latest cycle ID
 async function getLatestCycleId(): Promise<number | null> {
   const query = `SELECT IdCiclo FROM Ciclo ORDER BY FechaInicio DESC LIMIT 1`;
@@ -78,6 +84,10 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
   console.log("Starting general schedule generation...");
 
   try {
+    // Create a flag file to indicate processing is in progress
+    fs.writeFileSync(GENERATION_FLAG_PATH, new Date().toISOString());
+    console.log("Created schedule generation flag file");
+    
     // 1. Determine Cycle ID
     const targetCycleId = idCiclo ?? await getLatestCycleId();
     if (!targetCycleId) {
@@ -236,10 +246,35 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
        console.log("Cleared any existing schedule for this cycle as no new items were generated.");
     }
 
+    // At the end, after successful generation:
+    if (fs.existsSync(GENERATION_FLAG_PATH)) {
+      fs.unlinkSync(GENERATION_FLAG_PATH);
+      console.log("Removed schedule generation flag file");
+    }
+
     return true;
 
   } catch (error) {
     console.error("Error generating general schedule:", error);
+    
+    // Clean up the flag file even if there's an error
+    if (fs.existsSync(GENERATION_FLAG_PATH)) {
+      try {
+        fs.unlinkSync(GENERATION_FLAG_PATH);
+        console.log("Removed schedule generation flag file after error");
+      } catch (e) {
+        console.error("Failed to remove flag file:", e);
+      }
+    }
+    
     return false;
   }
+}
+
+/**
+ * Checks if a schedule generation process is currently running
+ * @returns boolean True if schedule generation is in progress
+ */
+export function isScheduleGenerationInProgress(): boolean {
+  return fs.existsSync(GENERATION_FLAG_PATH);
 }

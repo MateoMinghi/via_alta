@@ -140,8 +140,10 @@ export default function HorarioGeneralPage() {
     IdProfesor: raw.IdProfesor ?? raw.idprofesor,
     IdSalon: raw.IdSalon ?? raw.idsalon,
   });
+  
   const [schedule, setSchedule] = useState<GeneralScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addGroupDialogOpen, setAddGroupDialogOpen] = useState(false);
@@ -159,67 +161,106 @@ export default function HorarioGeneralPage() {
     (selectedSemester === 'All' || i.Semestre === selectedSemester) &&
     (selectedMajor === 'All' || i.NombreCarrera === selectedMajor)
   );
-  
-  // Fetch the general schedule from the API
-  useEffect(() => {
-    const fetchSchedule = async () => {
+
+  // Function to fetch schedule with polling capability
+  const fetchSchedule = async (showLoading = true) => {
+    if (showLoading) {
       setIsLoading(true);
-      try {
-        const res = await fetch('/api/schedule');
-        const data = await res.json();
-        if (data.success) {
-          console.log('Schedule data received:', data.data);
-          setSchedule(data.data.map(mapRawScheduleItem));
+    }
+    
+    try {
+      const timestamp = Date.now(); // Add cache-busting query param
+      const res = await fetch(`/api/schedule?ts=${timestamp}`);
+      const data = await res.json();
+      
+      if (data.success) {
+        console.log('Schedule data received:', data);
+        
+        // Update the schedule data
+        setSchedule(data.data.map(mapRawScheduleItem));
+        
+        // Check if generation is still in progress
+        if (data.isProcessing) {
+          console.log('Schedule generation is still in progress.');
+          return false; // Return false to indicate processing is ongoing
         } else {
-          console.log('No schedule data received:', data);
-          setSchedule([]);
+          console.log('Schedule data is up to date.');
+          return true; // Return true to indicate processing is complete
         }
-      } catch (err) {
-        console.error('Error fetching schedule:', err);
+      } else {
+        console.log('Error in schedule data:', data);
         setSchedule([]);
-      } finally {
+        return true; // Stop polling on error
+      }
+    } catch (err) {
+      console.error('Error fetching schedule:', err);
+      setSchedule([]);
+      return true; // Stop polling on error
+    } finally {
+      if (showLoading) {
         setIsLoading(false);
       }
+    }
+  };
+  
+  // Function to start polling when generation is in progress
+  const startPolling = () => {
+    setIsGenerating(true);
+    
+    const poll = async () => {
+      console.log('Polling for schedule updates...');
+      const isComplete = await fetchSchedule(false);
+      
+      if (isComplete) {
+        // Generation is complete, stop polling
+        setIsGenerating(false);
+        toast.success('¡Horario general generado y actualizado exitosamente!');
+        setIsLoading(false); // Ensure loading indicator is off
+      } else {
+        // Schedule another poll in a few seconds
+        setTimeout(poll, 5000); // Poll every 5 seconds
+      }
     };
+    
+    // Start the polling process
+    poll();
+  };
+  
+  // Fetch the general schedule from the API on component mount
+  useEffect(() => {
     fetchSchedule();
   }, []);
   
   // Generar controlador de horario
   const handleGenerateSchedule = async () => {
     setIsLoading(true);
-    setSchedule([]); // Borrar la programación actual para forzar la actualización de la interfaz de usuario
+    
     try {
-      console.log('Generating schedule...');
-      const res = await fetch('/api/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      console.log('Starting schedule generation...');
+      const res = await fetch('/api/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      
       const data = await res.json();
       console.log('Generation response:', data);
       
       if (data.success) {
-        // Add a delay to allow the server to finish processing before fetching the updated schedule
-        toast.info('Horario generado. Cargando datos...');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delay
+        // Set schedule to empty to show that regeneration is happening
+        setSchedule([]);
         
-        // Después de generar, obtenga la nueva programación (con parámetro de eliminación de caché)
-        console.log('Fetching updated schedule...');
-        const res2 = await fetch(`/api/schedule?ts=${Date.now()}`);
-        const data2 = await res2.json();
-        console.log('Updated schedule data:', data2);
+        toast.info('Generando horario general. Por favor espere...');
         
-        // Actualizar siempre el estado, incluso si los datos son los mismos
-        setSchedule(data2.success ? data2.data.map(mapRawScheduleItem) : []);
-        if (data2.success) {
-          toast.success('Horario general generado correctamente');
-        } else {
-          toast.error('Error al obtener el horario actualizado');
-        }
+        // Start polling to automatically update when complete
+        startPolling();
       } else {
-        toast.error('Error al generar el horario general');
+        toast.error(`Error al generar el horario: ${data.error || 'Error desconocido'}`);
+        setIsLoading(false);
       }
     } catch (err) {
-      console.error('Error generating/fetching schedule:', err);
-      setSchedule([]);
-      toast.error('Error al generar/obtener el horario');
-    } finally {
+      console.error('Error initiating schedule generation:', err);
+      toast.error('Error al iniciar la generación del horario');
       setIsLoading(false);
     }
   };
