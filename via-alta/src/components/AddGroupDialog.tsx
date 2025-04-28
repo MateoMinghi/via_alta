@@ -75,6 +75,10 @@ export default function AddGroupDialog({
         setNewGroup(editGroupData);
       } else {
         setNewGroup({...initialGroup, IdHorarioGeneral: currentCycleId});
+        // Generate a new unique group ID when creating a new group
+        generateUniqueGroupId().then(id => {
+          setNewGroup(prev => ({ ...prev, IdGrupo: id }));
+        });
       }
       
       fetchProfessors();
@@ -226,6 +230,29 @@ export default function AddGroupDialog({
       setClassroomsLoading(false);
     }
   };
+  
+  // Generate a unique group ID
+  const generateUniqueGroupId = async (): Promise<number> => {
+    try {
+      const response = await fetch('/api/schedule/next-group-id');
+      const data = await response.json();
+      
+      if (data.success && data.nextId) {
+        console.log(`Generated next group ID: ${data.nextId}`);
+        return data.nextId;
+      } else {
+        console.warn("Could not get next group ID from API, using fallback method");
+        // Fallback to a random ID if the API fails
+        const randomId = Math.floor(1000 + Math.random() * 9000);
+        return randomId;
+      }
+    } catch (error) {
+      console.error("Error generating unique group ID:", error);
+      // Fallback to a random ID
+      const randomId = Math.floor(1000 + Math.random() * 9000);
+      return randomId;
+    }
+  };
 
   // Array of available days
   const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -273,18 +300,77 @@ export default function AddGroupDialog({
     return true;
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!validateGroup()) return;
     
     setIsLoading(true);
     try {
-      // Add or update the group
-      onAdd(newGroup);
-      toast.success(editGroupData ? "Grupo actualizado correctamente" : "Grupo agregado correctamente");
-      onClose();
+      // Find professor ID from name
+      const selectedProfessor = professors.find(prof => prof.name === newGroup.ProfesorNombre);
+      if (!selectedProfessor) {
+        throw new Error("No se pudo encontrar el ID del profesor seleccionado");
+      }
+      
+      // Find subject ID from name
+      const selectedSubject = subjects?.find((subj: any) => subj.name === newGroup.MateriaNombre);
+      if (!selectedSubject) {
+        throw new Error("No se pudo encontrar el ID de la materia seleccionada");
+      }
+      
+      // Create or update the group in the database using the group-generator API
+      const endpoint = editGroupData ? '/api/group/update' : '/api/group/create';
+      
+      const groupParams = {
+        idGrupo: newGroup.IdGrupo,
+        idMateria: selectedSubject.id,
+        idProfesor: selectedProfessor.id,
+        idSalon: newGroup.IdSalon,
+        idCiclo: currentCycleId,
+        semestre: newGroup.Semestre
+      };
+      
+      console.log("Sending group data to API:", groupParams);
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(groupParams)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Now create/update the general schedule entry
+        const scheduleResponse = await fetch('/api/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            schedule: [{
+              ...newGroup,
+              IdMateria: selectedSubject.id,
+              IdProfesor: selectedProfessor.id
+            }] 
+          })
+        });
+        
+        const scheduleData = await scheduleResponse.json();
+        
+        if (scheduleData.success) {
+          toast.success(editGroupData ? "Grupo actualizado correctamente" : "Grupo agregado correctamente");
+          
+          // If everything was successful, update the UI
+          onAdd(newGroup);
+          onClose();
+        } else {
+          throw new Error(scheduleData.error || "Error al guardar el horario general");
+        }
+      } else {
+        throw new Error(data.error || "Error al crear/actualizar el grupo");
+      }
     } catch (error) {
       console.error(editGroupData ? "Error updating group:" : "Error adding group:", error);
-      toast.error(editGroupData ? "Error al actualizar el grupo" : "Error al agregar el grupo");
+      toast.error(editGroupData ? `Error al actualizar el grupo: ${error instanceof Error ? error.message : 'Error desconocido'}` : 
+                                `Error al agregar el grupo: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setIsLoading(false);
     }
