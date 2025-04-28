@@ -317,12 +317,17 @@ export default function AddGroupDialog({
         throw new Error("No se pudo encontrar el ID de la materia seleccionada");
       }
       
+      // Ensure subject ID is a valid integer
+      if (!selectedSubject.id || isNaN(parseInt(selectedSubject.id.toString()))) {
+        throw new Error(`ID de materia inválido: ${selectedSubject.id}`);
+      }
+      
       // Create or update the group in the database using the group-generator API
       const endpoint = editGroupData ? '/api/group/update' : '/api/group/create';
       
       const groupParams = {
         idGrupo: newGroup.IdGrupo,
-        idMateria: selectedSubject.id,
+        idMateria: parseInt(selectedSubject.id.toString()), // Ensure integer
         idProfesor: selectedProfessor.id,
         idSalon: newGroup.IdSalon,
         idCiclo: currentCycleId,
@@ -347,7 +352,7 @@ export default function AddGroupDialog({
           body: JSON.stringify({ 
             schedule: [{
               ...newGroup,
-              IdMateria: selectedSubject.id,
+              IdMateria: parseInt(selectedSubject.id.toString()), // Ensure integer
               IdProfesor: selectedProfessor.id
             }] 
           })
@@ -365,7 +370,17 @@ export default function AddGroupDialog({
           throw new Error(scheduleData.error || "Error al guardar el horario general");
         }
       } else {
-        throw new Error(data.error || "Error al crear/actualizar el grupo");
+        // Log detailed error information for debugging
+        console.error("API error details:", data);
+        
+        // Provide more specific error messages based on common cases
+        if (data.error && data.error.includes("Subject with ID")) {
+          throw new Error(`La materia seleccionada (ID: ${selectedSubject.id}) no existe en la base de datos. Por favor, actualice la lista de materias o seleccione una materia diferente.`);
+        } else if (data.error && data.error.includes("Professor with ID")) {
+          throw new Error(`El profesor seleccionado (ID: ${selectedProfessor.id}) no existe en la base de datos. Por favor, actualice la lista de profesores o seleccione un profesor diferente.`);
+        } else {
+          throw new Error(data.error || "Error al crear/actualizar el grupo");
+        }
       }
     } catch (error) {
       console.error(editGroupData ? "Error updating group:" : "Error adding group:", error);
