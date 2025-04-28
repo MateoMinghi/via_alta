@@ -195,6 +195,10 @@ export default function HorarioGeneralPage() {
       console.log('Generation response:', data);
       
       if (data.success) {
+        // Add a delay to allow the server to finish processing before fetching the updated schedule
+        toast.info('Horario generado. Cargando datos...');
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delay
+        
         // Después de generar, obtenga la nueva programación (con parámetro de eliminación de caché)
         console.log('Fetching updated schedule...');
         const res2 = await fetch(`/api/schedule?ts=${Date.now()}`);
