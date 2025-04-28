@@ -8,26 +8,15 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import EstudianteSchedule from '../EstudianteSchedule';
-import { useGetStudentSchedule, ScheduleItem } from '@/api/useGetStudentSchedule';
+import { useGetStudentSchedule } from '@/api/useGetStudentSchedule';
 import { useScheduleChangeRequest } from '@/api/useScheduleChangeRequest';
 import EstudianteStatusBanner from '../EstudianteStatusBanner';
 import EstudianteHeader from '../EstudianteHeader';
 import { useGetStudentAcademicHistory } from '@/api/useGetStudentAcademicHistory';
 
-
-/**
- * Interfaz que define la estructura de una materia en el horario
- * Representa una materia con sus datos principales y horarios
- */
-interface Subject {
-  id: number;          // ID único de la materia
-  title: string;       // Nombre de la materia
-  professor: string;   // Nombre del profesor
-  credits: number;     // Número de créditos
-  salon: string;       // Ubicación/salón
-  semester: number;    // Semestre al que pertenece
-  hours: { day: string; time: string; timeStart?: string; timeEnd?: string }[]; // Días y horas de clase
-}
+// Import Model and Controller
+import { StudentModel, Subject, AcademicRecommendations } from '@/lib/models/StudentModel';
+import { StudentController } from '@/app/api/controllers/StudentController';
 
 export default function Estudiante() {
     // --- ESTADOS ---
@@ -36,6 +25,11 @@ export default function Estudiante() {
     const [isModifyingStatus, setIsModifyingStatus] = useState(false);        // Indicador de operación en proceso
     const [changeReason, setChangeReason] = useState('');                     // Razón de la solicitud de cambios
     const [comentarios, setComentarios] = useState('');                       // Comentarios guardados del estudiante
+    const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);  // Materias procesadas
+    const [academicRecommendations, setAcademicRecommendations] = useState<AcademicRecommendations>({
+      obligatoryCourseIds: [],
+      recommendedCourses: []
+    });
     
     // --- HOOKS Y CONTEXTO ---
     const router = useRouter();
@@ -73,155 +67,36 @@ export default function Estudiante() {
 
     // Al iniciar, recuperamos los comentarios guardados en localStorage
     useEffect(() => {
-      const savedComments = localStorage.getItem('studentComments');
+      const savedComments = StudentController.getStudentComments();
       if (savedComments) {
         setComentarios(savedComments);
       }
-    }, []);
+    }, []); // This effect should only run once
 
-    /**
-     * Convierte los datos de la API a un formato más limpio y agrupado 
-     * para mostrar en el horario
-     */
-    const convertToSubjects = (scheduleItems: ScheduleItem[] | null): Subject[] => {
-      if (!scheduleItems) return [];
-      
-      // Agrupamos clases por materia y profesor
-      const groupedItems: Record<string, ScheduleItem[]> = {};
-      
-      scheduleItems.forEach(item => {
-      
-        const materiaNombre = item.materianombre;
-        const profesorNombre = item.profesornombre;
-        
-        if (!materiaNombre) {
-          console.warn('Missing material name for item:', item);
-          return;
-        }
-        
-        // Creamos una clave única para agrupar la misma materia con el mismo profesor
-        const key = `${materiaNombre}-${profesorNombre || 'Unknown'}`;
-        if (!groupedItems[key]) {
-          groupedItems[key] = [];
-        }
-        groupedItems[key].push(item);
-      });
-
-      // Convertimos los grupos a objetos Subject
-      return Object.entries(groupedItems).map(([key, items], index) => {
-        const firstItem = items[0];
-        console.log('Creating subject from:', firstItem);
-        
-        const idGrupo = firstItem.idgrupo;
-        const materiaNombre = firstItem.materianombre;
-        const profesorNombre = firstItem.profesornombre;
-        const tipoSalon = firstItem.tiposalon;
-        const idSalon = firstItem.idsalon;
-        const semestre = firstItem.semestre;
-        
-        const day = firstItem.dia;
-        const timeStart = firstItem.horainicio;
-        
-        return {
-          id: idGrupo || index,
-          title: materiaNombre || `Asignatura ${index + 1}`,
-          professor: profesorNombre || 'Profesor No Asignado',
-          salon: tipoSalon ? `${tipoSalon} ${idSalon || ''}` : 'Por asignar',
-          semester: semestre || 1,
-          credits: 0, 
-          // Mapeamos todos los horarios para esta materia
-          hours: items.map(item => {
-            const itemDay = item.dia;
-            const itemTimeStart = item.horainicio;
-            const itemTimeEnd = item.horafin;
-            const itemTime = itemTimeStart && itemTimeEnd ? `${itemTimeStart} - ${itemTimeEnd}` : '';
-            console.log(`Hour for ${materiaNombre}: day=${itemDay}, time=${itemTime}`);
-            return {
-              day: itemDay || '',
-              time: itemTime || '',
-              timeStart: itemTimeStart || '',
-              timeEnd: itemTimeEnd || ''
-            };
-          })
-        };
-      });
-    };
-    
-    // Convertimos los datos de la API a nuestro formato Subject
-    const filteredSubjects = convertToSubjects(scheduleData);
-
-    /**
-     * Analiza el historial académico del estudiante para determinar las materias recomendadas
-     * y configura las materias obligatorias y disponibles siguiendo el flujo de trabajo
-     * para estudiantes irregulares.
-     */
-    const analyzeAcademicHistory = () => {
-      if (!academicHistory || academicHistory.length === 0) {
-        console.log("No academic history available for analysis");
-        return {
-          obligatoryCourseIds: [],
-          recommededCourses: []
-        };
+    // Procesamos los datos cuando se cargan
+    useEffect(() => {
+      if (!scheduleLoading && scheduleData) {
+        // Usamos el modelo para transformar los datos
+        const subjects = StudentModel.convertToSubjects(scheduleData);
+        setFilteredSubjects(subjects);
       }
+    }, [scheduleData, scheduleLoading]); // Remove scheduleError as it might change frequently
 
-      // Obtener el semestre actual del estudiante
-      const currentSemester = updatedUser?.semester || 1;
-      
-      // Identificar el plan de estudios completo del estudiante
-      // Agrupar por semestres para facilitar el análisis
-      const studyPlan = academicHistory.reduce<Record<number, any[]>>((acc, course) => {
-        if (!acc[course.course_semester]) {
-          acc[course.course_semester] = [];
-        }
-        acc[course.course_semester].push(course);
-        return acc;
-      }, {});
-      
-      // Identificar materias faltantes del plan de estudios 
-      // (materias que no tienen calificación y no están en trámite de equivalencia)
-      const pendingCourses = academicHistory.filter(course => 
-        course.course_semester <= currentSemester && 
-        !course.grade_final &&
-        !course.grade_observations?.includes('equivalencia')
-      );
-      
-      console.log(`Found ${pendingCourses.length} pending courses for recommendations`);
-      
-      // Ordenar materias faltantes por prioridad:
-      // 1. Por semestre (prioritarios los semestres más bajos)
-      // 2. Por créditos (mayor a menor)
-      const prioritizedCourses = [...pendingCourses].sort((a, b) => {
-        // Primero por semestre
-        if (a.course_semester !== b.course_semester) {
-          return a.course_semester - b.course_semester;
-        }
+    // Analizamos el historial académico cuando esté disponible
+    useEffect(() => {
+      if (!historyLoading && academicHistory && updatedUser?.semester) {
+        // Usamos el modelo para obtener recomendaciones
+        const recommendations = StudentModel.analyzeAcademicHistory(
+          academicHistory,
+          updatedUser.semester || 1
+        );
         
-        // Si están en el mismo semestre, por créditos (mayor primero)
-        const aCredits = parseFloat(a.sep_credits);
-        const bCredits = parseFloat(b.sep_credits);
-        return bCredits - aCredits;
-      });
-      
-      // Selección de materias obligatorias e importantes
-      // Las 3 primeras materias serán obligatorias (las más básicas/importantes)
-      const obligatoryCourseIds = prioritizedCourses
-        .slice(0, 3)
-        .map(course => course.course_id);
-      
-      // Las siguientes 3 serán recomendadas por su importancia
-      const recommendedCourseNames = prioritizedCourses
-        .slice(3, 6)
-        .map(course => course.course_name);
-      
-      return {
-        obligatoryCourseIds,
-        recommendedCourses: recommendedCourseNames
-      };
-    };
-    
-    // Obtenemos las recomendaciones basadas en el historial académico
-    const { obligatoryCourseIds = [], recommendedCourses = [] } = 
-      !historyLoading && !scheduleLoading ? analyzeAcademicHistory() : {};
+        // Only update if there's an actual change to avoid re-renders
+        if (JSON.stringify(recommendations) !== JSON.stringify(academicRecommendations)) {
+          setAcademicRecommendations(recommendations);
+        }
+      }
+    }, [academicHistory, historyLoading, updatedUser?.semester]); // Remove historyError and full updatedUser object
 
     /**
      * Maneja la confirmación del horario por parte del estudiante
@@ -230,37 +105,23 @@ export default function Estudiante() {
       setIsConfirmDialogOpen(false);
       setIsModifyingStatus(true);
       
-      try {
-        if (!scheduleData) {
-          throw new Error("No hay datos de horario disponibles para confirmar");
-        }
-        
-        if (!updatedUser?.ivd_id && !updatedUser?.id) {
-          throw new Error("ID de estudiante no disponible");
-        }
-        
-        // Usar ivd_id si está disponible, si no, usar id
-        const effectiveStudentId = updatedUser.ivd_id?.toString() || updatedUser.id?.toString();
-        
-        // Llamamos a la API para confirmar el horario
-        const result = await confirmSchedule(scheduleData);
-        
-        if (result?.success) {
-        
-          localStorage.setItem('studentStatus', 'inscrito');
-          localStorage.removeItem('studentComments');
-          setComentarios('');
-          toast.success('Horario confirmado correctamente');
-          router.push('/estudiante/confirmacion');
-        } else {
-          throw new Error(result?.message || "Error al confirmar horario");
-        }
-      } catch (error) {
-        console.error('Error al confirmar horario:', error);
-        toast.error(`Error al confirmar el horario: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-      } finally {
-        setIsModifyingStatus(false);
+      // Usamos el controlador para manejar la confirmación
+      const effectiveStudentId = updatedUser?.ivd_id?.toString() || updatedUser?.id?.toString() || '';
+      const result = await StudentController.confirmSchedule(
+        scheduleData,
+        effectiveStudentId,
+        (data) => confirmSchedule(data || [])
+      );
+      
+      if (result.success) {
+        setComentarios('');
+        toast.success('Horario confirmado correctamente');
+        router.push('/estudiante/confirmacion');
+      } else {
+        toast.error(`Error al confirmar el horario: ${result.message}`);
       }
+      
+      setIsModifyingStatus(false);
     };
 
     /**
@@ -270,39 +131,23 @@ export default function Estudiante() {
       setIsChangesDialogOpen(false);
       setIsModifyingStatus(true);
       
-      try {
-        // Validamos que haya un motivo para el cambio
-        if (!changeReason.trim()) {
-          toast.error('Debes proporcionar un motivo para solicitar cambios');
-          setIsModifyingStatus(false);
-          return;
-        }
-        
-        if (!updatedUser?.id) {
-          throw new Error("ID de estudiante no disponible");
-        }
-        
-        // Enviamos la solicitud a la API
-        const result = await submitChangeRequest(
-          updatedUser.id.toString(),
-          changeReason
-        );
-        
-        if (!result) {
-          throw new Error("Error al enviar la solicitud de cambios");
-        }
-        
-        // Guardamos los comentarios para mostrarlos en el banner
+      // Usamos el controlador para manejar la solicitud de cambios
+      const studentId = updatedUser?.id?.toString() || '';
+      const result = await StudentController.requestScheduleChanges(
+        studentId,
+        changeReason,
+        submitChangeRequest
+      );
+      
+      if (result.success) {
         setComentarios(changeReason);
-        
         toast.success('Solicitud de cambios enviada correctamente');
         router.push('/estudiante/confirmacion');
-      } catch (error) {
-        console.error('Error al solicitar cambios:', error);
-        toast.error(error instanceof Error ? error.message : 'Error al enviar la solicitud de cambios');
-      } finally {
-        setIsModifyingStatus(false);
+      } else {
+        toast.error(result.message || 'Error al procesar la solicitud');
       }
+      
+      setIsModifyingStatus(false);
     };
 
     // --- RENDERIZADO CONDICIONAL: CARGA Y ERROR ---
@@ -349,7 +194,6 @@ export default function Estudiante() {
               <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
           </p>
-
         </div>
 
         {/* Horario del estudiante o mensaje si no hay materias */}
@@ -357,7 +201,7 @@ export default function Estudiante() {
           <EstudianteSchedule 
             subjects={filteredSubjects} 
             isRegular={updatedUser?.regular !== false}
-            recommendedCourses={recommendedCourses || []} 
+            recommendedCourses={academicRecommendations.recommendedCourses || []} 
           />
         ) : (
           <p className="text-center py-4 bg-gray-50 rounded-md">
@@ -457,5 +301,3 @@ export default function Estudiante() {
       </div>
     );
 }
-
-// prueba git
