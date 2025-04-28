@@ -44,6 +44,7 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group,
           <div><b>Hora Inicio:</b> {group.HoraInicio}</div>
           <div><b>Hora Fin:</b> {group.HoraFin}</div>
           <div><b>ID Grupo:</b> {group.IdGrupo}</div>
+          <div><b>ID Salón:</b> {group.IdSalon || 'No asignado'}</div>
         </div>
         <DialogFooter className="mt-6 flex justify-between sm:justify-end gap-2">
           {onEdit && (

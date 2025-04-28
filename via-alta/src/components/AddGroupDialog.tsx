@@ -52,6 +52,7 @@ export default function AddGroupDialog({
     Semestre: 1,
     MateriaNombre: "",
     ProfesorNombre: "",
+    IdSalon: undefined, // Add classroom field
   };
   
   const [newGroup, setNewGroup] = useState<GeneralScheduleItem>(initialGroup);
@@ -62,6 +63,8 @@ export default function AddGroupDialog({
   const [professorsLoading, setProfessorsLoading] = useState(true);
   const [careers, setCareers] = useState<string[]>(DEFAULT_CAREERS); // Initialize with default careers
   const [careersLoading, setCareersLoading] = useState(true);
+  const [classrooms, setClassrooms] = useState<{ idsalon: number, tipo: string, cupo: number }[]>([]);
+  const [classroomsLoading, setClassroomsLoading] = useState(true);
   const { result: subjects, loading: subjectsLoading } = useGetSubjects();
 
   // Reset form when dialog opens/closes or when editGroupData changes
@@ -76,6 +79,7 @@ export default function AddGroupDialog({
       
       fetchProfessors();
       fetchCareers();
+      fetchClassrooms();
     }
   }, [isOpen, currentCycleId, editGroupData]);
 
@@ -170,6 +174,56 @@ export default function AddGroupDialog({
       toast.error("Error cargando carreras. Usando valores predeterminados.");
     } finally {
       setCareersLoading(false);
+    }
+  };
+
+  // Fetch classrooms from database
+  const fetchClassrooms = async () => {
+    setClassroomsLoading(true);
+    try {
+      console.log("Fetching classrooms from database...");
+      const response = await fetch('/api/classroom');
+      const data = await response.json();
+      
+      console.log("Classrooms API response:", data);
+      
+      // Data is directly an array of classrooms, not wrapped in a data property
+      if (Array.isArray(data)) {
+        // Check if we have any classrooms 
+        if (data.length > 0) {
+          const formattedClassrooms = data.map((classroom: any) => ({
+            idsalon: classroom.idsalon,
+            tipo: classroom.tipo,
+            cupo: classroom.cupo
+          }));
+          console.log("Formatted classrooms:", formattedClassrooms);
+          setClassrooms(formattedClassrooms);
+        } else {
+          console.warn("No classrooms found in database");
+          // Add some default classrooms if none were found
+          setClassrooms([
+            { idsalon: 1, tipo: "Aula", cupo: 30 },
+            { idsalon: 2, tipo: "Laboratorio", cupo: 20 },
+          ]);
+          toast.warning("No se encontraron salones en la base de datos. Usando valores predeterminados.");
+        }
+      } else {
+        console.error("Invalid response format from API:", data);
+        setClassrooms([
+          { idsalon: 1, tipo: "Aula", cupo: 30 },
+          { idsalon: 2, tipo: "Laboratorio", cupo: 20 },
+        ]);
+        toast.warning("Formato de respuesta inválido. Usando valores predeterminados.");
+      }
+    } catch (error) {
+      console.error("Error fetching classrooms:", error);
+      setClassrooms([
+        { idsalon: 1, tipo: "Aula", cupo: 30 },
+        { idsalon: 2, tipo: "Laboratorio", cupo: 20 },
+      ]);
+      toast.error("Error cargando salones. Usando valores predeterminados.");
+    } finally {
+      setClassroomsLoading(false);
     }
   };
 
@@ -380,6 +434,25 @@ export default function AddGroupDialog({
                 <SelectContent>
                   {[1,2,3,4,5,6,7,8].map((sem) => (
                     <SelectItem key={sem} value={sem.toString()}>{`Semestre ${sem}`}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-IdSalon" className="text-right">Salón</Label>
+              <Select 
+                value={newGroup.IdSalon?.toString() || ''} 
+                onValueChange={(value) => setNewGroup({...newGroup, IdSalon: parseInt(value)})}
+                disabled={classroomsLoading}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Seleccionar salón" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classrooms.map((classroom) => (
+                    <SelectItem key={classroom.idsalon} value={classroom.idsalon.toString()}>
+                      {`Salón ${classroom.idsalon} - ${classroom.tipo} (Cupo: ${classroom.cupo})`}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

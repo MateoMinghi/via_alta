@@ -11,6 +11,9 @@ export interface GeneralScheduleItem {
   Semestre?: number;
   MateriaNombre?: string;
   ProfesorNombre?: string;
+  IdMateria?: number;
+  IdProfesor?: number;
+  IdSalon?: number;
 }
 
 class GeneralSchedule {  // Method to save the general schedule
@@ -56,7 +59,9 @@ class GeneralSchedule {  // Method to save the general schedule
         }
       }
       
+      // For each schedule item
       for (const item of scheduleItems) {
+        // First insert into HorarioGeneral
         await client.query(insertQuery, [
           item.IdHorarioGeneral,
           item.NombreCarrera,
@@ -65,6 +70,15 @@ class GeneralSchedule {  // Method to save the general schedule
           item.HoraInicio,
           item.HoraFin
         ]);
+        
+        // Then update the Grupo table to set the classroom ID if provided
+        if (item.IdSalon) {
+          await client.query(
+            'UPDATE Grupo SET IdSalon = $1 WHERE IdGrupo = $2',
+            [item.IdSalon, item.IdGrupo]
+          );
+          console.log(`Updated Grupo ${item.IdGrupo} with Salon ${item.IdSalon}`);
+        }
       }
       
       //transacciones :)
@@ -85,6 +99,7 @@ class GeneralSchedule {  // Method to save the general schedule
              g.IdMateria,
              m.Nombre as MateriaNombre,
              g.IdProfesor,
+             g.IdSalon,
              p.Nombre as ProfesorNombre,
              g.Semestre
       FROM HorarioGeneral hg
