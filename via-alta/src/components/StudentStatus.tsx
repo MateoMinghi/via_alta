@@ -104,11 +104,10 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     const query = searchQuery.toLowerCase();
     const results = students.filter(
       (student) =>
-        student.ivd_id.toLowerCase().includes(query) ||
+        (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)) ||
         student.name.toLowerCase().includes(query) ||
         student.first_surname.toLowerCase().includes(query) ||
-        student.second_surname.toLowerCase().includes(query) ||
-        (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)),
+        student.second_surname.toLowerCase().includes(query)
     );
     setFilteredStudents(results);
 

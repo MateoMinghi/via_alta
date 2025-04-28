@@ -18,6 +18,7 @@ export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filteredSchedule, setFilteredSchedule] = useState<GeneralScheduleItem[]>([]);
+  const [isIrregular, setIsIrregular] = useState<boolean>(false);
   const params = useParams();
   const urlSlug = params?.slug as string | undefined;
   
@@ -47,6 +48,34 @@ export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
     viewType === 'estudiante' ? slug : undefined, 
     viewType === 'estudiante' ? 1 : undefined
   );
+
+  // determinar si el estudiante es irregular
+  useEffect(() => {
+    if (viewType === 'estudiante' && slug) {
+      // Revisar si el estudiante es irregular
+      const checkStudentStatus = async () => {
+        try {
+          const response = await fetch(`/api/student-info?studentId=${slug}`);
+          const data = await response.json();
+          
+          if (data.success && data.student) {
+            // Si el estudiante tiene un campo isIrregular, usarlo
+            // de lo contrario, asumir que es regular
+            setIsIrregular(data.student.isIrregular || false);
+            console.log(`Student ${slug} isIrregular:`, data.student.isIrregular);
+          } else {
+            console.warn(`Could not determine if student ${slug} is irregular, defaulting to regular`);
+            setIsIrregular(false);
+          }
+        } catch (err) {
+          console.error(`Error checking if student ${slug} is irregular:`, err);
+          setIsIrregular(false);
+        }
+      };
+      
+      checkStudentStatus();
+    }
+  }, [slug, viewType]);
 
   // Para mappear los datos del horario general
   const mapRawScheduleItem = (raw: any): GeneralScheduleItem => ({
@@ -201,10 +230,24 @@ export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
             ? `Horario del Semestre ${semesterNum}` 
             : `Horario del Estudiante ${slug}`}
         </h1>
-        {viewType === 'estudiante' && studentSchedule.isIndividual && (
-          <p className="text-sm text-green-600 mt-1">
-            Este estudiante tiene un horario personalizado
-          </p>
+        {viewType === 'estudiante' && (
+          <>
+            {isIrregular && (
+              <p className="text-sm text-amber-600 mt-1">
+                Este estudiante es irregular y requiere un horario personalizado
+              </p>
+            )}
+            {!isIrregular && (
+              <p className="text-sm text-green-600 mt-1">
+                Este estudiante es regular y sigue el horario estándar de su semestre
+              </p>
+            )}
+            {studentSchedule.isIndividual && (
+              <p className="text-sm text-green-600 mt-1">
+                Este estudiante tiene un horario personalizado
+              </p>
+            )}
+          </>
         )}
       </div>
       
@@ -217,7 +260,7 @@ export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
         <HorarioAlumno
           schedule={convertStudentScheduleToGeneralFormat(studentSchedule.result)}
           alumnoId={slug as string}
-          isRegular={!studentSchedule.isIndividual} // Si no tiene un horario individual, es regular
+          isRegular={!isIrregular} // Use the isIrregular flag directly
         />
       )}
     </div>
