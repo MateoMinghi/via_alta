@@ -112,6 +112,46 @@ const getSubjectColor = (subjectName: string): { text: string, border: string, b
   return colorOptions[colorIndex];
 };
 
+// Funcion para agrupar los ítems del horario por nombre de materia
+const groupSubjectsByName = (subjects: ExtendedScheduleItem[]): ExtendedScheduleItem[] => {
+  const subjectMap = new Map<string, ExtendedScheduleItem>();
+  
+  subjects.forEach(subject => {
+    const name = subject.MateriaNombre || '';
+    
+    if (subjectMap.has(name)) {
+      // Si ya existe la materia, actualizarla
+      const existingSubject = subjectMap.get(name)!;
+      
+      // Solo agregar la hora si no existe
+      const hourToAdd = {
+        day: subject.Dia,
+        timeStart: subject.HoraInicio,
+        timeEnd: subject.HoraFin
+      };
+      
+      // Revisar si la hora ya existe
+      const alreadyExists = existingSubject.hours?.some(
+        h => h.day === hourToAdd.day && 
+             h.timeStart === hourToAdd.timeStart && 
+             h.timeEnd === hourToAdd.timeEnd
+      );
+      
+      if (!alreadyExists) {
+        existingSubject.hours = [...(existingSubject.hours || []), hourToAdd];
+      }
+      
+    } else {
+      // Si es nueva, agregarla al mapa
+      const newSubject = { ...subject };
+      subjectMap.set(name, newSubject);
+    }
+  });
+  
+  // Convertir el mapa a un array
+  return Array.from(subjectMap.values());
+};
+
 // DraggableScheduleItem: Componente para los ítems del horario que se pueden arrastrar
 function DraggableScheduleItem({ item, onClick }: { item: ExtendedScheduleItem, onClick: () => void }) {
   const colors = getSubjectColor(item.MateriaNombre || '');
@@ -222,20 +262,20 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
   
   // Filtrar disponibles según el semestre y la carrera seleccionados
   const filteredAvailableSubjects = useMemo(() => {
-    if (!searchTerm) return availableSubjects;
-    return filterSubjectsBySearchTerm(availableSubjects, searchTerm);
+    if (!searchTerm) return groupSubjectsByName(availableSubjects);
+    return groupSubjectsByName(filterSubjectsBySearchTerm(availableSubjects, searchTerm));
   }, [availableSubjects, searchTerm]);
   
   // Filtrar materias obligatorias según el semestre y la carrera seleccionados
   const filteredObligatorySubjects = useMemo(() => {
-    if (!searchTerm) return obligatorySubjects;
-    return filterSubjectsBySearchTerm(obligatorySubjects, searchTerm);
+    if (!searchTerm) return groupSubjectsByName(obligatorySubjects);
+    return groupSubjectsByName(filterSubjectsBySearchTerm(obligatorySubjects, searchTerm));
   }, [obligatorySubjects, searchTerm]);
   
   // Filtrar materias recomendadas según el semestre y la carrera seleccionados
   const filteredRecommendedSubjects = useMemo(() => {
-    if (!searchTerm) return recommendedSubjects;
-    return filterSubjectsBySearchTerm(recommendedSubjects, searchTerm);
+    if (!searchTerm) return groupSubjectsByName(recommendedSubjects);
+    return groupSubjectsByName(filterSubjectsBySearchTerm(recommendedSubjects, searchTerm));
   }, [recommendedSubjects, searchTerm]);
   
   // Función para filtrar materias según el término de búsqueda
