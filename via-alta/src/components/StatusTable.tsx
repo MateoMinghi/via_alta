@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { toast } from 'react-toastify';
 
 interface Student {
   id: string;
@@ -113,8 +114,13 @@ export default function StatusTable({ students }: StatusTableProps) {
     }
   }, [searchQuery, students]);
 
-  const handleViewSchedule = (studentId: string) => {
-    router.push(`dashboard/horarios/${studentId}`);
+  const handleViewSchedule = (student: Student) => {
+    // SOLO USAR IVD_ID 
+    if (!student.ivd_id) {
+      toast.error('Este estudiante no tiene un ID de matrícula válido');
+      return;
+    }
+    router.push(`dashboard/horarios/${student.ivd_id}`);
   };
 
   const toggleSemester = (semester: string) => {
@@ -211,7 +217,7 @@ export default function StatusTable({ students }: StatusTableProps) {
                               variant="default"
                               size="sm"
                               className="flex items-center gap-1 text-white"
-                              onClick={() => handleViewSchedule(student.id)}
+                              onClick={() => handleViewSchedule(student)}
                             >
                               <Calendar className="h-4 w-4" />
                               <span>Ver horario</span>

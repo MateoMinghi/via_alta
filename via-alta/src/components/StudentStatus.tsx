@@ -104,7 +104,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     const query = searchQuery.toLowerCase();
     const results = students.filter(
       (student) =>
-        student.id.toLowerCase().includes(query) ||
+        student.ivd_id.toLowerCase().includes(query) ||
         student.name.toLowerCase().includes(query) ||
         student.first_surname.toLowerCase().includes(query) ||
         student.second_surname.toLowerCase().includes(query) ||
@@ -138,7 +138,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
   }, [searchQuery, students]);
 
   const handleViewSchedule = (studentId: string) => {
-    router.push(`dashboard/horarios/${studentId}`);
+    router.push(`/dashboard/horarios/${studentId}`);
   };
 
   const toggleSemester = (semester: string) => {
@@ -320,7 +320,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                   variant="default"
                                   size="sm"
                                   className="flex items-center gap-1 text-white"
-                                  onClick={() => handleViewSchedule(student.id)}
+                                  onClick={() => handleViewSchedule(student.ivd_id)}
                                 >
                                   <Calendar className="h-4 w-4" />
                                   <span>Ver horario</span>
@@ -380,7 +380,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                   variant="outline"
                                   size="sm"
                                   className="flex items-center gap-1 border-via text-via hover:bg-red-50"
-                                  onClick={() => handleViewSchedule(student.id)}
+                                  onClick={() => handleViewSchedule(student.ivd_id)}
                                 >
                                   <Calendar className="h-3 w-3" />
                                   <span className="text-xs">Horario</span>

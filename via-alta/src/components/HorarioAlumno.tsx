@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { X, Lock, Plus, GripVertical, Search, Check, Star } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
-// Define item types for drag and drop
+// Definir los tipos de elementos para el drag-and-drop
 const ItemTypes = {
   SCHEDULE_ITEM: 'schedule_item',
   AVAILABLE_SUBJECT: 'available_subject',
@@ -45,7 +45,7 @@ function getSemesterColor(sem: number | undefined) {
   return semesterColors[sem];
 }
 
-// Types for the general schedule item (matches your backend)
+// Tipos de datos para el horario
 interface GeneralScheduleItem {
   IdHorarioGeneral: number;
   NombreCarrera: string;
@@ -59,7 +59,7 @@ interface GeneralScheduleItem {
   isObligatory?: boolean;
 }
 
-// Interface for extended item with additional properties for UI
+// Interfaz extendida para los ítems del horario
 interface ExtendedScheduleItem extends GeneralScheduleItem {
   isObligatory: boolean;
   isRecommended?: boolean;
@@ -73,7 +73,14 @@ interface ExtendedScheduleItem extends GeneralScheduleItem {
   }[];
 }
 
-// Function to get subject color based on subject name
+// Definir la interfaz para las propiedades del componente HorarioAlumno
+interface HorarioAlumnoProps {
+  schedule?: ExtendedScheduleItem[] | GeneralScheduleItem[];
+  alumnoId?: string;
+  isRegular?: boolean; // Flag para determinar si el alumno es regular o irregular
+}
+
+// Funcion para obtener el color del tema según el nombre de la materia
 const getSubjectColor = (subjectName: string): { text: string, border: string, bg: string } => {
   const colorOptions = [
     { text: 'text-blue-700', border: 'border-blue-400', bg: 'bg-blue-50' },
@@ -94,7 +101,7 @@ const getSubjectColor = (subjectName: string): { text: string, border: string, b
     { text: 'text-red-700', border: 'border-red-400', bg: 'bg-red-50' },
   ];
   
-  // Create a hash based on subject name for consistent colors
+  // Crear un hashCode simple basado en el nombre de la materia
   let hashCode = 0;
   for (let i = 0; i < subjectName.length; i++) {
     hashCode = ((hashCode << 5) - hashCode) + subjectName.charCodeAt(i);
@@ -105,7 +112,7 @@ const getSubjectColor = (subjectName: string): { text: string, border: string, b
   return colorOptions[colorIndex];
 };
 
-// Draggable schedule item - Updated to disable dragging completely as coordinators cannot modify times
+// DraggableScheduleItem: Componente para los ítems del horario que se pueden arrastrar
 function DraggableScheduleItem({ item, onClick }: { item: ExtendedScheduleItem, onClick: () => void }) {
   const colors = getSubjectColor(item.MateriaNombre || '');
   
@@ -154,8 +161,8 @@ function DraggableScheduleItem({ item, onClick }: { item: ExtendedScheduleItem, 
   );
 }
 
-export default function HorarioAlumno() {
-  // Map raw API schedule items to proper UI types
+export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, isRegular = false }: HorarioAlumnoProps) {
+  // Mappear los ítems del horario a un formato extendido
   const mapRawScheduleItem = (raw: any): ExtendedScheduleItem => {
     const item = {
       IdHorarioGeneral: raw.IdHorarioGeneral ?? raw.idhorariogeneral,
@@ -173,7 +180,7 @@ export default function HorarioAlumno() {
       credits: raw.credits ?? 0,
     };
 
-    // Add hours array for compatibility with EstudianteSchedule
+    // Agregar la propiedad "hours" para almacenar los horarios
     item.hours = [{
       day: item.Dia,
       timeStart: item.HoraInicio,
@@ -194,19 +201,18 @@ export default function HorarioAlumno() {
   const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
   const [selectedMajor, setSelectedMajor] = useState<string>('All');
   
-  // Available options
+  // Opciones disponibles
   const semesters = ['All', 1, 2, 3, 4, 5, 6, 7, 8] as const;
   
   const majors = useMemo(() => {
     return Array.from(new Set(schedule.map(i => i.NombreCarrera)));
   }, [schedule]);
   
-  // All scheduled subjects combined (obligatory + recommended)
   const scheduledSubjects = useMemo(() => {
     return [...obligatorySubjects, ...recommendedSubjects];
   }, [obligatorySubjects, recommendedSubjects]);
   
-  // Filtered schedule based on selections
+  // Filtrar el horario según el semestre y la carrera seleccionados
   const filteredSchedule = useMemo(() => {
     return scheduledSubjects.filter(i =>
       (selectedSemester === 'All' || i.Semestre === selectedSemester) &&
@@ -214,25 +220,25 @@ export default function HorarioAlumno() {
     );
   }, [scheduledSubjects, selectedSemester, selectedMajor]);
   
-  // Filtered available subjects based on search term
+  // Filtrar disponibles según el semestre y la carrera seleccionados
   const filteredAvailableSubjects = useMemo(() => {
     if (!searchTerm) return availableSubjects;
     return filterSubjectsBySearchTerm(availableSubjects, searchTerm);
   }, [availableSubjects, searchTerm]);
   
-  // Filtered obligatory subjects based on search term
+  // Filtrar materias obligatorias según el semestre y la carrera seleccionados
   const filteredObligatorySubjects = useMemo(() => {
     if (!searchTerm) return obligatorySubjects;
     return filterSubjectsBySearchTerm(obligatorySubjects, searchTerm);
   }, [obligatorySubjects, searchTerm]);
   
-  // Filtered recommended subjects based on search term
+  // Filtrar materias recomendadas según el semestre y la carrera seleccionados
   const filteredRecommendedSubjects = useMemo(() => {
     if (!searchTerm) return recommendedSubjects;
     return filterSubjectsBySearchTerm(recommendedSubjects, searchTerm);
   }, [recommendedSubjects, searchTerm]);
   
-  // Helper function to filter subjects by search term
+  // Función para filtrar materias según el término de búsqueda
   const filterSubjectsBySearchTerm = (subjects: ExtendedScheduleItem[], term: string) => {
     const loweredTerm = term.toLowerCase();
     return subjects.filter(subject => 
@@ -242,44 +248,157 @@ export default function HorarioAlumno() {
     );
   };
   
-  // Fetch the general schedule from the API
+  
   useEffect(() => {
-    const fetchSchedule = async () => {
-      setIsLoading(true);
-      try {
-        const res = await fetch('/api/schedule');
-        const data = await res.json();
-        if (data.success) {
-          console.log('Schedule data received:', data.data);
-          const items = data.data.map(mapRawScheduleItem);
-          setSchedule(items);
-          
-          // Distribute items between the three lists for demo purposes
-          const obligatory = items.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
-          const recommended = items.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
-          const available = items.slice(6);
+    if (providedSchedule && providedSchedule.length > 0) {
+      // Si se proporciona un horario, procesarlo directamente
+      const processedItems = providedSchedule.map(item => mapRawScheduleItem(item));
+      setSchedule(processedItems);
+      
+      // Extraer títulos únicos de las carreras del horario
+      const uniqueDegrees = Array.from(new Set(
+        processedItems
+          .filter(item => item.NombreCarrera && item.NombreCarrera.trim() !== '')
+          .map(item => item.NombreCarrera)
+      ));
+      
+      console.log('Found degree programs:', uniqueDegrees);
+      
+      // Si hay títulos únicos, usar el primero como filtro por defecto
+      if (uniqueDegrees.length > 0) {
+        setSelectedMajor(uniqueDegrees[0]);
+        console.log(`Auto-filtered by degree: ${uniqueDegrees[0]}`);
+        
+        // Filtrar los ítems para incluir solo aquellos de la carrera primaria
+        const primaryDegreeItems = processedItems.filter(
+          item => item.NombreCarrera === uniqueDegrees[0]
+        );
+        console.log(`Filtered from ${processedItems.length} to ${primaryDegreeItems.length} items for primary degree`);
+        
+        if (isRegular) {
+          // Para estudiantes regulares, todas las materias son obligatorias y no modificables
+          const allObligatory = primaryDegreeItems.map(s => ({...s, isObligatory: true, isRecommended: false}));
+          setObligatorySubjects(allObligatory);
+          setRecommendedSubjects([]);
+          setAvailableSubjects([]);
+        } else {
+          // Para estudiantes irregulares, distribuir los ítems entre las listas
+          const obligatory = primaryDegreeItems.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
+          const recommended = primaryDegreeItems.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
+          const available = primaryDegreeItems.slice(6);
           
           setObligatorySubjects(obligatory);
           setRecommendedSubjects(recommended);
           setAvailableSubjects(available);
-        } else {
-          console.log('No schedule data received:', data);
-          setSchedule([]);
-          setObligatorySubjects([]);
+        }
+      } else {
+        console.log('No degree information found in schedule data');
+        if (isRegular) {
+          const allObligatory = processedItems.map(s => ({...s, isObligatory: true, isRecommended: false}));
+          setObligatorySubjects(allObligatory);
           setRecommendedSubjects([]);
           setAvailableSubjects([]);
+        } else {
+          const obligatory = processedItems.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
+          const recommended = processedItems.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
+          const available = processedItems.slice(6);
+          
+          setObligatorySubjects(obligatory);
+          setRecommendedSubjects(recommended);
+          setAvailableSubjects(available);
         }
-      } catch (err) {
-        console.error('Error fetching schedule:', err);
-        setSchedule([]);
-      } finally {
-        setIsLoading(false);
       }
-    };
-    fetchSchedule();
-  }, []);
+    } else {
+      // De lo contrario, hacer una llamada a la API para obtener el horario
+      const fetchSchedule = async () => {
+        setIsLoading(true);
+        try {
+          // Si el alumnoId está definido, usarlo para obtener el horario del estudiante
+          const endpoint = alumnoId 
+            ? `/api/student-schedule?studentId=${alumnoId}` 
+            : '/api/schedule';
+          
+          console.log(`Fetching schedule from: ${endpoint}`);
+          const res = await fetch(endpoint);
+          const data = await res.json();
+          
+          if (data.success) {
+            console.log('Schedule data received:', data.data);
+            const items = data.data.map(mapRawScheduleItem);
+            setSchedule(items);
+            
+            // Extraer títulos únicos de las carreras del horario
+            const uniqueDegrees = Array.from(new Set(
+              items
+                .filter(item => item.NombreCarrera && item.NombreCarrera.trim() !== '')
+                .map(item => item.NombreCarrera)
+            ));
+            
+            console.log('Found degree programs:', uniqueDegrees);
+            
+            // Si hay títulos únicos, usar el primero como filtro por defecto
+            if (uniqueDegrees.length > 0) {
+              setSelectedMajor(uniqueDegrees[0]);
+              console.log(`Auto-filtered by degree: ${uniqueDegrees[0]}`);
+              
+              // Filtrar los ítems para incluir solo aquellos de la carrera primaria
+              const primaryDegreeItems = items.filter(
+                item => item.NombreCarrera === uniqueDegrees[0]
+              );
+              console.log(`Filtered from ${items.length} to ${primaryDegreeItems.length} items for primary degree`);
+              
+              if (isRegular) {
+                // Para estudiantes regulares, todas las materias son obligatorias y no modificables
+                const allObligatory = primaryDegreeItems.map(s => ({...s, isObligatory: true, isRecommended: false}));
+                setObligatorySubjects(allObligatory);
+                setRecommendedSubjects([]);
+                setAvailableSubjects([]);
+              } else {
+                // Para estudiantes irregulares, distribuir los ítems entre las listas
+                const obligatory = primaryDegreeItems.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
+                const recommended = primaryDegreeItems.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
+                const available = primaryDegreeItems.slice(6);
+                
+                setObligatorySubjects(obligatory);
+                setRecommendedSubjects(recommended);
+                setAvailableSubjects(available);
+              }
+            } else {
+              console.log('No degree information found in schedule data');
+              if (isRegular) {
+                const allObligatory = items.map(s => ({...s, isObligatory: true, isRecommended: false}));
+                setObligatorySubjects(allObligatory);
+                setRecommendedSubjects([]);
+                setAvailableSubjects([]);
+              } else {
+                const obligatory = items.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
+                const recommended = items.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
+                const available = items.slice(6);
+                
+                setObligatorySubjects(obligatory);
+                setRecommendedSubjects(recommended);
+                setAvailableSubjects(available);
+              }
+            }
+          } else {
+            console.log('No schedule data received:', data);
+            setSchedule([]);
+            setObligatorySubjects([]);
+            setRecommendedSubjects([]);
+            setAvailableSubjects([]);
+          }
+        } catch (err) {
+          console.error('Error fetching schedule:', err);
+          setSchedule([]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchSchedule();
+    }
+  }, [providedSchedule, alumnoId, isRegular]);
   
-  // Generate schedule handler
+  // Generar el horario
   const handleGenerateSchedule = async () => {
     setIsLoading(true);
     setObligatorySubjects([]);
@@ -291,7 +410,6 @@ export default function HorarioAlumno() {
       console.log('Generation response:', data);
       
       if (data.success) {
-        // After generating, fetch the new schedule (with cache-busting param)
         console.log('Fetching updated schedule...');
         const res2 = await fetch(`/api/schedule?ts=${Date.now()}`);
         const data2 = await res2.json();
@@ -301,7 +419,7 @@ export default function HorarioAlumno() {
           const items = data2.data.map(mapRawScheduleItem);
           setSchedule(items);
           
-          // Distribute items between the three lists for demo purposes
+          // Distribuuir los ítems entre las listas
           const obligatory = items.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
           const recommended = items.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
           const available = items.slice(6);
@@ -327,14 +445,14 @@ export default function HorarioAlumno() {
     }
   };
 
-  // Helper to convert HH:MM to minutes
+  
   const timeToMinutes = (time: string | undefined | null): number => {
     if (!time) return 0;
     const [h, m] = time.split(":").map(Number);
     return h * 60 + (isNaN(m) ? 0 : m);
   };
 
-  // Normalizes day names
+  // Normalizar el día de la semana para que sea consistente
   function normalizeDay(day: string): string {
     switch (day.toLowerCase()) {
       case 'monday':
@@ -363,12 +481,12 @@ export default function HorarioAlumno() {
     }
   }
 
-  // Handle moving a subject between lists
+  
   const moveSubject = (subject: ExtendedScheduleItem, sourceList: string, targetList: string) => {
-    // Clone the subject to avoid reference issues
+  
     const movedSubject = { ...subject };
     
-    // Update the subject properties based on the target list
+    // Actualizar las propiedades isObligatory e isRecommended según la lista de destino
     if (targetList === 'obligatory') {
       movedSubject.isObligatory = true;
       movedSubject.isRecommended = false;
@@ -380,7 +498,7 @@ export default function HorarioAlumno() {
       movedSubject.isRecommended = false;
     }
     
-    // Remove from source list
+    // Quitar de la lista de origen
     if (sourceList === 'obligatory') {
       setObligatorySubjects(obligatorySubjects.filter(s => s.IdGrupo !== subject.IdGrupo));
     } else if (sourceList === 'recommended') {
@@ -389,7 +507,7 @@ export default function HorarioAlumno() {
       setAvailableSubjects(availableSubjects.filter(s => s.IdGrupo !== subject.IdGrupo));
     }
     
-    // Add to target list
+    // Agregar a la lista de destino
     if (targetList === 'obligatory') {
       setObligatorySubjects(prev => [...prev, movedSubject]);
       toast.success(`"${movedSubject.MateriaNombre}" marcada como obligatoria`);
@@ -402,11 +520,11 @@ export default function HorarioAlumno() {
     }
   };
 
-  // Create a matrix representation of the schedule
+  // Crear la matriz del horario
   const scheduleMatrix = useMemo(() => {
     const matrix: { [time: string]: { [day: string]: ExtendedScheduleItem[] } } = {};
     
-    // Initialize empty matrix
+    // Inicializar la matriz con franjas horarias y días de la semana
     timeSlots.forEach(time => {
       matrix[time] = {};
       daysOfWeek.forEach(day => {
@@ -414,7 +532,7 @@ export default function HorarioAlumno() {
       });
     });
     
-    // Fill with schedule items
+    // Rellenar la matriz con los ítems del horario
     filteredSchedule.forEach(item => {
       if (!item.hours) return;
       
@@ -428,7 +546,6 @@ export default function HorarioAlumno() {
         const start = timeToMinutes(startTime);
         const end = timeToMinutes(endTime);
         
-        // Add item to each time slot it spans
         timeSlots.forEach(slot => {
           const slotTime = timeToMinutes(slot);
           if (slotTime >= start && slotTime < end) {
@@ -443,7 +560,7 @@ export default function HorarioAlumno() {
     return matrix;
   }, [filteredSchedule]);
 
-  // Cell component to display items at a specific day and time
+  // Componente de celda del horario
   const Cell = ({ day, time }: { day: string; time: string }) => {
     const items = scheduleMatrix[time]?.[day] || [];
 
@@ -470,16 +587,16 @@ export default function HorarioAlumno() {
     );
   };
 
-  // Function to save schedule changes to the database
+  // Funcion para guardar el horario
   const handleSaveSchedule = async () => {
     setIsLoading(true);
     try {
       console.log('Saving schedule changes...');
       
-      // Combine both obligatory and recommended subjects
+      // Combinar ambas listas de materias
       const allScheduledSubjects = [...obligatorySubjects, ...recommendedSubjects];
       
-      // Convert ExtendedScheduleItem back to GeneralScheduleItem for API
+      // Convertir el horario a un formato adecuado para guardar
       const scheduleToSave = allScheduledSubjects.map(item => ({
         IdHorarioGeneral: item.IdHorarioGeneral,
         NombreCarrera: item.NombreCarrera,
@@ -514,7 +631,7 @@ export default function HorarioAlumno() {
     }
   };
   
-  // Draggable subject card component
+  // Componente para el cuadro de diálogo de información del grupo
   const DraggableSubjectCard = ({ 
     subject, 
     listType,
@@ -530,7 +647,7 @@ export default function HorarioAlumno() {
   }) => {
     const colors = getSubjectColor(subject.MateriaNombre || '');
     
-    // Set up drag source with proper ref handling
+
     const [{ isDragging }, dragRef] = useDrag(() => ({
       type: ItemTypes.SUBJECT,
       item: { id: subject.IdGrupo, subject, sourceList: listType },
@@ -539,12 +656,12 @@ export default function HorarioAlumno() {
       })
     }));
     
-    // Use a function to handle the ref properly in TypeScript
+    // Usar una funcion de referencia para el drop target
     const attachRef = (el: HTMLDivElement | null) => {
       dragRef(el);
     };
     
-    // Determine badge style based on list type
+    // Determinar el texto y el estilo del badge según el tipo de lista
     let badgeText = '';
     let badgeStyle = '';
     let statusIcon = null;
@@ -563,7 +680,7 @@ export default function HorarioAlumno() {
       statusIcon = null; // Quitamos el icono de Plus
     }
     
-    // Quick actions for different list types
+    // Acciones de los botones
     const renderActionButtons = () => {
       if (listType === 'available') {
         return (
@@ -724,7 +841,7 @@ export default function HorarioAlumno() {
     );
   };
 
-  // Droppable area for subjects
+  
   const DroppableSubjectArea = ({ 
     listType,
     subjects,
@@ -742,11 +859,10 @@ export default function HorarioAlumno() {
     emptyMessage: string,
     onRemoveSubject?: (id: number) => void
   }) => {
-    // Set up drop target with proper ref handling
     const [{ isOver }, dropRef] = useDrop(() => ({
       accept: ItemTypes.SUBJECT,
       drop: (item: { id: number, subject: ExtendedScheduleItem, sourceList: string }) => {
-        if (item.sourceList !== listType) { // Only move if source list is different
+        if (item.sourceList !== listType) { 
           moveSubject(item.subject, item.sourceList, listType);
         }
         return undefined;
@@ -756,15 +872,15 @@ export default function HorarioAlumno() {
       })
     }));
     
-    // Use a function to handle the ref properly in TypeScript
+    // Usar una función para manejar la referencia correctamente en TypeScript
     const attachRef = (el: HTMLDivElement | null) => {
       dropRef(el);
     };
     
-    // Determine background color based on droppable state
+    // Determinar el color de fondo según el estado de arrastre
     const bgColor = isOver ? 'bg-blue-50' : 'bg-white';
     
-    // Custom header based on list type
+    // Custom header para el área de materias
     const renderHeader = () => {
       return (
         <div className="flex items-center justify-between mb-1">
@@ -817,27 +933,37 @@ export default function HorarioAlumno() {
         <div className="flex justify-between items-center mb-2">
           {/* Title and info */}
           <div className="flex flex-col">
-            <h1 className="text-xl font-bold">Gestión de Horario del Estudiante</h1>
-            <p className="text-gray-500 text-sm">Organice materias obligatorias, recomendadas y disponibles. Arrastre materias entre las listas.</p>
+            <h1 className="text-xl font-bold">
+              {isRegular 
+                ? "Horario del Estudiante" 
+                : "Gestión de Horario del Estudiante"}
+            </h1>
+            <p className="text-gray-500 text-sm">
+              {isRegular 
+                ? "Este es el horario fijo asignado al estudiante regular. No se puede modificar."
+                : "Organice materias obligatorias, recomendadas y disponibles. Arrastre materias entre las listas."}
+            </p>
           </div>
           
-          {/* Action buttons */}
-          <div className="flex gap-3">
-            <Button
-              onClick={handleSaveSchedule}
-              className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Guardando...' : 'Guardar Horario'}
-            </Button>
-            <Button
-              onClick={handleGenerateSchedule}
-              className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Generando...' : 'Generar Horario'}
-            </Button>
-          </div>
+          {/* Action buttons - only show for irregular students */}
+          {!isRegular && (
+            <div className="flex gap-3">
+              <Button
+                onClick={handleSaveSchedule}
+                className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Guardando...' : 'Guardar Horario'}
+              </Button>
+              <Button
+                onClick={handleGenerateSchedule}
+                className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Generando...' : 'Generar Horario'}
+              </Button>
+            </div>
+          )}
         </div>
         
         <div className="w-full flex justify-between flex-col lg:flex-row gap-4">
@@ -871,50 +997,147 @@ export default function HorarioAlumno() {
             </div>
           </div>
           
-          {/* Panel lateral con las tres listas de materias */}
-          <div className="w-full lg:w-1/3 pl-0 lg:pl-4">
-            {/* Lista de materias obligatorias */}
-            <DroppableSubjectArea 
-              listType="obligatory"
-              subjects={filteredObligatorySubjects}
-              title="Materias Obligatorias"
-              icon={<Lock className="text-amber-500 w-5 h-5" />}
-              description="Materias que el estudiante debe cursar obligatoriamente."
-              emptyMessage="No hay materias obligatorias asignadas"
-              onRemoveSubject={(id) => moveSubject(
-                obligatorySubjects.find(s => s.IdGrupo === id)!,
-                'obligatory',
-                'available'
-              )}
-            />
-            
-            {/* Lista de materias recomendadas */}
-            <div className="my-4">
+          {/* Panel lateral con las listas de materias - show different UI based on student type */}
+          {isRegular ? (
+            //Para estudiantes regulares: Mostrar solo la lista de materias obligatorias
+            <div className="w-full lg:w-1/3 pl-0 lg:pl-4">
+              <div className="p-3 border rounded-lg shadow-sm bg-white">
+                <div className="flex items-center gap-2 mb-1">
+                  <Lock className="text-amber-500 w-5 h-5" />
+                  <p className="text-base font-semibold">Lista de Materias</p>
+                </div>
+                <p className="text-xs text-gray-600 mb-2">
+                  Materias asignadas para este estudiante regular.
+                </p>
+                
+                {/* List of subjects */}
+                <div className="space-y-1">
+                  {filteredObligatorySubjects.map((subject) => (
+                    <div 
+                      key={subject.IdGrupo}
+                      className={cn(
+                        "flex flex-col border rounded-lg border-l-4 bg-white mb-1.5 p-1.5",
+                        `border-l-[6px] ${getSubjectColor(subject.MateriaNombre || '').border}`,
+                      )}
+                    >
+                      {/* Header with badge */}
+                      <div className="flex justify-between items-center w-full mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 border border-amber-300">
+                            <Lock className="h-3 w-3" />
+                            <span className="font-medium">Obligatoria</span>
+                          </div>
+                        </div>
+                        
+                        {/* Info button */}
+                        <Button
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedGroup(subject);
+                            setDialogOpen(true);
+                          }}
+                          className="h-6 px-2 py-0 text-xs bg-gray-50 hover:bg-gray-100 text-gray-700 flex items-center gap-1"
+                        >
+                          <span>Más info</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-info text-gray-600">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-4" />
+                            <path d="M12 8h.01" />
+                          </svg>
+                        </Button>
+                      </div>
+                      
+                      {/* Subject name */}
+                      <div className="px-0.5">
+                        <div className={cn(
+                          "font-semibold text-sm truncate", 
+                          getSubjectColor(subject.MateriaNombre || '').text
+                        )}>
+                          {subject.MateriaNombre}
+                        </div>
+                      </div>
+                      
+                      {/* Schedule badges */}
+                      <div className="flex flex-wrap gap-1 mt-1 px-0.5">
+                        {subject.hours?.slice(0, 2).map((hour, index) => (
+                          <span 
+                            key={`${hour.day}-${index}`} 
+                            className="inline-flex items-center px-1 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs"
+                          >
+                            <span className="font-medium">{hour.day.substring(0, 3)}</span>&nbsp;
+                            {hour.timeStart && hour.timeEnd ? 
+                              `${hour.timeStart}-${hour.timeEnd}` : 
+                              subject.HoraInicio && subject.HoraFin ? 
+                              `${subject.HoraInicio}-${subject.HoraFin}` : 
+                              '??:??-??:??'
+                            }
+                          </span>
+                        ))}
+                        {(subject.hours?.length || 0) > 2 && (
+                          <span className="inline-flex items-center px-1 py-0.5 rounded-md bg-gray-50 text-gray-700 text-xs">
+                            +{(subject.hours?.length || 0) - 2} más
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Empty state */}
+                {filteredObligatorySubjects.length === 0 && (
+                  <div className="flex items-center justify-center h-[60px] text-gray-400 p-2 border border-dashed rounded-lg">
+                    <p className="text-xs">No hay materias asignadas</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            // Para estudiantes irregulares: Mostrar listas de materias obligatorias, recomendadas y disponibles
+            <div className="w-full lg:w-1/3 pl-0 lg:pl-4">
+              {/* Lista de materias obligatorias */}
               <DroppableSubjectArea 
-                listType="recommended"
-                subjects={filteredRecommendedSubjects}
-                title="Materias Recomendadas"
-                icon={<Star className="text-purple-500 w-5 h-5" />}
-                description="Materias sugeridas pero opcionales para el estudiante."
-                emptyMessage="No hay materias recomendadas asignadas"
+                listType="obligatory"
+                subjects={filteredObligatorySubjects}
+                title="Materias Obligatorias"
+                icon={<Lock className="text-amber-500 w-5 h-5" />}
+                description="Materias que el estudiante debe cursar obligatoriamente."
+                emptyMessage="No hay materias obligatorias asignadas"
                 onRemoveSubject={(id) => moveSubject(
-                  recommendedSubjects.find(s => s.IdGrupo === id)!,
-                  'recommended',
+                  obligatorySubjects.find(s => s.IdGrupo === id)!,
+                  'obligatory',
                   'available'
                 )}
               />
+              
+              {/* Lista de materias recomendadas */}
+              <div className="my-4">
+                <DroppableSubjectArea 
+                  listType="recommended"
+                  subjects={filteredRecommendedSubjects}
+                  title="Materias Recomendadas"
+                  icon={<Star className="text-purple-500 w-5 h-5" />}
+                  description="Materias sugeridas pero opcionales para el estudiante."
+                  emptyMessage="No hay materias recomendadas asignadas"
+                  onRemoveSubject={(id) => moveSubject(
+                    recommendedSubjects.find(s => s.IdGrupo === id)!,
+                    'recommended',
+                    'available'
+                  )}
+                />
+              </div>
+              
+              {/* Lista de materias disponibles */}
+              <DroppableSubjectArea 
+                listType="available"
+                subjects={filteredAvailableSubjects}
+                title="Materias Disponibles"
+                icon={<Plus className="text-blue-500 w-5 h-5" />}
+                description="Todas las materias disponibles para agregar al horario."
+                emptyMessage="No hay materias disponibles para agregar"
+              />
             </div>
-            
-            {/* Lista de materias disponibles */}
-            <DroppableSubjectArea 
-              listType="available"
-              subjects={filteredAvailableSubjects}
-              title="Materias Disponibles"
-              icon={<Plus className="text-blue-500 w-5 h-5" />}
-              description="Todas las materias disponibles para agregar al horario."
-              emptyMessage="No hay materias disponibles para agregar"
-            />
-          </div>
+          )}
         </div>
         
         {/* Dialog para mostrar información de grupo cuando se hace clic */}

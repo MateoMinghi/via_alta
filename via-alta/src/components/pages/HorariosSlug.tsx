@@ -8,35 +8,47 @@ import { toast } from 'sonner';
 import HorarioSemestre from '../HorarioSemestre';
 import HorarioAlumno from '../HorarioAlumno';
 import HorarioAlumnoModificado from '../HorarioAlumnoModificado';
+import { useGetStudentSchedule, ScheduleItem } from '@/api/useGetStudentSchedule';
 
-export default function HorariosSlug() {
+interface HorariosSlugProps {
+  slug?: string;
+}
+
+export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filteredSchedule, setFilteredSchedule] = useState<GeneralScheduleItem[]>([]);
   const params = useParams();
-  const { slug } = params;
+  const urlSlug = params?.slug as string | undefined;
   
-  // Determine if this is a semester view or a student view
+  // Usar slug de la URL si no se proporciona uno
+  const slug = propSlug || urlSlug;
+  
+  //Determinar el tipo de vista basado en el slug
   const viewType = typeof slug === 'string' && slug.includes('-') ? 'semestre' : 'estudiante';
 
-  // Parse slug to extract the semester number
+  //Parsear el número de semestre del slug
   const getSemesterNumber = (slugStr: string) => {
     if (!slugStr) return null;
     
-    // If slug is in format "semestre-X"
+    // Si slug tiene un formato como "semestre-1"
     if (slugStr.includes('-')) {
       const parts = slugStr.split('-');
       return parseInt(parts[parts.length - 1], 10);
     }
     
-    // If slug is just a number
     const num = parseInt(slugStr, 10);
     return isNaN(num) ? null : num;
   };
 
   const semesterNum = getSemesterNumber(slug as string);
+  
+  const studentSchedule = useGetStudentSchedule(
+    viewType === 'estudiante' ? slug : undefined, 
+    viewType === 'estudiante' ? 1 : undefined
+  );
 
-  // Helper to map raw API data to GeneralScheduleItem
+  // Para mappear los datos del horario general
   const mapRawScheduleItem = (raw: any): GeneralScheduleItem => ({
     IdHorarioGeneral: raw.IdHorarioGeneral ?? raw.idhorariogeneral,
     NombreCarrera: raw.NombreCarrera ?? raw.nombrecarrera,
@@ -48,8 +60,25 @@ export default function HorariosSlug() {
     MateriaNombre: raw.MateriaNombre ?? raw.materianombre,
     ProfesorNombre: raw.ProfesorNombre ?? raw.profesornombre,
   });
+  
+  // Convertir el horario del estudiante a un formato general
+  const convertStudentScheduleToGeneralFormat = (items: ScheduleItem[] | null): GeneralScheduleItem[] => {
+    if (!items) return [];
+    
+    return items.map(item => ({
+      IdHorarioGeneral: 0,
+      NombreCarrera: "", 
+      IdGrupo: item.idgrupo,
+      Dia: item.dia,
+      HoraInicio: item.horainicio.slice(0, 5),
+      HoraFin: item.horafin.slice(0, 5),
+      Semestre: item.semestre,
+      MateriaNombre: item.materianombre,
+      ProfesorNombre: item.profesornombre,
+    }));
+  };
 
-  // Fetch and filter schedule items for the specific semester
+  // Jalar el horario del semestre
   const fetchSchedule = async () => {
     try {
       setLoading(true);
@@ -58,7 +87,7 @@ export default function HorariosSlug() {
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch schedule');
       }
-      // Map and filter schedule items for the current semester
+      // Mapear y filtrar los datos
       const mapped = result.data.map(mapRawScheduleItem);
       const scheduleForSemester = mapped.filter((item: GeneralScheduleItem) => {
         const itemSemester = item.Semestre ?? null;
@@ -78,12 +107,14 @@ export default function HorariosSlug() {
   };
 
   useEffect(() => {
-    if (semesterNum !== null) {
+    // Para la vista de semestre, solo cargar el horario si el número de semestre es válido
+    if (viewType === 'semestre' && semesterNum !== null) {
       fetchSchedule();
     }
-  }, [semesterNum]);
+    // Para la vista de estudiante, no es necesario cargar el horario del semestre
+  }, [semesterNum, viewType]);
 
-  // Function to clear the current view but not delete actual data
+  // Función para limpiar la vista
   const handleClearView = () => {
     setFilteredSchedule([]);
     toast.success('Vista limpiada');
@@ -92,7 +123,7 @@ export default function HorariosSlug() {
   const handleSaveChanges = async () => {
     try {
       setLoading(true);
-      // No transformation needed, send filteredSchedule directly
+      
       const response = await fetch('/api/schedule', {
         method: 'POST',
         headers: {
@@ -113,32 +144,70 @@ export default function HorariosSlug() {
     }
   };
 
-  if (loading) {
+  if (viewType === 'semestre' && loading) {
     return (
       <div className="p-4">
-        <p className="text-center">Cargando materias...</p>
+        <p className="text-center">Cargando materias del semestre...</p>
+      </div>
+    );
+  }
+  
+  if (viewType === 'estudiante' && studentSchedule.loading) {
+    return (
+      <div className="p-4">
+        <p className="text-center">Cargando horario del estudiante...</p>
       </div>
     );
   }
 
-  if (error) {
+  if (viewType === 'semestre' && error) {
     return (
       <div className="p-4">
         <p className="text-center text-red-600">Error: {error}</p>
       </div>
     );
   }
+  
+  if (viewType === 'estudiante' && studentSchedule.error) {
+    return (
+      <div className="p-4">
+        <p className="text-center text-red-600">Error: {studentSchedule.error}</p>
+      </div>
+    );
+  }
 
-  if (semesterNum === null) {
+  
+  if (viewType === 'semestre' && semesterNum === null) {
     return (
       <div className="p-4">
         <p className="text-center text-red-600">Semestre no válido</p>
       </div>
     );
   }
+  
+  if (viewType === 'estudiante' && !slug) {
+    return (
+      <div className="p-4">
+        <p className="text-center text-red-600">ID de estudiante no válido</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">
+          {viewType === 'semestre' 
+            ? `Horario del Semestre ${semesterNum}` 
+            : `Horario del Estudiante ${slug}`}
+        </h1>
+        {viewType === 'estudiante' && studentSchedule.isIndividual && (
+          <p className="text-sm text-green-600 mt-1">
+            Este estudiante tiene un horario personalizado
+          </p>
+        )}
+      </div>
+      
       {viewType === 'semestre' ? (
         <HorarioSemestre
           schedule={filteredSchedule}
@@ -146,10 +215,10 @@ export default function HorariosSlug() {
         />
       ) : (
         <HorarioAlumno
-          schedule={filteredSchedule}
+          schedule={convertStudentScheduleToGeneralFormat(studentSchedule.result)}
           alumnoId={slug as string}
+          isRegular={!studentSchedule.isIndividual} // Si no tiene un horario individual, es regular
         />
-      
       )}
     </div>
   );

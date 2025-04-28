@@ -38,7 +38,8 @@ async function getStudentDetails(studentId: string): Promise<any> {
   try {
     const token = await getAuthToken();
     
-    console.log(`Attempting to fetch details for student ${studentId} from central system...`);
+    console.log(`Attempting to fetch details for student with ivd_id ${studentId} from central system...`);
+    
     
     const response = await fetch(`${API_BASE_URL}/v1/users/find_one?ivd_id=${studentId}`, {
       headers: {
@@ -50,27 +51,25 @@ async function getStudentDetails(studentId: string): Promise<any> {
     
     if (!response.ok) {
       console.warn(`Failed to fetch student details from central system (Status ${response.status})`);
-      return null; 
+      return null;
     }
     
     const responseData = await response.json();
     
-    
     if (responseData.data) {
       const studentData = responseData.data;
-      
       
       if (studentData.current_students_plan?.plan?.degree?.name) {
         studentData.degree = studentData.current_students_plan.plan.degree.name;
       }
       
-      return studentData; 
+      return studentData;
     }
     
-    return responseData; 
+    return responseData;
   } catch (error) {
     console.error('Error in getStudentDetails:', error);
-    return null; 
+    return null;
   }
 }
 
@@ -87,62 +86,58 @@ export async function GET(request: NextRequest) {
         message: 'Student ID is required' 
       }, { status: 400 });
     }
+    
+    // Validar el formato del ID del estudiante (solo usar ivd_id)
+    if (/^\d+$/.test(studentId) && studentId.length < 6) {
+      console.error(`Error: Received numeric internal ID (${studentId}) instead of ivd_id. Only ivd_id should be used for lookups.`);
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Invalid student ID format. The system must use ivd_id (student number) instead of internal ID.' 
+      }, { status: 400 });
+    }
 
     console.log(`GET request received for student: ${studentId}`);
 
     // Validar detalles del estudiante para determinar el semestre y carrera
     let semester = providedSemester;
     let degree = providedDegree;
-    let effectiveStudentId = studentId; // Usar parametro studentId por defecto
     
-    if (!semester || !degree) {
-      try {
-        const studentDetails = await getStudentDetails(studentId);
+    try {
+      const studentDetails = await getStudentDetails(studentId);
+      
+      if (studentDetails) {
+        semester = semester || studentDetails.semester?.toString();
+        degree = degree || studentDetails.degree || studentDetails.major;
         
-        if (studentDetails) {
-          
-          if (studentDetails.ivd_id) {
-            effectiveStudentId = studentDetails.ivd_id.toString();
-            console.log(`Using ivd_id (${effectiveStudentId}) instead of provided ID (${studentId})`);
-          }
-          
-          semester = semester || studentDetails.semester?.toString();
-          degree = degree || studentDetails.degree || studentDetails.major;
-          
-          
-          console.log('Student details retrieved:', {
-            ivd_id: studentDetails.ivd_id, 
-            semester: studentDetails.semester,
-            degree: degree
-          });
-        } else {
-          console.warn(`No student details found for ID: ${studentId}, using provided values`);
-        }
-        
-        
-        if (!semester) {
-          return NextResponse.json({ 
-            success: false, 
-            message: 'Could not determine student semester. Please provide a semester parameter.' 
-          }, { status: 400 });
-        }
-      } catch (error) {
-        
-        console.error('Error fetching student details from central system:', error);
-        
-        
-        if (!semester) {
-          return NextResponse.json({ 
-            success: false, 
-            message: 'Semester parameter is required when central system is unavailable',
-            error: error instanceof Error ? error.message : 'Unknown error'
-          }, { status: 400 });
-        }
+        console.log('Student details retrieved:', {
+          ivd_id: studentDetails.ivd_id, 
+          semester: studentDetails.semester,
+          degree: degree
+        });
+      } else {
+        console.warn(`No student details found for ID: ${studentId}, using provided values`);
+      }
+      
+      if (!semester) {
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Could not determine student semester. Please provide a semester parameter.' 
+        }, { status: 400 });
+      }
+    } catch (error) {
+      console.error('Error fetching student details from central system:', error);
+      
+      if (!semester) {
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Semester parameter is required when central system is unavailable',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 400 });
       }
     }
 
     // Usar el modelo Schedule para obtener el horario del estudiante
-    const studentScheduleResult = await Schedule.findDetailedStudentSchedule(effectiveStudentId);
+    const studentScheduleResult = await Schedule.findDetailedStudentSchedule(studentId);
     
     if (studentScheduleResult.length > 0) {
       // Si el estudiante tiene un horario individual, devolverlo
@@ -154,7 +149,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Si no hay horario individual, obtener el horario general
-    console.log('Fetching schedule for student:', effectiveStudentId, 'semester:', semester, 'degree:', degree);
+    console.log('Fetching schedule for student:', studentId, 'semester:', semester, 'degree:', degree);
 
     // Usar el modelo Schedule para obtener el horario general
     let generalScheduleResult;
@@ -171,7 +166,7 @@ export async function GET(request: NextRequest) {
         generalScheduleResult = await Schedule.findGeneralScheduleBySemester(semester);
       }
     } else {
-      console.log(` No degree information available for student ${effectiveStudentId}`);
+      console.log(` No degree information available for student ${studentId}`);
       console.log(`   - Filtering schedule by semester only (${semester})`);
       generalScheduleResult = await Schedule.findGeneralScheduleBySemester(semester);
     }
