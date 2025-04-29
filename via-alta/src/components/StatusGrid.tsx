@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface Student {
     id: string;
