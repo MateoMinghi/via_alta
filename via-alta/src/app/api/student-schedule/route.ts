@@ -136,6 +136,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+
+    // Si no hay horario individual, obtener el horario general
+    console.log('Fetching schedule for student:', effectiveStudentId, 'semester:', semester);
+
+
     // Usar el modelo Schedule para obtener el horario del estudiante
     const studentScheduleResult = await Schedule.findDetailedStudentSchedule(studentId);
     
@@ -147,10 +152,14 @@ export async function GET(request: NextRequest) {
         isIndividual: true
       });
     }
+<<<<<<< HEAD
 
     // Si no hay horario individual, obtener el horario general
     console.log('Fetching schedule for student:', studentId, 'semester:', semester, 'degree:', degree);
 
+=======
+    
+>>>>>>> Leo/AlumnoConfirmacion
     // Usar el modelo Schedule para obtener el horario general
     let generalScheduleResult;
     if (degree) {
