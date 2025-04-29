@@ -14,6 +14,7 @@ export default function Confirmacion() {
   const { user } = useAuth();
   const [descripcion, setDescripcion] = useState('');
   const fecha = '2023-10-01T12:00:00Z';
+  
 
   useEffect(() => {
     const savedDescription = localStorage.getItem('studentComments');
