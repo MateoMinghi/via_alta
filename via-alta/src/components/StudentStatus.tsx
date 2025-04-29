@@ -30,6 +30,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useStudentDbStatus } from '@/api/useStudentDbStatus';
 
 interface Student {
   id: string;
@@ -45,6 +46,28 @@ interface Student {
 
 interface StudentStatusProps {
   students: Student[];
+}
+
+function StudentStatusDot({ studentId }: { studentId: string }) {
+  const { status, loading } = useStudentDbStatus(studentId);
+  
+  
+  if (loading) {
+    return <div className="w-4 h-4 rounded-full bg-gray-300 animate-pulse"></div>;
+  }
+  
+  let dotColor = 'bg-red-500'; // Color por defecto
+  
+  
+  if (status === 'requiere-cambios') {
+    dotColor = 'bg-amber-400'; //Ambar
+  } else if (status === 'inscrito') {
+    dotColor = 'bg-emerald-500'; //Verde
+  } else {
+    dotColor = 'bg-red-500'; // Rojo (no inscrito)
+  }
+
+  return <div className={`w-4 h-4 rounded-full ${dotColor}`}></div>;
 }
 
 export default function StudentStatus({ students }: StudentStatusProps) {
@@ -104,11 +127,10 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     const query = searchQuery.toLowerCase();
     const results = students.filter(
       (student) =>
-        student.id.toLowerCase().includes(query) ||
+        (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)) ||
         student.name.toLowerCase().includes(query) ||
         student.first_surname.toLowerCase().includes(query) ||
-        student.second_surname.toLowerCase().includes(query) ||
-        (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)),
+        student.second_surname.toLowerCase().includes(query)
     );
     setFilteredStudents(results);
 
@@ -138,7 +160,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
   }, [searchQuery, students]);
 
   const handleViewSchedule = (studentId: string) => {
-    router.push(`dashboard/horarios/${studentId}`);
+    router.push(`/dashboard/horarios/${studentId}`);
   };
 
   const toggleSemester = (semester: string) => {
@@ -311,7 +333,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                             </TableCell>
                             <TableCell>
                               <div className="flex justify-center">
-                                <div className={`w-4 h-4 rounded-full ${getStatusColor(student.status)}`} />
+                                <StudentStatusDot studentId={student.ivd_id} />
                               </div>
                             </TableCell>
                             <TableCell>
@@ -320,7 +342,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                   variant="default"
                                   size="sm"
                                   className="flex items-center gap-1 text-white"
-                                  onClick={() => handleViewSchedule(student.id)}
+                                  onClick={() => handleViewSchedule(student.ivd_id)}
                                 >
                                   <Calendar className="h-4 w-4" />
                                   <span>Ver horario</span>
@@ -366,11 +388,12 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                 <span className="font-medium">
                                   {student.name} {student.first_surname} {student.second_surname}
                                 </span>
-                                <span
-                                  className={`px-2 py-1 text-xs rounded text-white ${getStatusColor(student.status)}`}
-                                >
-                                  {student.status === 'active' ? 'no inscrito' : student.status.replace('-', ' ') || 'no inscrito'}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <StudentStatusDot studentId={student.ivd_id} />
+                                  <span className="text-xs">
+                                    {student.status === 'active' ? 'Verificando...' : student.status.replace('-', ' ') || 'Verificando...'}
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex justify-between items-center text-sm text-gray-500">
                                 <div>
@@ -380,7 +403,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                   variant="outline"
                                   size="sm"
                                   className="flex items-center gap-1 border-via text-via hover:bg-red-50"
-                                  onClick={() => handleViewSchedule(student.id)}
+                                  onClick={() => handleViewSchedule(student.ivd_id)}
                                 >
                                   <Calendar className="h-3 w-3" />
                                   <span className="text-xs">Horario</span>

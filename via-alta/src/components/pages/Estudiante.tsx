@@ -40,6 +40,8 @@ export default function Estudiante() {
     // --- HOOKS Y CONTEXTO ---
     const router = useRouter();
     const { user } = useAuth();
+
+    console.log('User data:', user);
     
     // Aseguramos que el usuario siempre tenga un semestre asignado (valor por defecto: 3)
     const updatedUser = user ? { ...user, semester: user.semester || 3 } : null;
@@ -246,12 +248,18 @@ export default function Estudiante() {
         const result = await confirmSchedule(scheduleData);
         
         if (result?.success) {
-        
-          localStorage.setItem('studentStatus', 'inscrito');
-          localStorage.removeItem('studentComments');
-          setComentarios('');
-          toast.success('Horario confirmado correctamente');
-          router.push('/estudiante/confirmacion');
+          if (result.testMode) {
+            // Si es modo de prueba (desarrollo)
+            toast.success('Horario guardado en modo de prueba (puedes seguir haciendo cambios)');
+            router.push('/estudiante/confirmacion');
+          } else {
+            // Confirmación exitosa en producción
+            localStorage.setItem('studentStatus', 'no-inscrito');
+            localStorage.removeItem('studentComments');
+            setComentarios('');
+            toast.success('Horario confirmado correctamente');
+            router.push('/estudiante/confirmacion');
+          }
         } else {
           throw new Error(result?.message || "Error al confirmar horario");
         }

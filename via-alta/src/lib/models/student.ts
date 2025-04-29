@@ -242,6 +242,47 @@ class Student {
     const result = await pool.query(query, [studentId, confirmation]);
     return result.rows[0];
   }
+
+  // Método para verificar si un estudiante es irregular
+  static async isIrregularStudent(studentId: string): Promise<boolean | null> {
+    try {
+      const query = `
+        SELECT a.IdAlumno, CASE WHEN EXISTS (
+          SELECT 1 FROM Solicitud s WHERE s.IdAlumno = a.IdAlumno
+        ) THEN true ELSE false END as isIrregular 
+        FROM Alumno a WHERE a.IdAlumno = $1
+      `;
+      
+      const result = await pool.query(query, [studentId]);
+      
+      if (result.rows.length > 0) {
+        return result.rows[0].isirregular;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error checking if student ${studentId} is irregular:`, error);
+      return null;
+    }
+  }
+ 
+  static async queryStudentRequests(studentId: string) {
+    const query = `
+      SELECT * FROM Solicitud 
+      WHERE IdAlumno = $1 
+      LIMIT 1
+    `;
+    return await pool.query(query, [studentId]);
+  }
+
+  static async queryStudentConfirmation(studentId: string) {
+    const query = `
+      SELECT Confirmacion FROM Alumno 
+      WHERE IdAlumno = $1 
+      LIMIT 1
+    `;
+    return await pool.query(query, [studentId]);
+  }
 }
 
 export default Student;

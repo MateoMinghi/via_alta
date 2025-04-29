@@ -16,8 +16,8 @@ export default async function Page({ params }: AsyncPageProps) {
   
   return (
     <main>
-      {/* Si HorariosSlug no acepta una prop slug, no la pases */}
-      <HorariosSlug />
+      {/* Pasar el Componente de horarioslug */}
+      <HorariosSlug slug={slug} />
     </main>
   );
 }
