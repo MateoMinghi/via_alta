@@ -260,7 +260,8 @@ export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
         <HorarioAlumno
           schedule={convertStudentScheduleToGeneralFormat(studentSchedule.result)}
           alumnoId={slug as string}
-          isRegular={!isIrregular} // Use the isIrregular flag directly
+          isRegular={!isIrregular} // Usar el estado de irregularidad
+          isCoordinatorView={true} // Siempre permite que la coordinadora edite
         />
       )}
     </div>

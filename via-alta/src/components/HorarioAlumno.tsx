@@ -78,6 +78,7 @@ interface HorarioAlumnoProps {
   schedule?: ExtendedScheduleItem[] | GeneralScheduleItem[];
   alumnoId?: string;
   isRegular?: boolean; // Flag para determinar si el alumno es regular o irregular
+  isCoordinatorView?: boolean; // Identifica si el horario es para un coordinador
 }
 
 // Funcion para obtener el color del tema según el nombre de la materia
@@ -201,7 +202,7 @@ function DraggableScheduleItem({ item, onClick }: { item: ExtendedScheduleItem, 
   );
 }
 
-export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, isRegular = false }: HorarioAlumnoProps) {
+export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, isRegular = false, isCoordinatorView = false }: HorarioAlumnoProps) {
   // Mappear los ítems del horario a un formato extendido
   const mapRawScheduleItem = (raw: any): ExtendedScheduleItem => {
     const item = {
@@ -651,15 +652,38 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
         isRecommended: item.isRecommended
       }));
       
-      const res = await fetch('/api/schedule', { 
+      // Guardar el horario individual del estudiante
+      const res = await fetch('/api/student-schedule', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ schedule: scheduleToSave }) 
+        body: JSON.stringify({ 
+          studentId: alumnoId,
+          schedule: scheduleToSave,
+          confirm: true // Indica que queremos confirmar el horario
+        }) 
       });
       const data = await res.json();
       
       if (data.success) {
-        toast.success('Horario guardado exitosamente');
+        toast.success('Horario guardado y confirmado exitosamente');
+        
+        // Si no es vista de coordinador, confirmar el horario también
+        if (!isCoordinatorView && alumnoId) {
+          console.log('Confirming student schedule...');
+          const confirmRes = await fetch('/api/confirm-schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId: alumnoId })
+          });
+          
+          const confirmData = await confirmRes.json();
+          if (confirmData.success) {
+            toast.success('Confirmación de horario registrada');
+          } else {
+            console.error('Error confirming schedule:', confirmData.error);
+            // No mostrar error al usuario ya que el horario se guardó correctamente
+          }
+        }
       } else {
         toast.error(`Error al guardar el horario: ${data.error || 'Error desconocido'}`);
       }
@@ -973,20 +997,15 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
         <div className="flex justify-between items-center mb-2">
           {/* Title and info */}
           <div className="flex flex-col">
-            <h1 className="text-xl font-bold">
-              {isRegular 
-                ? "Horario del Estudiante" 
-                : "Gestión de Horario del Estudiante"}
-            </h1>
             <p className="text-gray-500 text-sm">
-              {isRegular 
+              {isRegular && !isCoordinatorView 
                 ? "Este es el horario fijo asignado al estudiante regular. No se puede modificar."
                 : "Organice materias obligatorias, recomendadas y disponibles. Arrastre materias entre las listas."}
             </p>
           </div>
           
-          {/* Action buttons - only show for irregular students */}
-          {!isRegular && (
+          {/* Action buttons - show for irregular students or coordinator view */}
+          {(!isRegular || isCoordinatorView) && (
             <div className="flex gap-3">
               <Button
                 onClick={handleSaveSchedule}
@@ -994,13 +1013,6 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
                 disabled={isLoading}
               >
                 {isLoading ? 'Guardando...' : 'Guardar Horario'}
-              </Button>
-              <Button
-                onClick={handleGenerateSchedule}
-                className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Generando...' : 'Generar Horario'}
               </Button>
             </div>
           )}
@@ -1037,9 +1049,9 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
             </div>
           </div>
           
-          {/* Panel lateral con las listas de materias - show different UI based on student type */}
-          {isRegular ? (
-            //Para estudiantes regulares: Mostrar solo la lista de materias obligatorias
+          {/* Panel lateral con las listas de materias - show different UI based on edit permissions */}
+          {isRegular && !isCoordinatorView ? (
+            //Para estudiantes regulares sin permisos de edición: Solo mostrar lista de materias
             <div className="w-full lg:w-1/3 pl-0 lg:pl-4">
               <div className="p-3 border rounded-lg shadow-sm bg-white">
                 <div className="flex items-center gap-2 mb-1">
@@ -1133,8 +1145,15 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
               </div>
             </div>
           ) : (
-            // Para estudiantes irregulares: Mostrar listas de materias obligatorias, recomendadas y disponibles
+            // Para estudiantes irregulares o vista de coordinador: Mostrar interfaz de edición
             <div className="w-full lg:w-1/3 pl-0 lg:pl-4">
+              {/* Banner informativo para coordinadores que editan estudiantes regulares */}
+              {isRegular && isCoordinatorView && (
+                <div className="mb-4 py-2 px-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
+                  <strong>Nota:</strong> Este estudiante es regular, pero como coordinador puede modificar su horario.
+                </div>
+              )}
+              
               {/* Lista de materias obligatorias */}
               <DroppableSubjectArea 
                 listType="obligatory"
