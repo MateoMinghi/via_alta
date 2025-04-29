@@ -93,7 +93,7 @@ const getSubjectColor = (subjectName: string): { text: string, border: string, b
 // Draggable schedule item
 function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, onClick: () => void }) {
   const colors = getSubjectColor(item.MateriaNombre || '');
-  const [{ isDragging }, drag] = useDrag({
+  const [{ isDragging }, dragRef] = useDrag({
     type: ItemTypes.SCHEDULE_ITEM,
     item: () => ({ id: item.IdGrupo }),
     collect: (monitor) => ({
@@ -101,10 +101,17 @@ function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, o
     }),
   });
   
-  // Using the drag function directly to attach to the div element
+  // Using a callback ref with proper TypeScript handling
+  const refCallback = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      dragRef(node);
+    },
+    [dragRef]
+  );
+
   return (
     <div
-      ref={drag}
+      ref={refCallback}
       className={cn(
         'p-1 text-xs rounded-md border shadow-sm h-full',
         'flex justify-between items-center',
@@ -132,7 +139,7 @@ function DroppableCell({ day, time, children, onDrop }: {
   children?: React.ReactNode;
   onDrop: (id: number, day: string, time: string) => void;
 }) {
-  const [{ isOver, canDrop }, drop] = useDrop({
+  const [{ isOver, canDrop }, dropRef] = useDrop({
     accept: ItemTypes.SCHEDULE_ITEM,
     drop: (item: { id: number }) => {
       console.log(`Dropping item ${item.id} onto ${day} at ${time}`);
@@ -145,9 +152,16 @@ function DroppableCell({ day, time, children, onDrop }: {
     }),
   });
 
+  const refCallback = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      dropRef(node);
+    },
+    [dropRef]
+  );
+
   return (
     <div 
-      ref={drop}
+      ref={refCallback}
       className={cn(
         "border border-gray-200 p-1 relative h-full",
         isOver && canDrop && "bg-blue-100/50 border-blue-300",

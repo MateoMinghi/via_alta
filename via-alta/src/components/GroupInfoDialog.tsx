@@ -27,8 +27,6 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group,
   const colorIndex = (firstLetter.charCodeAt(0) - 65) % colorOptions.length;
   const headerColor = colorOptions[colorIndex >= 0 ? colorIndex : 0];
   
-
-
   const handleEdit = () => {
     if (onEdit && group) {
       onEdit(group);
@@ -65,14 +63,6 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group,
                     Semestre {group.Semestre}
                   </span>
                 )}
-
-                {group.credits !== undefined && (
-                  <span className="inline-flex items-center px-3 py-1 bg-white/20 rounded-full text-white font-bold text-sm">
-                  créditos: {group.credits || 0} 
-                </span>
-                )}
-                
-                
               </div>
             </DialogHeader>
           </div>
@@ -100,15 +90,7 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group,
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Horarios</h3>
                 <div>
-                  {group.hours && group.hours.length > 0 ? (
-                    group.hours.map((hour, index) => (
-                      <p key={index} className="text-base font-medium">
-                        {hour.day}: {hour.timeStart || group.HoraInicio} - {hour.timeEnd || group.HoraFin}
-                      </p>
-                    ))
-                  ) : (
-                    <p className="text-base font-medium">{group.Dia}: {group.HoraInicio} - {group.HoraFin}</p>
-                  )}
+                  <p className="text-base font-medium">{group.Dia}: {group.HoraInicio} - {group.HoraFin}</p>
                 </div>
               </div>
             </div>
@@ -120,7 +102,7 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group,
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Salón</h3>
-                <p className="text-base font-medium">{group.salon || 'Por asignar'}</p>
+                <p className="text-base font-medium">{group.IdSalon ? `Salón ${group.IdSalon}` : 'Por asignar'}</p>
               </div>
             </div>
             
@@ -134,10 +116,6 @@ const GroupInfoDialog: React.FC<GroupInfoDialogProps> = ({ open, onClose, group,
                 <p className="text-base font-medium">{group.NombreCarrera}</p>
               </div>
             </div>
-            
-            {/* Se eliminó la sección de créditos ya que ahora está en la parte superior */}
-            
-            {/* Eliminado el campo de ID Horario */}
           </div>
           <div><b>ID Salón:</b> {group.IdSalon || 'No asignado'}</div>
         </div>    
