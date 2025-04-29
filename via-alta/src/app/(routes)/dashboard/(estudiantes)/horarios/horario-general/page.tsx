@@ -124,6 +124,136 @@ function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, o
   );
 }
 
+// Droppable cell component
+function DroppableCell({ day, time, children, onDrop }: { 
+  day: string; 
+  time: string; 
+  children?: React.ReactNode;
+  onDrop: (id: number, day: string, time: string) => void;
+}) {
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+    accept: ItemTypes.SCHEDULE_ITEM,
+    drop: (item: { id: number }) => {
+      onDrop(item.id, day, time);
+      return { moved: true };
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  }));
+
+  return drop(
+    <div 
+      className={cn(
+        "border border-gray-200 p-1 relative h-full",
+        isOver && canDrop && "bg-blue-100/50 border-blue-300",
+        "transition-colors duration-200"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Custom schedule grid with drag and drop support
+const ScheduleGrid = ({ 
+  items,
+  onDropItem,
+  normalizeDay,
+  timeToMinutes,
+  onSelectGroup,
+  onOpenDialog
+}: { 
+  items: GeneralScheduleItem[],
+  onDropItem: (itemId: number, newDay: string, newTime: string) => void,
+  normalizeDay: (day: string) => string,
+  timeToMinutes: (time: string | undefined | null) => number,
+  onSelectGroup: (group: GeneralScheduleItem) => void,
+  onOpenDialog: () => void
+}) => {
+  // Create a matrix to arrange items by time and day
+  const scheduleMatrix: Record<string, Record<string, GeneralScheduleItem[]>> = {};
+  
+  // Initialize empty schedule matrix
+  timeSlots.forEach(time => {
+    scheduleMatrix[time] = {};
+    daysOfWeek.forEach(day => {
+      scheduleMatrix[time][day] = [];
+    });
+  });
+  
+  // Fill the matrix with schedule items
+  items.forEach(item => {
+    const normalizedDay = normalizeDay(item.Dia);
+    const startTime = timeToMinutes(item.HoraInicio);
+    const endTime = timeToMinutes(item.HoraFin);
+    
+    // Add the item to each timeslot it spans
+    timeSlots.forEach(slot => {
+      const slotTime = timeToMinutes(slot);
+      if (slotTime >= startTime && slotTime < endTime) {
+        if (scheduleMatrix[slot]?.[normalizedDay]) {
+          scheduleMatrix[slot][normalizedDay].push(item);
+        }
+      }
+    });
+  });
+
+  // Handle click on item to show info
+  const handleItemClick = (item: GeneralScheduleItem) => {
+    onSelectGroup(item);
+    onOpenDialog();
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="min-w-[800px]">
+        <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
+          {/* Header */}
+          <div className="h-10" />
+          {daysOfWeek.map((day) => (
+            <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
+              {day}
+            </div>
+          ))}
+          
+          {/* Time rows */}
+          {timeSlots.map((time) => (
+            <React.Fragment key={time}>
+              <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
+                {time}
+              </div>
+              {/* Time cells for each day */}
+              {daysOfWeek.map((day) => {
+                const cellItems = scheduleMatrix[time]?.[day] || [];
+                return (
+                  <DroppableCell 
+                    key={`${day}-${time}`} 
+                    day={day} 
+                    time={time}
+                    onDrop={onDropItem}
+                  >
+                    <div className="flex flex-row gap-0.5 h-full">
+                      {cellItems.map((item, index) => (
+                        <DraggableScheduleItem
+                          key={`${item.IdGrupo}-${index}`}
+                          item={item}
+                          onClick={() => handleItemClick(item)}
+                        />
+                      ))}
+                    </div>
+                  </DroppableCell>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function HorarioGeneralPage() {
   // Map raw API schedule items (lowercase keys, include seconds) to proper UI types (PascalCase, HH:MM)
   const mapRawScheduleItem = (raw: any): GeneralScheduleItem => ({
@@ -461,11 +591,14 @@ export default function HorarioGeneralPage() {
         </div>
         
         <div className="w-full flex justify-between flex-col gap-4">
-          {/* Using the CoordinadorSchedule component with edit and delete options */}
-          <CoordinadorSchedule 
-            subjects={filteredSchedule} 
-            onEdit={handleEditGroup} 
-            onDelete={handleDeleteGroup} 
+          {/* Using our custom ScheduleGrid component with drag and drop support */}
+          <ScheduleGrid 
+            items={filteredSchedule} 
+            onDropItem={handleDropItem} 
+            normalizeDay={normalizeDay}
+            timeToMinutes={timeToMinutes}
+            onSelectGroup={setSelectedGroup}
+            onOpenDialog={() => setDialogOpen(true)}
           />
         </div>
         
@@ -482,7 +615,13 @@ export default function HorarioGeneralPage() {
         />
         
         {/* Dialog para mostrar información de grupo cuando se hace clic */}
-        <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
+        <GroupInfoDialog 
+          open={dialogOpen} 
+          onClose={() => setDialogOpen(false)} 
+          group={selectedGroup} 
+          onEdit={handleEditGroup}
+          onDelete={handleDeleteGroup}
+        />
         
         {/* Dialog de confirmación para eliminar grupo */}
         <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
