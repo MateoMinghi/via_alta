@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import GroupInfoDialog from '@/components/GroupInfoDialog';
+import ScheduleConfirmationDialog from '@/components/ScheduleConfirmationDialog';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { cn } from '@/lib/utils';
@@ -241,6 +242,7 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
   const [selectedMajor, setSelectedMajor] = useState<string>('All');
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   
   // Opciones disponibles
   const semesters = ['All', 1, 2, 3, 4, 5, 6, 7, 8] as const;
@@ -630,69 +632,7 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
 
   // Funcion para guardar el horario
   const handleSaveSchedule = async () => {
-    setIsLoading(true);
-    try {
-      console.log('Saving schedule changes...');
-      
-      // Combinar ambas listas de materias
-      const allScheduledSubjects = [...obligatorySubjects, ...recommendedSubjects];
-      
-      // Convertir el horario a un formato adecuado para guardar
-      const scheduleToSave = allScheduledSubjects.map(item => ({
-        IdHorarioGeneral: item.IdHorarioGeneral,
-        NombreCarrera: item.NombreCarrera,
-        IdGrupo: item.IdGrupo,
-        Dia: item.Dia,
-        HoraInicio: item.HoraInicio,
-        HoraFin: item.HoraFin,
-        Semestre: item.Semestre,
-        MateriaNombre: item.MateriaNombre,
-        ProfesorNombre: item.ProfesorNombre,
-        isObligatory: item.isObligatory,
-        isRecommended: item.isRecommended
-      }));
-      
-      // Guardar el horario individual del estudiante
-      const res = await fetch('/api/student-schedule', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ 
-          studentId: alumnoId,
-          schedule: scheduleToSave,
-          confirm: true // Indica que queremos confirmar el horario
-        }) 
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success('Horario guardado y confirmado exitosamente');
-        
-        // Si no es vista de coordinador, confirmar el horario también
-        if (!isCoordinatorView && alumnoId) {
-          console.log('Confirming student schedule...');
-          const confirmRes = await fetch('/api/confirm-schedule', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId: alumnoId })
-          });
-          
-          const confirmData = await confirmRes.json();
-          if (confirmData.success) {
-            toast.success('Confirmación de horario registrada');
-          } else {
-            console.error('Error confirming schedule:', confirmData.error);
-            // No mostrar error al usuario ya que el horario se guardó correctamente
-          }
-        }
-      } else {
-        toast.error(`Error al guardar el horario: ${data.error || 'Error desconocido'}`);
-      }
-    } catch (err) {
-      console.error('Error saving schedule:', err);
-      toast.error('Error al guardar el horario');
-    } finally {
-      setIsLoading(false);
-    }
+    setConfirmDialogOpen(true);
   };
   
   // Componente para el cuadro de diálogo de información del grupo
@@ -1201,6 +1141,81 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
         
         {/* Dialog para mostrar información de grupo cuando se hace clic */}
         <GroupInfoDialog open={dialogOpen} onClose={() => setDialogOpen(false)} group={selectedGroup} />
+        
+        {/* Dialog para confirmar la acción de guardar */}
+        <ScheduleConfirmationDialog 
+          open={confirmDialogOpen} 
+          onClose={() => setConfirmDialogOpen(false)} 
+          onConfirm={async () => {
+            setConfirmDialogOpen(false);
+            setIsLoading(true);
+            try {
+              console.log('Saving schedule changes...');
+              
+              // Combinar ambas listas de materias
+              const allScheduledSubjects = [...obligatorySubjects, ...recommendedSubjects];
+              
+              // Convertir el horario a un formato adecuado para guardar
+              const scheduleToSave = allScheduledSubjects.map(item => ({
+                IdHorarioGeneral: item.IdHorarioGeneral,
+                NombreCarrera: item.NombreCarrera,
+                IdGrupo: item.IdGrupo,
+                Dia: item.Dia,
+                HoraInicio: item.HoraInicio,
+                HoraFin: item.HoraFin,
+                Semestre: item.Semestre,
+                MateriaNombre: item.MateriaNombre,
+                ProfesorNombre: item.ProfesorNombre,
+                isObligatory: item.isObligatory,
+                isRecommended: item.isRecommended
+              }));
+              
+              // Guardar el horario individual del estudiante
+              const res = await fetch('/api/student-schedule', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                  studentId: alumnoId,
+                  schedule: scheduleToSave,
+                  confirm: true // Indica que queremos confirmar el horario
+                }) 
+              });
+              const data = await res.json();
+              
+              if (data.success) {
+                toast.success('Horario guardado y confirmado exitosamente');
+                
+                // Mostrar mensaje de éxito
+                window.alert("El horario ha sido guardado correctamente y se ha confirmado para el estudiante.");
+                
+                // Si no es vista de coordinador, confirmar el horario también
+                if (!isCoordinatorView && alumnoId) {
+                  console.log('Confirming student schedule...');
+                  const confirmRes = await fetch('/api/confirm-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ studentId: alumnoId })
+                  });
+                  
+                  const confirmData = await confirmRes.json();
+                  if (confirmData.success) {
+                    toast.success('Confirmación de horario registrada');
+                  } else {
+                    console.error('Error confirming schedule:', confirmData.error);
+                    // No mostrar error al usuario ya que el horario se guardó correctamente
+                  }
+                }
+              } else {
+                toast.error(`Error al guardar el horario: ${data.error || 'Error desconocido'}`);
+              }
+            } catch (err) {
+              console.error('Error saving schedule:', err);
+              toast.error('Error al guardar el horario');
+            } finally {
+              setIsLoading(false);
+            }
+          }}
+        />
         
         {isLoading && (
           <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
