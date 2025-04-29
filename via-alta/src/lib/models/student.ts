@@ -265,6 +265,24 @@ class Student {
       return null;
     }
   }
+ 
+  static async queryStudentRequests(studentId: string) {
+    const query = `
+      SELECT * FROM Solicitud 
+      WHERE IdAlumno = $1 
+      LIMIT 1
+    `;
+    return await pool.query(query, [studentId]);
+  }
+
+  static async queryStudentConfirmation(studentId: string) {
+    const query = `
+      SELECT Confirmacion FROM Alumno 
+      WHERE IdAlumno = $1 
+      LIMIT 1
+    `;
+    return await pool.query(query, [studentId]);
+  }
 }
 
 export default Student;

@@ -30,6 +30,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useStudentDbStatus } from '@/api/useStudentDbStatus';
 
 interface Student {
   id: string;
@@ -45,6 +46,28 @@ interface Student {
 
 interface StudentStatusProps {
   students: Student[];
+}
+
+function StudentStatusDot({ studentId }: { studentId: string }) {
+  const { status, loading } = useStudentDbStatus(studentId);
+  
+  
+  if (loading) {
+    return <div className="w-4 h-4 rounded-full bg-gray-300 animate-pulse"></div>;
+  }
+  
+  let dotColor = 'bg-red-500'; // Color por defecto
+  
+  
+  if (status === 'requiere-cambios') {
+    dotColor = 'bg-amber-400'; //Ambar
+  } else if (status === 'inscrito') {
+    dotColor = 'bg-emerald-500'; //Verde
+  } else {
+    dotColor = 'bg-red-500'; // Rojo (no inscrito)
+  }
+
+  return <div className={`w-4 h-4 rounded-full ${dotColor}`}></div>;
 }
 
 export default function StudentStatus({ students }: StudentStatusProps) {
@@ -310,7 +333,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                             </TableCell>
                             <TableCell>
                               <div className="flex justify-center">
-                                <div className={`w-4 h-4 rounded-full ${getStatusColor(student.status)}`} />
+                                <StudentStatusDot studentId={student.ivd_id} />
                               </div>
                             </TableCell>
                             <TableCell>
@@ -365,11 +388,12 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                 <span className="font-medium">
                                   {student.name} {student.first_surname} {student.second_surname}
                                 </span>
-                                <span
-                                  className={`px-2 py-1 text-xs rounded text-white ${getStatusColor(student.status)}`}
-                                >
-                                  {student.status === 'active' ? 'no inscrito' : student.status.replace('-', ' ') || 'no inscrito'}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <StudentStatusDot studentId={student.ivd_id} />
+                                  <span className="text-xs">
+                                    {student.status === 'active' ? 'Verificando...' : student.status.replace('-', ' ') || 'Verificando...'}
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex justify-between items-center text-sm text-gray-500">
                                 <div>
