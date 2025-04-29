@@ -96,17 +96,18 @@ const getSubjectColor = (subjectName: string): { text: string, border: string, b
 // Draggable schedule item
 function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, onClick: () => void }) {
   const colors = getSubjectColor(item.MateriaNombre || '');
-  const [{ isDragging }, drag] = useDrag(() => ({
+  const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.SCHEDULE_ITEM,
-    item: { id: item.IdGrupo },
+    item: () => ({ id: item.IdGrupo }),
     collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
+      isDragging: !!monitor.isDragging(),
     }),
-  }));
+  });
   
-  // Wrap the element with the drag connector instead of using ref
-  return drag(
+  // Using the drag function directly to attach to the div element
+  return (
     <div
+      ref={drag}
       className={cn(
         'p-1 text-xs rounded-md border shadow-sm h-full',
         'flex justify-between items-center',
@@ -115,10 +116,13 @@ function DraggableScheduleItem({ item, onClick }: { item: GeneralScheduleItem, o
         isDragging && 'opacity-50 cursor-grabbing scale-[0.97]',
         'w-full'
       )}
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
     >
       <div className={cn("truncate font-medium flex-1", colors.text)}>
-        {item.MateriaNombre}
+        {item.MateriaNombre || 'Sin nombre'}
       </div>
     </div>
   );
@@ -131,20 +135,22 @@ function DroppableCell({ day, time, children, onDrop }: {
   children?: React.ReactNode;
   onDrop: (id: number, day: string, time: string) => void;
 }) {
-  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+  const [{ isOver, canDrop }, drop] = useDrop({
     accept: ItemTypes.SCHEDULE_ITEM,
     drop: (item: { id: number }) => {
+      console.log(`Dropping item ${item.id} onto ${day} at ${time}`);
       onDrop(item.id, day, time);
-      return { moved: true };
+      return { dropped: true };
     },
     collect: (monitor) => ({
-      isOver: monitor.isOver(),
-      canDrop: monitor.canDrop(),
+      isOver: !!monitor.isOver(),
+      canDrop: !!monitor.canDrop(),
     }),
-  }));
+  });
 
-  return drop(
+  return (
     <div 
+      ref={drop}
       className={cn(
         "border border-gray-200 p-1 relative h-full",
         isOver && canDrop && "bg-blue-100/50 border-blue-300",
@@ -440,11 +446,16 @@ export default function HorarioGeneralPage() {
 
   // Manejar gota: actualizar el día del elemento y la hora de inicio/finalización (solo UI)
   const handleDropItem = (itemId: number, newDay: string, newTime: string) => {
+    console.log(`handleDropItem called with: itemId=${itemId}, newDay=${newDay}, newTime=${newTime}`);
+    
     // Encontrar el item que estamos actualizando
     const itemToUpdate = schedule.find(item => item.IdGrupo === itemId);
-    if (!itemToUpdate) return;
+    if (!itemToUpdate) {
+      console.error(`Item with id ${itemId} not found in schedule`);
+      return;
+    }
     
-    // Calculo de dutación en minutos
+    // Calculo de duración en minutos
     const duration = timeToMinutes(itemToUpdate.HoraFin) - timeToMinutes(itemToUpdate.HoraInicio);
     const newStart = timeToMinutes(newTime);
     const newEnd = newStart + duration;
@@ -455,6 +466,9 @@ export default function HorarioGeneralPage() {
       HoraInicio: minutesToTime(newStart),
       HoraFin: minutesToTime(newEnd)
     };
+    
+    console.log('Original item:', itemToUpdate);
+    console.log('Updated item:', updatedItem);
     
     // Update UI only - no API call
     setSchedule(prev => prev.map(item => item.IdGrupo === itemId ? updatedItem : item));
