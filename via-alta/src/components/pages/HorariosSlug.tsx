@@ -7,7 +7,6 @@ import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 import { toast } from 'sonner';
 import HorarioSemestre from '../HorarioSemestre';
 import HorarioAlumno from '../HorarioAlumno';
-import HorarioAlumnoModificado from '../HorarioAlumnoModificado';
 import { useGetStudentSchedule, ScheduleItem } from '@/api/useGetStudentSchedule';
 
 interface HorariosSlugProps {
