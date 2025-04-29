@@ -19,7 +19,11 @@ interface ScheduleWithGroup extends ScheduleData {
 }
 
 // Interfaces para los datos del horario detallado y general
-interface DetailedScheduleData extends ScheduleWithGroup {
+interface DetailedScheduleData {
+  IdGrupo: string;
+  Dia?: number;
+  HoraInicio?: string;
+  HoraFin?: string;
   MateriaNombre?: string;
   ProfesorNombre?: string;
   idsalon?: string;
@@ -70,20 +74,24 @@ class Schedule {
     return result.rows as ScheduleWithGroup[];
   }
 
-  // Metodo para encontrar horarios detallados por ID de estudiante
-  static async findDetailedStudentSchedule(studentId: string) {
-    const query = `
-      SELECT h.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon
-      FROM Horario h
-      JOIN Grupo g ON h.idGrupo = g.IdGrupo
-      LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
-      LEFT JOIN Profesor p ON g.IdProfesor = p.IdProfesor
-      LEFT JOIN salon s ON g.IdSalon = s.idsalon
-      WHERE h.idAlumno = $1
-    `;
-    const result = await pool.query(query, [studentId]);
-    return result.rows as DetailedScheduleData[];
-  }
+    // Metodo para encontrar horarios detallados por ID de estudiante
+    static async findDetailedStudentSchedule(studentId: string) {
+      const query = `
+        SELECT DISTINCT ON (hg.Dia, hg.HoraInicio, hg.HoraFin, g.IdGrupo) 
+           h.*, g.*, m.Nombre as MateriaNombre, p.Nombre as ProfesorNombre, s.idsalon, s.tipo as TipoSalon,
+           hg.Dia, hg.HoraInicio, hg.HoraFin
+        FROM Horario h
+        JOIN Grupo g ON h.idGrupo = g.IdGrupo
+        LEFT JOIN Materia m ON g.IdMateria = m.IdMateria
+        LEFT JOIN Profesor p ON g.IdProfesor = p.IdProfesor
+        LEFT JOIN salon s ON g.IdSalon = s.idsalon
+        LEFT JOIN HorarioGeneral hg ON h.idGrupo = hg.IdGrupo
+        WHERE h.idAlumno = $1
+        ORDER BY hg.Dia, hg.HoraInicio, hg.HoraFin, g.IdGrupo
+      `;
+      const result = await pool.query(query, [studentId]);
+      return result.rows as DetailedScheduleData[];
+    }
 
   // Metodo para encontrar horarios generales por semestre
   static async findGeneralScheduleBySemester(semester: string) {
