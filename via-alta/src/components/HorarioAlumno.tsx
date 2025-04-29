@@ -206,13 +206,17 @@ function DraggableScheduleItem({ item, onClick }: { item: ExtendedScheduleItem, 
 export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, isRegular = false, isCoordinatorView = false }: HorarioAlumnoProps) {
   // Mappear los ítems del horario a un formato extendido
   const mapRawScheduleItem = (raw: any): ExtendedScheduleItem => {
-    const item = {
+    const dia = raw.Dia ?? raw.dia;
+    const horaInicio = (raw.HoraInicio ?? raw.horainicio ?? '').slice(0,5);
+    const horaFin = (raw.HoraFin ?? raw.horafin ?? '').slice(0,5);
+    
+    const item: ExtendedScheduleItem = {
       IdHorarioGeneral: raw.IdHorarioGeneral ?? raw.idhorariogeneral,
       NombreCarrera: raw.NombreCarrera ?? raw.nombrecarrera,
       IdGrupo: raw.IdGrupo ?? raw.idgrupo,
-      Dia: raw.Dia ?? raw.dia,
-      HoraInicio: (raw.HoraInicio ?? raw.horainicio ?? '').slice(0,5),
-      HoraFin: (raw.HoraFin ?? raw.horafin ?? '').slice(0,5),
+      Dia: dia,
+      HoraInicio: horaInicio,
+      HoraFin: horaFin,
       Semestre: raw.Semestre ?? raw.semestre,
       MateriaNombre: raw.MateriaNombre ?? raw.materianombre,
       ProfesorNombre: raw.ProfesorNombre ?? raw.profesornombre,
@@ -220,14 +224,12 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
       isRecommended: raw.isRecommended ?? false,
       salon: raw.salon ?? 'Por asignar',
       credits: raw.credits ?? 0,
+      hours: [{
+        day: dia,
+        timeStart: horaInicio,
+        timeEnd: horaFin
+      }]
     };
-
-    // Agregar la propiedad "hours" para almacenar los horarios
-    item.hours = [{
-      day: item.Dia,
-      timeStart: item.HoraInicio,
-      timeEnd: item.HoraFin
-    }];
 
     return item;
   };
@@ -326,8 +328,8 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
           setAvailableSubjects([]);
         } else {
           // Para estudiantes irregulares, distribuir los ítems entre las listas
-          const obligatory = primaryDegreeItems.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
-          const recommended = primaryDegreeItems.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
+          const obligatory = primaryDegreeItems.slice(0, 3).map((s: ExtendedScheduleItem) => ({...s, isObligatory: true, isRecommended: false}));
+          const recommended = primaryDegreeItems.slice(3, 6).map((s: ExtendedScheduleItem) => ({...s, isRecommended: true, isObligatory: false}));
           const available = primaryDegreeItems.slice(6);
           
           setObligatorySubjects(obligatory);
@@ -342,8 +344,8 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
           setRecommendedSubjects([]);
           setAvailableSubjects([]);
         } else {
-          const obligatory = processedItems.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
-          const recommended = processedItems.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
+          const obligatory = processedItems.slice(0, 3).map((s: ExtendedScheduleItem) => ({...s, isObligatory: true, isRecommended: false}));
+          const recommended = processedItems.slice(3, 6).map((s: ExtendedScheduleItem) => ({...s, isRecommended: true, isObligatory: false}));
           const available = processedItems.slice(6);
           
           setObligatorySubjects(obligatory);
@@ -371,10 +373,10 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
             setSchedule(items);
             
             // Extraer títulos únicos de las carreras del horario
-            const uniqueDegrees = Array.from(new Set(
+            const uniqueDegrees: string[] = Array.from(new Set(
               items
-                .filter(item => item.NombreCarrera && item.NombreCarrera.trim() !== '')
-                .map(item => item.NombreCarrera)
+                .filter((item: ExtendedScheduleItem) => item.NombreCarrera && item.NombreCarrera.trim() !== '')
+                .map((item: ExtendedScheduleItem) => item.NombreCarrera as string)
             ));
             
             console.log('Found degree programs:', uniqueDegrees);
@@ -385,9 +387,9 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
               console.log(`Auto-filtered by degree: ${uniqueDegrees[0]}`);
               
               // Filtrar los ítems para incluir solo aquellos de la carrera primaria
-              const primaryDegreeItems = items.filter(
-                item => item.NombreCarrera === uniqueDegrees[0]
-              );
+                const primaryDegreeItems: ExtendedScheduleItem[] = items.filter(
+                (item: ExtendedScheduleItem) => item.NombreCarrera === uniqueDegrees[0]
+                );
               console.log(`Filtered from ${items.length} to ${primaryDegreeItems.length} items for primary degree`);
               
               if (isRegular) {
@@ -409,13 +411,13 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
             } else {
               console.log('No degree information found in schedule data');
               if (isRegular) {
-                const allObligatory = items.map(s => ({...s, isObligatory: true, isRecommended: false}));
+                const allObligatory = items.map((s: ExtendedScheduleItem) => ({...s, isObligatory: true, isRecommended: false}));
                 setObligatorySubjects(allObligatory);
                 setRecommendedSubjects([]);
                 setAvailableSubjects([]);
               } else {
-                const obligatory = items.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
-                const recommended = items.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
+                const obligatory = items.slice(0, 3).map((s: any) => ({...s, isObligatory: true, isRecommended: false}));
+                const recommended = items.slice(3, 6).map((s: any) => ({...s, isRecommended: true, isObligatory: false}));
                 const available = items.slice(6);
                 
                 setObligatorySubjects(obligatory);
@@ -463,8 +465,8 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
           setSchedule(items);
           
           // Distribuuir los ítems entre las listas
-          const obligatory = items.slice(0, 3).map(s => ({...s, isObligatory: true, isRecommended: false}));
-          const recommended = items.slice(3, 6).map(s => ({...s, isRecommended: true, isObligatory: false}));
+          const obligatory = items.slice(0, 3).map((s: ExtendedScheduleItem) => ({...s, isObligatory: true, isRecommended: false}));
+          const recommended = items.slice(3, 6).map((s: ExtendedScheduleItem) => ({...s, isRecommended: true, isObligatory: false}));
           const available = items.slice(6);
           
           setObligatorySubjects(obligatory);
@@ -1145,7 +1147,7 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
         {/* Dialog para confirmar la acción de guardar */}
         <ScheduleConfirmationDialog 
           open={confirmDialogOpen} 
-          onClose={() => setConfirmDialogOpen(false)} 
+          onOpenChange={(open) => setConfirmDialogOpen(open)} 
           onConfirm={async () => {
             setConfirmDialogOpen(false);
             setIsLoading(true);
@@ -1215,13 +1217,14 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
               setIsLoading(false);
             }
           }}
+          isCoordinator={isCoordinatorView}
         />
         
         {isLoading && (
           <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-xl">
               <p className="text-lg text-center">Cargando horario...</p>
-              <div className="mt-4 w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <div className="mt-4 w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
             </div>
           </div>
         )}
