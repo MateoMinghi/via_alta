@@ -32,7 +32,7 @@ const timeSlots = [
 // Color classes for each semester - keep for backward compatibility
 const semesterColors: Record<number, string> = {
   1: 'bg-green-50 hover:bg-green-100 border-green-200 text-green-700',
-  2: 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700',
+  2: 'bg-red-50 hover:bg-red-100 border-red-200 text-red-700',
   3: 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700',
   4: 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700',
   5: 'bg-pink-50 hover:bg-pink-100 border-pink-200 text-pink-700',
@@ -85,7 +85,7 @@ interface HorarioAlumnoProps {
 // Funcion para obtener el color del tema según el nombre de la materia
 const getSubjectColor = (subjectName: string): { text: string, border: string, bg: string } => {
   const colorOptions = [
-    { text: 'text-blue-700', border: 'border-blue-400', bg: 'bg-blue-50' },
+    { text: 'text-red-700', border: 'border-red-400', bg: 'bg-red-50' },
     { text: 'text-green-700', border: 'border-green-400', bg: 'bg-green-50' },
     { text: 'text-amber-700', border: 'border-amber-400', bg: 'bg-amber-50' },
     { text: 'text-purple-700', border: 'border-purple-400', bg: 'bg-purple-50' },
@@ -613,7 +613,7 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
       <div
         className={cn(
           'border border-gray-200 p-1 relative h-full',
-          items.length > 0 ? 'bg-blue-50/50' : 'bg-white'
+          items.length > 0 ? 'bg-red-50/50' : 'bg-white'
         )}
       >
         <div className="flex flex-row gap-0.5 h-full">
@@ -826,7 +826,7 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
           {subject.hours?.slice(0, 2).map((hour, index) => (
             <span 
               key={`${hour.day}-${index}`} 
-              className="inline-flex items-center px-1 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs"
+              className="inline-flex items-center px-1 py-0.5 rounded-md bg-red-50 text-red-700 text-xs"
             >
               <span className="font-medium">{hour.day.substring(0, 3)}</span>&nbsp;
               {hour.timeStart && hour.timeEnd ? 
@@ -884,7 +884,7 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
     };
     
     // Determinar el color de fondo según el estado de arrastre
-    const bgColor = isOver ? 'bg-blue-50' : 'bg-white';
+    const bgColor = isOver ? 'bg-red-50' : 'bg-white';
     
     // Custom header para el área de materias
     const renderHeader = () => {
@@ -1057,7 +1057,7 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
                         {subject.hours?.slice(0, 2).map((hour, index) => (
                           <span 
                             key={`${hour.day}-${index}`} 
-                            className="inline-flex items-center px-1 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs"
+                            className="inline-flex items-center px-1 py-0.5 rounded-md bg-red-50 text-red-700 text-xs"
                           >
                             <span className="font-medium">{hour.day.substring(0, 3)}</span>&nbsp;
                             {hour.timeStart && hour.timeEnd ? 
@@ -1133,7 +1133,7 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
                 listType="available"
                 subjects={filteredAvailableSubjects}
                 title="Materias Disponibles"
-                icon={<Plus className="text-blue-500 w-5 h-5" />}
+                icon={<Plus className="text-red-500 w-5 h-5" />}
                 description="Todas las materias disponibles para agregar al horario."
                 emptyMessage="No hay materias disponibles para agregar"
               />

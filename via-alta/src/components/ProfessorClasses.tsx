@@ -218,7 +218,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
               value={searchQuery}
               onChange={handleSearchChange}
               placeholder="Buscar materia..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
             />
           </div>
         </div>        {subjects.length === 0 ? (
@@ -231,13 +231,13 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
               <div 
                 key={subject.id} 
                 className={`p-2 border rounded-md cursor-pointer ${
-                  selectedSubjects.has(subject.id) ? 'bg-blue-100 border-blue-500' : 'hover:bg-gray-50'
+                  selectedSubjects.has(subject.id) ? 'bg-red-100 border-red-500' : 'hover:bg-gray-50'
                 }`}
                 onClick={() => toggleSubject(subject.id)}
               >
                 <div className="flex items-center">
                   <div className={`w-5 h-5 mr-2 flex items-center justify-center border rounded ${
-                    selectedSubjects.has(subject.id) ? 'bg-blue-500 border-blue-500' : 'border-gray-400'
+                    selectedSubjects.has(subject.id) ? 'bg-red-500 border-red-500' : 'border-gray-400'
                   }`}>
                     {selectedSubjects.has(subject.id) && <Check className="w-4 h-4 text-white" />}
                   </div>
@@ -270,7 +270,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
         <Button 
           onClick={handleSave} 
           disabled={isSaving}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+          className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
         >
           {isSaving ? (
             <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
