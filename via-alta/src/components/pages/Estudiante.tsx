@@ -13,7 +13,7 @@ import { useScheduleChangeRequest } from '@/api/useScheduleChangeRequest';
 import EstudianteStatusBanner from '../EstudianteStatusBanner';
 import EstudianteHeader from '../EstudianteHeader';
 import { useGetStudentAcademicHistory } from '@/api/useGetStudentAcademicHistory';
-
+import Cookies from 'js-cookie';
 
 /**
  * Interfaz que define la estructura de una materia en el horario
@@ -251,14 +251,58 @@ export default function Estudiante() {
           if (result.testMode) {
             // Si es modo de prueba (desarrollo)
             toast.success('Horario guardado en modo de prueba (puedes seguir haciendo cambios)');
-            router.push('/estudiante/confirmacion');
+            
+            // Update user status in localStorage and cookies to prevent redirect
+            if (user) {
+              const updatedUserData = {
+                ...user,
+                status: 'inscrito' // Update status to inscrito
+              };
+              
+              // Update in localStorage
+              localStorage.setItem('via_alta_user', JSON.stringify(updatedUserData));
+              
+              // Update in cookies
+              const expiryDate = new Date();
+              expiryDate.setDate(expiryDate.getDate() + 7);
+              Cookies.set('user', JSON.stringify(updatedUserData), { 
+                expires: expiryDate,
+                path: '/',
+                secure: window.location.protocol === 'https:'
+              });
+            }
+            
+            // Navigate to confirmation page with a special parameter to always show confirmation
+            window.location.href = '/estudiante/confirmacion?show=confirmed';
           } else {
             // Confirmación exitosa en producción
-            localStorage.setItem('studentStatus', 'no-inscrito');
+            localStorage.setItem('studentStatus', 'inscrito');
             localStorage.removeItem('studentComments');
             setComentarios('');
             toast.success('Horario confirmado correctamente');
-            router.push('/estudiante/confirmacion');
+            
+            // Update user status in localStorage and cookies to prevent redirect
+            if (user) {
+              const updatedUserData = {
+                ...user,
+                status: 'inscrito' // Update status to inscrito
+              };
+              
+              // Update in localStorage
+              localStorage.setItem('via_alta_user', JSON.stringify(updatedUserData));
+              
+              // Update in cookies
+              const expiryDate = new Date();
+              expiryDate.setDate(expiryDate.getDate() + 7);
+              Cookies.set('user', JSON.stringify(updatedUserData), { 
+                expires: expiryDate,
+                path: '/',
+                secure: window.location.protocol === 'https:'
+              });
+            }
+            
+            // Navigate to confirmation page with a special parameter to always show confirmation
+            window.location.href = '/estudiante/confirmacion?show=confirmed';
           }
         } else {
           throw new Error(result?.message || "Error al confirmar horario");
@@ -303,8 +347,30 @@ export default function Estudiante() {
         // Guardamos los comentarios para mostrarlos en el banner
         setComentarios(changeReason);
         
+        // Update user status in localStorage and cookies to prevent redirect
+        if (user) {
+          const updatedUserData = {
+            ...user,
+            status: 'requiere-cambios' // Update status to requiere-cambios
+          };
+          
+          // Update in localStorage
+          localStorage.setItem('via_alta_user', JSON.stringify(updatedUserData));
+          
+          // Update in cookies
+          const expiryDate = new Date();
+          expiryDate.setDate(expiryDate.getDate() + 7);
+          Cookies.set('user', JSON.stringify(updatedUserData), { 
+            expires: expiryDate,
+            path: '/',
+            secure: window.location.protocol === 'https:'
+          });
+        }
+        
         toast.success('Solicitud de cambios enviada correctamente');
-        router.push('/estudiante/confirmacion');
+        
+        // Navigate to confirmation page with a special parameter to always show correct confirmation
+        window.location.href = '/estudiante/confirmacion?show=confirmed';
       } catch (error) {
         console.error('Error al solicitar cambios:', error);
         toast.error(error instanceof Error ? error.message : 'Error al enviar la solicitud de cambios');

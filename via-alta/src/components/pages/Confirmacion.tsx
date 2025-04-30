@@ -23,13 +23,12 @@ export default function Confirmacion() {
     }
   }, []);
 
-  useEffect(() => {
-    if (user?.status === 'active' || user?.status === 'no-inscrito') {
-      router.push('/estudiante');
-    }
-  }, [user, router]);
-
-  const isInscrito = user?.status === 'inscrito';
+  // IMPORTANT: Removed automatic redirect to prevent the page from navigating away
+  // This ensures users can see the confirmation page after confirming their schedule
+  
+  // Calculate status for displaying the proper card
+  // If the URL has a special param, always show confirmation regardless of user status
+  const isInscrito = user?.status === 'inscrito' || window.location.href.includes('?show=confirmed');
 
   const ConfirmationCard = () => (
     <Card className="p-8 my-12 text-center border-green-500 border-2">
