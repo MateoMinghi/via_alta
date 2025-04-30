@@ -93,14 +93,6 @@ export default function Estudiante() {
       error: changeRequestError       // Error (si existe)
     } = useScheduleChangeRequest();
 
-    // Al iniciar, recuperamos los comentarios guardados en localStorage
-    useEffect(() => {
-      const savedComments = localStorage.getItem('studentComments');
-      if (savedComments) {
-        setComentarios(savedComments);
-      }
-    }, []);
-
     /**
      * Convierte los datos de la API a un formato más limpio y agrupado 
      * para mostrar en el horario

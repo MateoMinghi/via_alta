@@ -8,27 +8,25 @@ import EstudianteHeader from '@/components/EstudianteHeader';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useStudentDbStatus } from '@/api/useStudentDbStatus';
+import { useStudentChangeRequest } from '@/api/useStudentChangeRequest';
 
 export default function Confirmacion() {
   const router = useRouter();
   const { user } = useAuth();
-  const [descripcion, setDescripcion] = useState('');
-  const fecha = '2023-10-01T12:00:00Z';
-  
 
-  useEffect(() => {
-    const savedDescription = localStorage.getItem('studentComments');
-    if (savedDescription) {
-      setDescripcion(savedDescription);
-    }
-  }, []);
+
+const { status, loading: statusLoading, error: statusError } = useStudentDbStatus(user?.ivd_id?.toString() || '');
+
+const { changes, date, loading: changesLoading, error: changesError } = useStudentChangeRequest(user?.ivd_id.toString() || '' );
 
   // IMPORTANT: Removed automatic redirect to prevent the page from navigating away
   // This ensures users can see the confirmation page after confirming their schedule
   
   // Calculate status for displaying the proper card
   // If the URL has a special param, always show confirmation regardless of user status
-  const isInscrito = user?.status === 'inscrito' || window.location.href.includes('?show=confirmed');
+  console.log ('status', status);
+  const isInscrito = status === 'inscrito' || window.location.href.includes('?show=confirmed');
 
   const ConfirmationCard = () => (
     <Card className="p-8 my-12 text-center border-green-500 border-2">
@@ -45,7 +43,7 @@ export default function Confirmacion() {
       </p>
       
       <div className="bg-green-50 p-4 rounded-md mb-8 text-left">
-        <p className="mb-2"><span className="font-semibold">Fecha de confirmación:</span> {fecha}</p>
+        <p className="mb-2"><span className="font-semibold">Fecha de confirmación:</span> {date}</p>
         <p className="mb-2"><span className="font-semibold">Estado:</span> Inscrito</p>
         <p className="mb-2"><span className="font-semibold">Matrícula:</span> {user?.ivd_id}</p>
         <p><span className="font-semibold">Nota:</span> Recibirás un correo electrónico con los detalles de tu inscripción.</p>
@@ -77,11 +75,11 @@ export default function Confirmacion() {
       </p>
       
       <div className="bg-yellow-50 p-4 rounded-md mb-8 text-left">
-        <p className="mb-2"><span className="font-semibold">Fecha de solicitud:</span> {fecha}</p>
+        <p className="mb-2"><span className="font-semibold">Fecha de solicitud:</span> {date}</p>
         <p className="mb-2"><span className="font-semibold">Estado:</span> Cambios Solicitados</p>
         <p className="mb-2"><span className="font-semibold">Matrícula:</span> {user?.ivd_id}</p>
         <p className="mb-2"><span className="font-semibold">Motivo de la solicitud:</span></p>
-        <p className="bg-white p-3 rounded border border-yellow-200 mb-2">{descripcion}</p>
+        <p className="bg-white p-3 rounded border border-yellow-200 mb-2">{changes}</p>
         <p><span className="font-semibold">Nota:</span> El coordinador revisará tu solicitud y te contactará pronto.</p>
       </div>
       
