@@ -423,7 +423,13 @@ export default function Estudiante() {
         <EstudianteHeader />
         
         {/* Banner que muestra el estado de inscripción */}
-        {user && <EstudianteStatusBanner status={user.status} comments={comentarios}/>}
+        {updatedUser && (
+          <EstudianteStatusBanner 
+            studentId={updatedUser.ivd_id?.toString() || updatedUser.id?.toString()} 
+            status={user?.status} 
+            comments={comentarios}
+          />
+        )}
 
         {/* Sección informativa */}
         <div className="bg-white p-4 rounded-md mb-6 border border-gray-200">
