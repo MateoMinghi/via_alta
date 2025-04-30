@@ -1,107 +1,90 @@
-import { NextResponse } from 'next/server';
-import GeneralSchedule from '@/lib/models/general-schedule';
-import { generateSchedule, ScheduleItem } from '@/lib/utils/schedule-generator';
-import { GeneralScheduleItem } from '@/lib/models/general-schedule';
+import { NextRequest, NextResponse } from 'next/server';
+import { generateGeneralSchedule, isScheduleGenerationInProgress } from '@/lib/utils/schedule-generator';
 
-// Este archivo define las rutas de la API para el horario.
-// Actúa como el controlador en la arquitectura MVC,
-// recibiendo las solicitudes y utilizando el modelo Schedule para interactuar con la base de datos.
+// Set a higher timeout for the API route
+export const maxDuration = 300; // 5 minutes (in seconds)
 
-// Función para convertir ScheduleItem a GeneralScheduleItem
-function convertToGeneralScheduleItem(scheduleItem: ScheduleItem): GeneralScheduleItem {
-  // Extract ID from format "123 Subject Name" or "Prof 123"
-  let subjectId = 0;
-  let professorId = 0;
-  
-  // Parse subject ID - try to extract the numeric ID at the beginning
-  const subjectMatch = scheduleItem.subject.match(/^(\d+)/);
-  if (subjectMatch) {
-    subjectId = parseInt(subjectMatch[1]);
-  }
-  
-  // Parse professor ID - try to extract the numeric ID after "Prof" or just parse the entire string
-  if (scheduleItem.teacher !== "Sin asignar") {
-    const profMatch = scheduleItem.teacher.match(/Prof (\d+)|(\d+)/);
-    if (profMatch) {
-      professorId = parseInt(profMatch[1] || profMatch[2]);
+// Handling POST requests for schedule generation or updates
+export async function POST(request: NextRequest) {
+  try {
+    // Check if a generation is already in progress
+    if (isScheduleGenerationInProgress()) {
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Ya hay un proceso de generación de horario en curso. Por favor, espere.',
+        isProcessing: true
+      });
     }
-  }
-  
-  return {
-    IdHorarioGeneral: 1, // Default value
-    NombreCarrera: scheduleItem.subject, // Keep full subject name as the career name
-    IdMateria: subjectId,
-    IdProfesor: professorId,
-    IdCiclo: 1, // Default value
-    Dia: scheduleItem.day,
-    HoraInicio: scheduleItem.time,
-    HoraFin: scheduleItem.endTime,
-    Semestre: scheduleItem.semester
-  };
-}
 
-// Función para manejar las solicitudes GET a la ruta /api/schedule
-export async function GET() {
-  try {
-    // Llama al método del modelo para obtener el horario general
-    const schedule = await GeneralSchedule.getGeneralSchedule();
-    // Retorna la respuesta con los datos del horario
-    return NextResponse.json({ success: true, data: schedule });
-  } catch (error) {
-    console.error('Error fetching schedule:', error);
-    // Retorna una respuesta de error si falla la obtención del horario
-    return NextResponse.json(
-      { success: false, error: 'Error fetching schedule' },
-      { status: 500 }
-    );
-  }
-}
-
-// Función para manejar las solicitudes POST a la ruta /api/schedule
-export async function POST(request: Request) {
-  try {
-    // Obtiene el cuerpo de la solicitud
+    // Check if we're updating an existing schedule
     const body = await request.json();
     const { schedule } = body;
+
+    // If schedule is provided, save the updated schedule
+    if (schedule && Array.isArray(schedule)) {
+      // Import the GeneralSchedule model here to avoid circular dependencies
+      const { default: GeneralSchedule } = await import('@/lib/models/general-schedule');
+      
+      console.log(`Updating schedule with ${schedule.length} items`);
+      await GeneralSchedule.saveGeneralSchedule(schedule);
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Horario general actualizado exitosamente' 
+      });
+    }
     
-    // Llama al método del modelo para guardar el horario general
-    await GeneralSchedule.saveGeneralSchedule(schedule);
-    // Retorna una respuesta de éxito
-    return NextResponse.json({ success: true });
+    // Otherwise, start a new schedule generation
+    const { idCiclo } = body;
+    console.log(`Starting schedule generation process${idCiclo ? ` for cycle ID: ${idCiclo}` : ''}`);
+    
+    // Start the generation process in the background
+    // This will create a flag file that indicates generation is in progress
+    generateGeneralSchedule(idCiclo).catch(err => {
+      console.error('Background schedule generation error:', err);
+    });
+    
+    // Return immediately to prevent timeouts
+    return NextResponse.json({
+      success: true,
+      message: 'Generación de horario iniciada. Por favor espere y refresque la página en unos momentos.',
+      isProcessing: true
+    });
+    
   } catch (error) {
-    console.error('Error saving schedule:', error);
-    // Retorna una respuesta de error si falla el guardado del horario
-    return NextResponse.json(
-      { success: false, error: 'Error saving schedule' },
-      { status: 500 }
-    );
+    console.error('Error al iniciar generación del horario general:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Error desconocido' 
+    }, { status: 500 });
   }
 }
 
-//Función para manejar las solicitudes PUT para generar un nuevo horario
-//PUT es típicamente usado para actualizar recursos existentes, pero en este caso se usa para generar un nuevo horario
-//con PUT puedo reemplazar el horario existente o crear uno nuevo, por lo que funciona bien
-//las llamadas PUT son "idempotent", lo que significa que hacer la misma llamada varias veces no debería cambiar el resultado después de la primera vez
-//en este caso, cada vez que se llama a PUT, se genera un nuevo horario y se guarda en la base de datos 
-export async function PUT() {
+// Handle GET requests - return the current general schedule
+export async function GET(request: NextRequest) {
   try {
-    // Llama al generador de horarios
-    const newSchedule = await generateSchedule();
+    // Import the GeneralSchedule model here to avoid circular dependencies
+    const { default: GeneralSchedule } = await import('@/lib/models/general-schedule');
     
-    // Convierte el horario al formato esperado
-    const generalScheduleItems = newSchedule.map(convertToGeneralScheduleItem);
-
-    // Guarda el horario generado
-    await GeneralSchedule.saveGeneralSchedule(generalScheduleItems);
+    // Check if schedule generation is in progress
+    const isProcessing = isScheduleGenerationInProgress();
     
-    // Retorna el nuevo horario generado
-    return NextResponse.json({ success: true, data: newSchedule });
+    // Get the schedule data from the database
+    const scheduleData = await GeneralSchedule.getGeneralSchedule();
+    
+    return NextResponse.json({ 
+      success: true,
+      data: scheduleData,
+      isProcessing: isProcessing,
+      message: isProcessing 
+        ? 'El horario está siendo generado, por favor refresque la página en unos momentos.' 
+        : undefined
+    });
   } catch (error) {
-    console.error('Error generating schedule:', error);
-    // Retorna una respuesta de error si falla la generación del horario
-    return NextResponse.json(
-      { success: false, error: 'Error generating schedule' },
-      { status: 500 }
-    );
+    console.error('Error al obtener el horario general:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Error desconocido' 
+    }, { status: 500 });
   }
 }

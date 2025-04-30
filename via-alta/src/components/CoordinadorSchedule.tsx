@@ -1,283 +1,161 @@
-'use client';
-
-import React, { useState, useEffect, useMemo } from 'react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Card } from './ui/card';
 import { cn } from '@/lib/utils';
-import SubjectList from './SubjectList';
-import SubjectSearch from './SubjectSearch';
-import { toast } from 'sonner';
-import { IndividualSubject } from '@/components/pages/horario-general/IndividualSubject';
+import { GeneralScheduleItem } from '@/lib/models/general-schedule';
+import GroupInfoDialog from './GroupInfoDialog';
+import { Pencil, Trash2 } from 'lucide-react';
 
-// Define la interfaz para una materia
-// Una materia incluye id, título, salón, profesor, créditos, semestre y horarios
-interface Subject {
-  id: number;
-  title: string;
-  salon: string;
-  professor: string;
-  credits: number;
-  semester: number;
-  hours: { day: string; time: string }[];
-}
-
-// Define las propiedades que recibe el componente CoordinadorSchedule
-// Recibe un arreglo de materias (subjects)
-interface SubjectsProps {
-  subjects: Subject[];
-}
-
-interface DraggableCellProps {
-  subject: Subject;
-  occurrence: { day: string; time: string };
-  widthClass?: string;
-}
-
-// Constantes para los días de la semana y los intervalos de tiempo
+// Días de la semana
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+// Franjas horarias (formato 24h)
 const timeSlots = [
   '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00',
   '14:30', '15:00', '15:30', '16:00'
 ];
 
-// Componente principal para gestionar el horario del coordinador
-// Recibe las materias como parámetro y permite visualizarlas, seleccionarlas y moverlas
-export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
-  // Estados para manejar el día activo, todas las materias, materias seleccionadas, materia seleccionada y última vez guardada
-  const [allSubjects, setAllSubjects] = useState<Subject[]>(subjects);
-  const [selectedSubjects, setSelectedSubjects] = useState<Subject[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
-
-  // Efecto para inicializar las materias al montar el componente
-  useEffect(() => {
-    setAllSubjects(subjects);
-  }, [subjects]);
-
-  useEffect(() => {
-    // Initialize selected subjects with the provided subjects
-    setSelectedSubjects(subjects);
-  }, [subjects]);
-
-  // Función para manejar la selección de una materia
-  // Agrega la materia seleccionada al estado de materias seleccionadas si no está ya incluida
-  const handleSubjectSelect = (subject: Subject) => {
-    if (!selectedSubjects.some((s) => s.id === subject.id)) {
-      setSelectedSubjects([...selectedSubjects, subject]);
-    }
-  };
-
-  // Función para eliminar una materia seleccionada
-  // Filtra la materia por su id y actualiza el estado
-  const removeSelectedSubject = (subjectId: number) => {
-    setSelectedSubjects(selectedSubjects.filter((s) => s.id !== subjectId));
-  };
-
-  // Función para encontrar una materia en un día y hora específicos
-  // Busca en todas las materias y materias seleccionadas
-  const findSubject = (day: string, time: string) => {
-    const allDisplaySubjects = [
-      ...selectedSubjects,
-      ...allSubjects.filter(s => !selectedSubjects.some(ss => ss.id === s.id)),
-    ];
-
-    return allDisplaySubjects.find((subject) => subject.hours.some(
-      (hour) => hour.day.toLowerCase() === day.toLowerCase() && hour.time === time,
-    ));
-  };
-
-  function normalizeDay(day: string): string {
-    switch (day.toLowerCase()) {
-      case 'monday':
-      case 'Lun':
-      case 'lun': 
-        return 'Lunes';
-      case 'tuesday':
-      case 'Mar':
-        return 'Martes';
-      case 'wednesday':
-      case 'Mié':
-        return 'Miércoles';
-      case 'thursday':
-      case 'Jue':
-        return 'Jueves';
-      case 'friday':
-      case 'Vie':
-        return 'Viernes';    
-      default:
-        return day;
-    }
+// Color por materia (hash simple)
+const getSubjectColor = (subjectName: string) => {
+  const colorOptions = [
+    'bg-blue-50 text-blue-700 border-blue-400',
+    'bg-green-50 text-green-700 border-green-400',
+    'bg-amber-50 text-amber-700 border-amber-400',
+    'bg-purple-50 text-purple-700 border-purple-400',
+    'bg-pink-50 text-pink-700 border-pink-400',
+    'bg-indigo-50 text-indigo-700 border-indigo-400',
+    'bg-rose-50 text-rose-700 border-rose-400',
+    'bg-teal-50 text-teal-700 border-teal-400',
+    'bg-cyan-50 text-cyan-700 border-cyan-400',
+    'bg-orange-50 text-orange-700 border-orange-400',
+    'bg-lime-50 text-lime-700 border-lime-400',
+    'bg-emerald-50 text-emerald-700 border-emerald-400',
+    'bg-sky-50 text-sky-700 border-sky-400',
+    'bg-violet-50 text-violet-700 border-violet-400',
+    'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-400',
+    'bg-red-50 text-red-700 border-red-400',
+  ];
+  let hash = 0;
+  for (let i = 0; i < subjectName.length; i++) {
+    hash = ((hash << 5) - hash) + subjectName.charCodeAt(i);
+    hash |= 0;
   }
+  return colorOptions[Math.abs(hash) % colorOptions.length];
+};
 
-  // Funciones auxiliares para convertir tiempo a minutos y viceversa
-  function timeToMinutes(time: string): number {
-    const [h, m] = time.split(':').map(Number);
-    return h * 60 + m;
+function normalizeDay(day: string | undefined | null): string {
+  if (!day) return '';
+  switch (day.toLowerCase()) {
+    case 'monday':
+    case 'lun':
+    case 'lunes': return 'Lunes';
+    case 'tuesday':
+    case 'mar':
+    case 'martes': return 'Martes';
+    case 'wednesday':
+    case 'mié':
+    case 'miercoles':
+    case 'miércoles': return 'Miércoles';
+    case 'thursday':
+    case 'jue':
+    case 'jueves': return 'Jueves';
+    case 'friday':
+    case 'vie':
+    case 'viernes': return 'Viernes';
+    default: return day || '';
   }
-  
-  function minutesToTime(minutes: number): string {
-    const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
-    const mm = String(minutes % 60).padStart(2, '0');
-    return `${hh}:${mm}`;
-  }
+}
 
-  // Crea una representación matricial del horario
-  // Agrupa las materias por día y hora en una estructura de matriz
+function timeToMinutes(time: string | undefined | null): number {
+  if (!time) return 0;
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Main component
+export default function CoordinadorSchedule({ 
+  subjects, 
+  onEdit, 
+  onDelete 
+}: { 
+  subjects: GeneralScheduleItem[],
+  onEdit?: (group: GeneralScheduleItem) => void,
+  onDelete?: (group: GeneralScheduleItem) => void
+}) {
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
+
+  // Matrix for schedule
   const scheduleMatrix = useMemo(() => {
-    const matrix: { [key: string]: { [key: string]: Subject[] } } = {};
-  
+    const matrix: { [time: string]: { [day: string]: GeneralScheduleItem[] } } = {};
     timeSlots.forEach(time => {
       matrix[time] = {};
       daysOfWeek.forEach(day => {
         matrix[time][day] = [];
       });
     });
-  
-    // Combine subjects and selectedSubjects (avoid duplicates)
-    const allDisplaySubjects = [
-      ...selectedSubjects,
-      ...subjects.filter(s => !selectedSubjects.some(ss => ss.id === s.id))
-    ];
-  
-    allDisplaySubjects.forEach(subject => {
-      if (!subject?.hours) return;
-      subject.hours.forEach(hour => {
-        if (!hour?.time || !hour.day) return;
-        const normalizedDay = normalizeDay(hour.day);
-        const start = timeToMinutes(hour.time);
-        const end = start + 60; // Assuming 1-hour classes
-  
-        for (let t = start; t < end; t += 30) {
-          const slot = minutesToTime(t);
+    subjects.forEach(item => {
+      const normalizedDay = normalizeDay(item.Dia);
+      const startTime = timeToMinutes(item.HoraInicio);
+      const endTime = timeToMinutes(item.HoraFin);
+      timeSlots.forEach(slot => {
+        const slotTime = timeToMinutes(slot);
+        if (slotTime >= startTime && slotTime < endTime) {
           if (matrix[slot]?.[normalizedDay]) {
-            matrix[slot][normalizedDay].push(subject);
+            matrix[slot][normalizedDay].push(item);
           }
         }
       });
     });
-  
     return matrix;
-  }, [subjects, selectedSubjects]);
+  }, [subjects]);
 
-  // Función para mover una materia a un nuevo día y hora
-  // Actualiza el estado de las materias seleccionadas y muestra un mensaje de éxito
-  const moveSubject = (
-    dragItem: { subject: Subject; occurrence: { day: string; time: string } },
-    toDay: string,
-    toTime: string
-  ) => {
-    const { subject, occurrence } = dragItem;
-    const updatedSubjects = selectedSubjects.map(s => {
-      if (s.id === subject.id) {
-        return {
-          ...s,
-          hours: s.hours.map(hour =>
-            (hour.day.toLowerCase() === occurrence.day.toLowerCase() && hour.time === occurrence.time)
-              ? { day: toDay, time: toTime }
-              : hour
-          )
-        };
+  // Handler for clicking a subject - now only handles dialog
+  const handleSubjectClick = (e: React.MouseEvent, item: GeneralScheduleItem) => {
+    e.stopPropagation();
+    setSelectedGroup(item);
+    setDialogOpen(true);
+  };
+
+  // Handler for clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const isDialog = target.closest('[role="dialog"]');
+      
+      if (!isDialog) {
+        setSelectedGroupId(null);
       }
-      return s;
-    });
-    setSelectedSubjects(updatedSubjects);
+    };
     
-    toast.success(`Moved ${subject.title} from ${occurrence.day} ${occurrence.time} to ${toDay} at ${toTime}`);
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const getSubjectColor = (subjectTitle: string): string => {
-    const subjectColors: { [key: string]: string } = {
-        'Matemáticas': 'text-blue-500',
-        'Inglés': 'text-green-500',
-        'Ciencias': 'text-yellow-500',
-        'Historia': 'text-purple-500',
-        'Arte': 'text-pink-500',
-    };
-    return subjectColors[subjectTitle] || 'text-red-700'; // default color
-};
-
-  // Componente para celdas arrastrables
-  // Permite arrastrar materias dentro del horario
-  const DraggableCell = ({ subject, occurrence, widthClass }: DraggableCellProps) => {
-    const [{ isDragging }, dragRef] = useDrag(() => ({
-      type: 'subject',
-      // send both the subject and the occurrence details for this cell
-      item: { subject, occurrence },
-      collect: (monitor) => ({
-        isDragging: monitor.isDragging(),
-      }),
-    }));
-
-    return (
-      <div
-        ref={(node) => {
-          if (typeof dragRef === 'function') {
-            dragRef(node);
-          }
-        }}
-        className={cn(
-          'p-1 text-xs cursor-pointer rounded-md border border-gray-200 bg-white shadow-sm h-full',
-          'hover:shadow-md transition-shadow flex justify-center items-center',
-          isDragging && 'opacity-50',
-          widthClass
-        )}
-        onClick={() => setSelectedSubject(subject)}
-      >
-        <div className={cn('truncate font-medium', getSubjectColor(subject.title))}>
-          {subject.title}
-        </div>
-      </div>
-    );  
-  };
-
-  // Componente para celdas dropeables
-  // Permite soltar materias en un día y hora específicos
+  // Cell renderer
   const Cell = ({ day, time }: { day: string; time: string }) => {
-    const items = scheduleMatrix[time][day];
-    const [{ isOver }, dropRef] = useDrop(() => ({
-      accept: 'subject',
-      drop: (dragItem: { subject: Subject; occurrence: { day: string; time: string } }) => {
-        moveSubject(dragItem, day, time);
-      },
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-      }),
-    }));
+    const items = scheduleMatrix[time]?.[day] || [];
 
-    // Calculate width class based on number of items in the cell
-    const getWidthClass = (total: number, index: number) => {
-      switch(total) {
-        case 1: return 'w-full';
-        case 2: return 'w-[calc(50%-2px)]';
-        case 3: return 'w-[calc(33.333%-2px)]';
-        default: return 'w-[calc(25%-2px)]';
-      }
-    };
-  
     return (
-      <div
-        ref={(node) => {
-          if (typeof dropRef === 'function') {
-            dropRef(node);
-          }
-        }}
-        className={cn(
-          'border border-gray-200 p-1 relative h-full',
-          items.length > 0 ? 'bg-blue-50/50' : 'bg-white',
-          isOver && 'bg-gray-100'
-        )}
+      <div 
+        className="border border-gray-200 p-1 relative h-full"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-row gap-0.5 h-full">
-          {items.map((item, index) => (
-            <DraggableCell 
-              key={`${item.professor}-${item.title}-${index}`}
-              subject={item}
-              occurrence={{ day, time }} // pass the cell's day/time as the occurrence
-              widthClass={getWidthClass(items.length, index)}
-            />
+          {items.map((item, idx) => (
+            <div
+              key={`${item.IdGrupo}-${idx}`}
+              className={cn(
+                'subject-cell p-2 text-xs rounded-md border shadow-sm h-full flex-1 min-w-0 relative',
+                getSubjectColor(item.MateriaNombre || ''),
+                'cursor-pointer hover:shadow-md transition-all duration-200'
+              )}
+              onClick={(e) => handleSubjectClick(e, item)}
+            >
+              <div className="font-medium truncate">
+                {item.MateriaNombre}
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -285,124 +163,42 @@ export default function CoordinadorSchedule({ subjects }: SubjectsProps) {
   };
 
   return (
-    // Renderiza el horario, lista de materias y funcionalidades de arrastrar y soltar
-    // Incluye botones para guardar el horario y mostrar la última vez guardada
-    <DndProvider backend={HTML5Backend}>
-      <div className="w-full pb-8 flex justify-between flex-col lg:flex-row gap-4">
-        <div className="overflow-x-auto flex-1">
-          <div className="min-w-[800px]">
-            <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
-              <div className="h-10" />
-              {daysOfWeek.map((day) => (
-                <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
-                  {day}
+    <div className="w-full flex flex-col gap-4">
+      <div className="overflow-x-auto">
+        <div className="min-w-[800px]">
+          <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">
+            {/* Header */}
+            <div className="h-10" />
+            {daysOfWeek.map((day) => (
+              <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
+                {day}
+              </div>
+            ))}
+            {/* Time rows */}
+            {timeSlots.map((time) => (
+              <React.Fragment key={time}>
+                <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
+                  {time}
                 </div>
-              ))}
-
-              {timeSlots.map((time) => (
-                <React.Fragment key={time}>
-                  <div className="flex items-start justify-end pr-2 text-sm text-muted-foreground -mt-2">
-                    {time}
-                  </div>
-                  {daysOfWeek.map((day) => (
-                    <Cell key={`${day}-${time}`} day={day} time={time} />
-                  ))}
-                </React.Fragment>
-              ))}
-            </div>
+                {daysOfWeek.map((day) => (
+                  <Cell key={`${day}-${time}`} day={day} time={time} />
+                ))}
+              </React.Fragment>
+            ))}
           </div>
         </div>
-
-        <div className="w-full lg:w-1/4 pl-0 lg:pl-4">
-          <p className="text-2xl font-bold">Lista de Materias</p>
-          <SubjectList subjects={subjects} />
-          {selectedSubjects.length > 0 && (
-            <div className="mt-4 mb-4">
-              <p className="text-lg font-semibold mb-2">Materias Seleccionadas</p>
-              <div className="space-y-2">
-                {selectedSubjects.map((subject) => (
-                  <Card key={subject.id} className="p-3 flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{subject.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {subject.professor}
-                        {' '}
-                        •
-                        {subject.credits}
-                        {' '}
-                        créditos
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeSelectedSubject(subject.id)}
-                      className="h-8 w-8 text-red-500"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <SubjectSearch subjects={allSubjects} onSubjectSelect={handleSubjectSelect} />
-        </div>
       </div>
-
-      {/* Render the IndividualSubject dialog when a subject on the grid is clicked */}      {selectedSubject && (
-        <IndividualSubject
-          subject={{
-            IdHorarioGeneral: 1, // Default value
-            NombreCarrera: selectedSubject.title,
-            IdMateria: selectedSubject.id,
-            IdProfesor: parseInt(selectedSubject.professor.replace(/\D/g, '')) || 0,
-            IdCiclo: 1, // Default value
-            Dia: selectedSubject.hours[0]?.day || '',
-            HoraInicio: selectedSubject.hours[0]?.time || '',
-            HoraFin: (() => {
-              const time = selectedSubject.hours[0]?.time;
-              if (!time) return '';
-              const [h, m] = time.split(':').map(Number);
-              const date = new Date();
-              date.setHours(h, m, 0, 0);
-              date.setHours(date.getHours() + 1);
-              return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-            })(),
-            Semestre: selectedSubject.semester
-          }}
-          isOpen={!!selectedSubject}
-          onClose={() => setSelectedSubject(null)}
-          onUpdate={(updatedScheduleItem) => {
-            setSelectedSubjects(prev =>
-              prev.map(s => {
-                if (s.id === selectedSubject.id) {
-                  return {
-                    ...s,
-                    title: updatedScheduleItem.NombreCarrera,
-                    professor: `Prof ${updatedScheduleItem.IdProfesor}`,
-                    salon: `Salon ${updatedScheduleItem.IdCiclo}`,
-                    semester: updatedScheduleItem.Semestre,
-                    hours: [{
-                      day: updatedScheduleItem.Dia,
-                      time: updatedScheduleItem.HoraInicio
-                    }]
-                  };
-                }
-                return s;
-              })
-            );
-            setSelectedSubject(null);
-          }}
-          onDelete={(scheduleItem) => {
-            setSelectedSubjects(prev =>
-              prev.filter(s => s.id !== selectedSubject.id)
-            );
-            setSelectedSubject(null);
-          }}
-        />
-      )}
-    </DndProvider>
+      {/* Dialog for group info */}
+      <GroupInfoDialog 
+        open={dialogOpen} 
+        onClose={() => {
+          setDialogOpen(false);
+          setSelectedGroup(null);
+        }} 
+        group={selectedGroup}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+    </div>
   );
 }

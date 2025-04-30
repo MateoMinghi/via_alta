@@ -1,28 +1,28 @@
-// Next.js page component with async params
-// In your specific Next.js setup, params needs to be a Promise
+// Componente de página de Next.js con parámetros asíncronos
+// En tu configuración específica de Next.js, params necesita ser una Promesa
 
-// Use generateMetadata for metadata
+// Usa generateMetadata para los metadatos
 export async function generateMetadata() {
   return {
-    title: 'Create Password'
+    title: 'Crear Contraseña'
   };
 }
 
-// Define the props type for the Page component
+// Define el tipo de props para el componente Page
 interface PageProps {
   params: Promise<{
     token: string;
   }>;
 }
 
-// Simple page component that treats params as a Promise
+// Componente de página simple que trata params como una Promesa
 export default async function Page(props: PageProps) {
-  // We'll need to await the params since it's a Promise in your setup
+  // Necesitamos usar await en params ya que es una Promesa en tu configuración
   const params = await props.params;
   const token = params.token;
   
   return <CreatePasswordPage token={token} />;
 }
 
-// Import a regular component (not client component)
+// Importa un componente regular (no un componente cliente)
 import CreatePasswordPage from './password-page';

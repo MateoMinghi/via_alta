@@ -1,481 +1,280 @@
-// Generador de horarios para el sistema Via Alta
-// Define interfaces for API responses
-interface ApiCourse {
-  id: number;
-  name: string;
-  sep_id: string;
-  credits: string;
-  sep_credits: string;
-  hours_professor: number | null;
-  hours_independent: number | null;
-  facilities: string | null;
-  plans_courses: {
-    id: number;
-    plan_id: number;
-    course_id: number;
-    semester: number;
-  }[];
+import pool from "../../config/database";
+import Subject from "../models/subject";
+import Availability from "../models/availability";
+import GeneralSchedule, { GeneralScheduleItem } from "../models/general-schedule";
+import Cycle from "../models/cycle"; 
+import { getGroups, generateGroupsForAllProfessors } from "./group-generator"; 
+import fs from 'fs';
+import path from 'path';
+
+// Flag file path to track generation status
+const GENERATION_FLAG_PATH = path.join(process.cwd(), 'schedule-generation-in-progress');
+
+// Helper function to get the latest cycle ID
+async function getLatestCycleId(): Promise<number | null> {
+  const query = `SELECT IdCiclo FROM Ciclo ORDER BY FechaInicio DESC LIMIT 1`;
+  const result = await pool.query(query);
+  return result.rows[0]?.idciclo || null;
 }
 
-interface ApiResponse<T> {
-  data: T[];
+// Helper function to format hour number to HH:MM:SS
+function formatTime(hour: number): string {
+  const h = hour.toString().padStart(2, '0');
+  return `${h}:00:00`;
 }
 
-// Authentication response type
-interface AuthResponse {
-  token: string;
+// Helper function to parse HH:MM:SS time string to hour number
+function parseTime(timeString: string): number {
+  return parseInt(timeString.split(':')[0], 10);
 }
 
-// Define la estructura de un elemento del horario
-export interface ScheduleItem {
-  teacher: string;
-  subject: string;
-  day: string;
-  time: string;
-  endTime: string;
-  classroom: string; // Maintained for backward compatibility
-  semester: number;
-}
+// Type for the schedule grid slot
+type ScheduleSlot = {
+  professorId?: string;
+  semester?: number;
+};
 
-// Define time frame structure
-interface TimeFrame {
-  start: string;
-  end: string;
-}
+// Type for the availability map
+type AvailabilityMap = Map<string, ReturnType<typeof processAvailability>>;
 
-// Define day availability structure
-interface DayAvailability {
-  day: string;
-  timeFrames: TimeFrame[];
-}
+// Process raw availability data for easier lookup
+function processAvailability(availabilityData: Awaited<ReturnType<typeof Availability.findByProfessor>>) {
+    const map = new Map<string, { start: number; end: number }[]>(); // Map<Day, {start, end}[]>
+    const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
-// Define teacher structure
-interface Teacher {
-  id: string;
-  name: string;
-  subject: string;
-  availability: DayAvailability[];
-  semester: number;
-  credits: number;
-  hoursProfessor: number | null;
-  hoursIndependent: number | null;
-  facilities: string | null;
-}
+    daysOfWeek.forEach(day => map.set(day, []));
 
-// Define course structure to match the JSON format
-interface Course {
-  id: number;
-  name: string;
-  sep_id: string;
-  credits: string;
-  sep_credits: string;
-  hours_professor: number | null;
-  hours_independent: number | null;
-  facilities: string | null;
-  plans_courses: {
-    id: number;
-    plan_id: number;
-    course_id: number;
-    semester: number;
-  }[];
-}
-
-// Interfaces de la db para generacion del horario general
-interface DbTeacher {
-  IdProfesor: string;
-  Nombre: string;
-  Clases: string;
-}
-
-interface DbAvailability {
-  IdDisponibilidad: number;
-  IdProfesor: string;
-  Dia: string;
-  HoraInicio: string;
-  HoraFin: string;
-}
-
-// API configuration
-const API_BASE_URL = 'https://ivd-qa-0dc175b0ba43.herokuapp.com';
-const CLIENT_ID = 'payments_app';
-const CLIENT_SECRET = 'a_client_secret';
-
-// Schedule hour limits
-const SCHEDULE_START_HOUR = 7; // 7:00 AM
-const SCHEDULE_END_HOUR = 16;  // 4:00 PM
-
-// Function to get authentication token
-async function getAuthToken(): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/m2m/authenticate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to authenticate');
-  }
-
-  const data = await response.json();
-  return data.token;
-}
-
-// Function to fetch courses from the API
-async function fetchCourses(): Promise<ApiCourse[]> {
-  const token = await getAuthToken();
-  
-  const response = await fetch(`${API_BASE_URL}/v1/courses/all`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch courses');
-  }
-
-  const data: ApiResponse<ApiCourse> = await response.json();
-  return data.data;
-}
-
-// Funciones para obtener datos de la db
-async function fetchTeachersFromDb(): Promise<DbTeacher[]> {
-  try {
-    if (typeof window === 'undefined') {
-      const Professor = (await import('../models/professor')).default;
-      const professors = await Professor.findAll();
-      
-      return professors.map(professor => ({
-        IdProfesor: professor.IdProfesor,
-        Nombre: professor.Nombre,
-        Clases: professor.Clases || ''
-      }));
-    } else {
-      console.warn('Database operations are only available on the server side');
-      return [];
-    }
-  } catch (error) {
-    console.error('Error fetching teachers from database:', error);
-    throw new Error('Failed to fetch teachers from database');
-  }
-}
-
-async function fetchTeacherAvailabilityFromDb(professorId: string): Promise<DbAvailability[]> {
-  try {
-    if (typeof window === 'undefined') {
-      const Availability = (await import('../models/availability')).default;
-      const availabilities = await Availability.findByProfessor(professorId);
-      
-      return availabilities.map(availability => ({
-        IdDisponibilidad: availability.IdDisponibilidad,
-        IdProfesor: availability.IdProfesor,
-        Dia: availability.Dia,
-        HoraInicio: availability.HoraInicio,
-        HoraFin: availability.HoraFin
-      }));
-    } else {
-      console.warn('Database operations are only available on the server side');
-      return [];
-    }
-  } catch (error) {
-    console.error(`Error fetching availability for teacher ${professorId}:`, error);
-    throw new Error(`Failed to fetch availability for teacher ${professorId}`);
-  }
-}
-
-// Convert database teachers and their availability to the format needed for schedule generation
-async function convertDbTeachersToTeachers(dbTeachers: DbTeacher[]): Promise<Teacher[]> {
-  const teachers: Teacher[] = [];
-  
-  for (const dbTeacher of dbTeachers) {
-    // Obtener la disponibilidad del profesor
-    const availabilities = await fetchTeacherAvailabilityFromDb(dbTeacher.IdProfesor);
-    
-    // Si no hay disponibilidad registrada para el profesor, saltamos al siguiente
-    if (availabilities.length === 0) {
-      console.warn(`No availability found for teacher ${dbTeacher.IdProfesor}`);
-      continue;
-    }
-    
-    // Convertir el formato de disponibilidad de la db a el formato necesario para la generacion del horario
-    const availability: DayAvailability[] = [];
-    
-    // Agrupar las disponibilidades por dia
-    const availabilitiesByDay = new Map<string, TimeFrame[]>();
-    
-    availabilities.forEach(avail => {
-      // Verificar que la hora esté dentro del límite del horario general (7:00 AM a 4:00 PM)
-      const startHour = parseInt(avail.HoraInicio.split(':')[0]);
-      const endHour = parseInt(avail.HoraFin.split(':')[0]);
-      
-      if (startHour < SCHEDULE_START_HOUR || endHour > SCHEDULE_END_HOUR) {
-        return; // Ignorar esta disponibilidad si está fuera del rango permitido
-      }
-      
-      if (!availabilitiesByDay.has(avail.Dia)) {
-        availabilitiesByDay.set(avail.Dia, []);
-      }
-      
-      availabilitiesByDay.get(avail.Dia)?.push({
-        start: avail.HoraInicio,
-        end: avail.HoraFin
-      });
-    });
-    
-    // Convertir a el formato DayAvailability
-    availabilitiesByDay.forEach((timeFrames, day) => {
-      availability.push({
-        day,
-        timeFrames
-      });
-    });
-    
-    // Si después de filtrar por horario no hay disponibilidad, saltamos al siguiente profesor
-    if (availability.length === 0) {
-      console.warn(`Teacher ${dbTeacher.IdProfesor} has no availability within schedule hours`);
-      continue;
-    }
-    
-    // La asignatura se deja vacía inicialmente y se completa más tarde
-    teachers.push({
-      id: dbTeacher.IdProfesor,
-      name: dbTeacher.Nombre,
-      subject: dbTeacher.Clases, // Asignar la clase que ya tiene el profesor
-      availability,
-      semester: 0, // Será actualizado cuando se asignen los cursos
-      credits: 0, // Será actualizado cuando se asignen los cursos
-      hoursProfessor: null,
-      hoursIndependent: null,
-      facilities: null
-    });
-  }
-  
-  return teachers;
-}
-
-// Función para mapear los nombres de las asignaturas de la API con las clases de los profesores
-async function matchCoursesWithTeachers(teachers: Teacher[]): Promise<Teacher[]> {
-  try {
-    // Obtener cursos desde la API
-    const coursesData = await fetchCourses();
-    
-    if (coursesData.length === 0) {
-      console.warn('No courses found from API');
-      return teachers;
-    }
-    
-    // Crear una copia de los profesores para evitar modificar el original
-    const updatedTeachers = [...teachers];
-    
-    // Para cada profesor, encontrar el curso de API que coincide con su clase
-    updatedTeachers.forEach(teacher => {
-      if (!teacher.subject) {
-        return; // Si el profesor no tiene clase asignada, no hacemos nada
-      }
-      
-      // Buscar un curso en la API que coincida con el nombre de la clase del profesor
-      const matchingCourse = coursesData.find(course => 
-        course.name.toLowerCase() === teacher.subject.toLowerCase()
-      );
-      
-      // Si encontramos un curso que coincide, actualizamos la información del profesor
-      if (matchingCourse) {
-        let semester = matchingCourse.plans_courses[0]?.semester || 1;
-        semester = Math.min(Math.max(semester, 1), 8); // Asegurar que el semestre esté entre 1 y 8
-        
-        teacher.semester = semester;
-        teacher.credits = parseFloat(matchingCourse.credits) || 0;
-        teacher.hoursProfessor = matchingCourse.hours_professor;
-        teacher.hoursIndependent = matchingCourse.hours_independent;
-        teacher.facilities = matchingCourse.facilities;
-      }
-    });
-    
-    // Identificar cursos que no tienen profesor asignado
-    const assignedCourses = new Set(
-      updatedTeachers
-        .filter(t => t.subject)
-        .map(t => t.subject.toLowerCase())
-    );
-    
-    // Preparar cursos sin profesor asignado para el horario
-    const unassignedCourses = coursesData.filter(course => 
-      !Array.from(assignedCourses).some(subject => 
-        subject === course.name.toLowerCase()
-      )
-    );
-    
-    console.log(`Found ${unassignedCourses.length} courses without assigned teachers`);
-    
-    return updatedTeachers;
-  } catch (error) {
-    console.error('Error matching courses with teachers:', error);
-    throw error;
-  }
-}
-
-// Función principal para generar el horario
-export async function generateSchedule(): Promise<ScheduleItem[]> {
-  try {
-    // Configuracion de los dias de la semana
-    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-    
-    // Obtener profesores de la base de datos
-    const dbTeachers = await fetchTeachersFromDb();
-
-    // Convertir los profesores de la db junto con su disponibilidad
-    let teachers = await convertDbTeachersToTeachers(dbTeachers);
-    
-    // Completar la información de los cursos de los profesores con datos de la API
-    teachers = await matchCoursesWithTeachers(teachers);
-
-    // Filtrar los profesores que tienen una asignatura válida
-    const validTeachers = teachers.filter(teacher => teacher.subject !== '');
-
-    if (validTeachers.length === 0) {
-      console.warn('No teachers with valid courses found');
-      return [];
-    }
-
-    // Obtener todos los cursos de la API que no tienen profesor asignado
-    const coursesData = await fetchCourses();
-    const assignedSubjects = new Set(validTeachers.map(t => t.subject.toLowerCase()));
-    
-    // Crear el horario para profesores válidos
-    const schedule: ScheduleItem[] = [];
-    
-    // Ordenar los profesores por semestre para una distribución ordenada
-    validTeachers.sort((a, b) => a.semester - b.semester);
-    
-    // Crear un mapa de ocupación para cada franja horaria y día
-    type OccupationMap = Record<string, Record<string, boolean>>;
-    const occupationMap: OccupationMap = {};
-    
-    days.forEach(day => {
-      occupationMap[day] = {};
-      // Horarios de 7:00 a 16:00 (4:00 PM) en incrementos de 1 hora
-      for (let hour = SCHEDULE_START_HOUR; hour < SCHEDULE_END_HOUR; hour++) {
-        const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
-        occupationMap[day][timeSlot] = false;
-      }
-    });
-    
-    // Programar clases para profesores válidos
-    validTeachers.forEach(teacher => {
-      // Para cada día disponible del profesor
-      teacher.availability.forEach(dayAvail => {
-        const day = dayAvail.day;
-        
-        // Para cada franja horaria de ese día
-        dayAvail.timeFrames.forEach(timeFrame => {
-          const startHour = parseInt(timeFrame.start.split(':')[0]);
-          const endHour = parseInt(timeFrame.end.split(':')[0]);
-          
-          // Ignorar franjas horarias fuera del rango de horario general
-          if (startHour < SCHEDULE_START_HOUR || endHour > SCHEDULE_END_HOUR) {
-            return;
-          }
-          
-          // Verificar si todas las horas dentro de la franja están disponibles
-          let hoursAvailable = true;
-          for (let hour = startHour; hour < endHour; hour++) {
-            const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
-            if (occupationMap[day][timeSlot]) {
-              hoursAvailable = false;
-              break;
-            }
-          }
-          
-          // Si todas las horas están disponibles, ocuparlas y agregar la clase al horario
-          if (hoursAvailable) {
-            for (let hour = startHour; hour < endHour; hour++) {
-              const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
-              occupationMap[day][timeSlot] = true;
-            }
-            
-            // Agregar la clase al horario
-            schedule.push({
-              teacher: teacher.name,
-              subject: teacher.subject,
-              day: day,
-              time: timeFrame.start,
-              endTime: timeFrame.end,
-              classroom: 'N/A', // No se consideran aulas
-              semester: teacher.semester
+    availabilityData.forEach(avail => {
+        if (map.has(avail.Dia)) {
+            map.get(avail.Dia)?.push({
+                start: parseTime(avail.HoraInicio),
+                end: parseTime(avail.HoraFin),
             });
-          }
-        });
-      });
-    });
-    
-    // Ahora necesitamos programar los cursos sin profesor en los huecos disponibles
-    const unassignedCourses = coursesData.filter(course => 
-      !Array.from(assignedSubjects).some(subject => 
-        subject === course.name.toLowerCase()
-      )
-    );
-    
-    // Para cada curso sin profesor, intentar encontrar un hueco libre
-    for (const course of unassignedCourses) {
-      let courseScheduled = false;
-      
-      // Definir el semestre del curso
-      let semester = course.plans_courses[0]?.semester || 1;
-      semester = Math.min(Math.max(semester, 1), 8);
-      
-      // Buscar un hueco disponible para el curso
-      for (const day of days) {
-        if (courseScheduled) break;
-        
-        for (let startHour = SCHEDULE_START_HOUR; startHour < SCHEDULE_END_HOUR - 1; startHour++) {
-          if (courseScheduled) break;
-          
-          const endHour = startHour + 2; // 2 horas de duración
-          
-          if (endHour <= SCHEDULE_END_HOUR) {
-            // Verificar si las horas están disponibles
-            let hoursAvailable = true;
-            for (let hour = startHour; hour < endHour; hour++) {
-              const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
-              if (occupationMap[day][timeSlot]) {
-                hoursAvailable = false;
-                break;
-              }
-            }
-            
-            if (hoursAvailable) {
-              // Marcar las horas como ocupadas
-              for (let hour = startHour; hour < endHour; hour++) {
-                const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
-                occupationMap[day][timeSlot] = true;
-              }
-              
-              // Agregar el curso sin profesor al horario
-              schedule.push({
-                teacher: "Sin asignar",
-                subject: course.name,
-                day: day,
-                time: `${startHour.toString().padStart(2, '0')}:00`,
-                endTime: `${endHour.toString().padStart(2, '0')}:00`,
-                classroom: 'N/A',
-                semester: semester
-              });
-              
-              courseScheduled = true;
-            }
-          }
         }
+    });
+
+    // Sort intervals for each day
+    daysOfWeek.forEach(day => {
+        map.get(day)?.sort((a, b) => a.start - b.start);
+    });
+
+    return map;
+}
+
+// Helper to normalize group object keys
+function normalizeGroup(group: any) {
+  return {
+    IdGrupo: group.IdGrupo ?? group.idgrupo,
+    IdMateria: group.IdMateria ?? group.idmateria,
+    IdProfesor: group.IdProfesor ?? group.idprofesor,
+    IdSalon: group.IdSalon ?? group.idsalon,
+    IdCiclo: group.IdCiclo ?? group.idciclo,
+    Semestre: group.Semestre ?? group.semestre,
+    // Preserve any extra fields
+    ...group,
+  };
+}
+
+/**
+ * Generates the general schedule based on existing groups, professor availability, and subject requirements.
+ * @param idCiclo Optional: The specific cycle ID to generate the schedule for. If not provided, the latest cycle is used.
+ * @returns Promise<boolean> True if the schedule was generated and saved successfully, false otherwise.
+ */
+export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean> {
+  console.log("Starting general schedule generation...");
+
+  try {
+    // Create a flag file to indicate processing is in progress
+    fs.writeFileSync(GENERATION_FLAG_PATH, new Date().toISOString());
+    console.log("Created schedule generation flag file");
+    
+    // 1. Determine Cycle ID
+    const targetCycleId = idCiclo ?? await getLatestCycleId();
+    if (!targetCycleId) {
+      console.error("No cycle found. Cannot generate schedule.");
+      return false;
+    }
+    console.log(`Generating schedule for Cycle ID: ${targetCycleId}`);
+
+    // 1.1 Delete existing general schedule for this cycle
+    console.log("Clearing existing general schedule for this cycle...");
+    await GeneralSchedule.deleteForCycle(targetCycleId);
+    console.log("Existing general schedule cleared.");
+
+    // 1.2 Delete all groups and generate new ones
+    console.log("Deleting all groups and generating new groups for all professors...");
+    await generateGroupsForAllProfessors(null as any, targetCycleId);
+    console.log("Groups regenerated.");
+
+    // 2. Fetch Data
+    console.log("Fetching groups...");
+    // Use the existing getGroups function which joins necessary details
+    const groupsRaw = await getGroups({ idCiclo: targetCycleId });
+    const groups = groupsRaw.map(normalizeGroup);
+    console.log("Sample group object:", groups[0]);
+    if (!groups || groups.length === 0) {
+      console.log("No groups found for this cycle. Schedule generation skipped.");
+      return true; // Not an error, just nothing to schedule
+    }
+    console.log(`Found ${groups.length} groups.`);
+
+    console.log("Fetching subjects...");
+    const subjects = await Subject.findAll();
+    const subjectsMap = new Map(subjects.map(s => [s.IdMateria, s]));
+    console.log(`Found ${subjectsMap.size} subjects.`);
+
+    console.log("Fetching professor availability...");
+    const professorIds = [...new Set(groups.map(g => g.IdProfesor))];
+    const availabilityMap: AvailabilityMap = new Map();
+    for (const profId of professorIds) {
+        if (typeof profId !== 'string') {
+            console.warn(`Professor ID is not a string:`, profId);
+            continue;
+        }
+        // Normalize the professor ID (trim and uppercase)
+        const normalizedProfId = profId.trim().toUpperCase();
+        const avail = await Availability.findByProfessor(normalizedProfId);
+        availabilityMap.set(profId, processAvailability(avail));
+    }
+    console.log(`Fetched availability for ${availabilityMap.size} professors.`);
+
+
+    // 3. Initialize Schedule Grid & Tracking
+    // Track all assignments per slot to enforce unique semester and professor per timeslot
+    const scheduleGrid = new Map<string, ScheduleSlot[]>(); // Key: "Day-Hour", Value: list of { professorId, semester }
+    const assignedHours = new Map<number, number>(); // Key: GroupId, Value: Hours assigned
+    const scheduleItems: GeneralScheduleItem[] = [];
+    const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+    const scheduleHours = Array.from({ length: (16 - 7) }, (_, i) => 7 + i); // 7 AM to 3 PM (inclusive start hour)
+
+    // 4. Iterate and Assign Groups
+    console.log("Assigning groups to schedule slots...");
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i];
+      const subject = subjectsMap.get(group.idmateria);
+      const professorAvail = availabilityMap.get(group.idprofesor);
+
+      if (!subject) {
+        console.warn(`Subject with ID ${group.idmateria} not found for Group ${group.idgrupo}. Skipping.`);
+        continue;
+      }
+      if (!professorAvail) {
+        console.warn(`Availability not found for Professor ${group.idprofesor} of Group ${group.idgrupo}. Skipping.`);
+        continue;
+      }
+
+      // Use Math.ceil to ensure enough blocks are scheduled for decimal hours
+      const requiredBlocks = Math.ceil(subject.HorasClase);
+      let currentAssignedBlocks = assignedHours.get(group.idgrupo) || 0;
+
+      // Rotate weekdays per group to spread evenly across the week
+      const dayOffset = i % daysOfWeek.length;
+      const rotatedDays = [
+        ...daysOfWeek.slice(dayOffset),
+        ...daysOfWeek.slice(0, dayOffset),
+      ];
+
+      console.log(`Processing Group ${group.idgrupo} (Subject: ${subject.Nombre}, Prof: ${group.professor_name}, Required Blocks: ${requiredBlocks})`);
+
+      // Iterate through rotated days and professor's available slots for that day
+      daysLoop:
+      for (const day of rotatedDays) {
+        const dayAvailability = professorAvail.get(day) || [];
+
+        for (const availSlot of dayAvailability) {
+          // Iterate through each hour within the professor's available block
+          for (let hour = availSlot.start; hour < availSlot.end; hour++) {
+            if (currentAssignedBlocks >= requiredBlocks) {
+              console.log(`Group ${group.idgrupo} fully scheduled.`);
+              break daysLoop; // Move to the next group
+            }
+
+            // Check if the hour is within the general schedule time frame (7 AM - 4 PM)
+            if (hour < 7 || hour >= 16) {
+                continue; // Skip hours outside the allowed range
+            }
+
+            const gridKey = `${day}-${hour}`;
+            // Gather existing assignments for this slot
+            const assignments = scheduleGrid.get(gridKey) || [];
+            // Conflict if same professor or same semester already scheduled in this slot
+            const conflict = assignments.some(a => a.professorId === group.idprofesor || a.semester === group.Semestre);
+
+            // If no conflict, assign the group
+            if (!conflict) {
+              // Record this assignment alongside any existing ones
+              assignments.push({ professorId: group.idprofesor, semester: group.Semestre });
+              scheduleGrid.set(gridKey, assignments);
+              currentAssignedBlocks++;
+              assignedHours.set(group.idgrupo, currentAssignedBlocks);
+
+              const scheduleItem: GeneralScheduleItem = {
+                IdHorarioGeneral: targetCycleId, // Use Cycle ID as the Schedule ID
+                NombreCarrera: subject.Carrera || 'General', // Use subject's career or default
+                IdGrupo: group.idgrupo,
+                Dia: day as GeneralScheduleItem['Dia'], // Cast to the specific type
+                HoraInicio: formatTime(hour),
+                HoraFin: formatTime(hour + 1), // Assuming 1-hour blocks
+              };
+              scheduleItems.push(scheduleItem);
+              console.log(`  Assigned Group ${group.idgrupo} to ${day} ${hour}:00-${hour + 1}:00 (Block ${currentAssignedBlocks}/${requiredBlocks})`);
+
+              // Re-check if fully scheduled after assignment
+              if (currentAssignedBlocks >= requiredBlocks) {
+                 console.log(`Group ${group.idgrupo} fully scheduled.`);
+                 break daysLoop;
+              }
+            }
+          } // End hour loop
+        } // End availability slot loop
+      } // End day loop
+
+      if (currentAssignedBlocks < requiredBlocks) {
+        console.warn(`Could not fully schedule Group ${group.idgrupo}. Assigned ${currentAssignedBlocks}/${requiredBlocks} blocks.`);
+      }
+    } // End group loop
+
+    // 5. Save Schedule
+    if (scheduleItems.length > 0) {
+      console.log(`Saving ${scheduleItems.length} schedule items to the database...`);
+      await GeneralSchedule.saveGeneralSchedule(scheduleItems);
+      console.log("General schedule saved successfully.");
+    } else {
+      console.log("No schedule items generated to save.");
+       // Attempt to clear any old schedule for this cycle ID if nothing new was generated
+       await GeneralSchedule.saveGeneralSchedule([]); // Pass empty array to clear
+       console.log("Cleared any existing schedule for this cycle as no new items were generated.");
+    }
+
+    // At the end, after successful generation:
+    if (fs.existsSync(GENERATION_FLAG_PATH)) {
+      fs.unlinkSync(GENERATION_FLAG_PATH);
+      console.log("Removed schedule generation flag file");
+    }
+
+    return true;
+
+  } catch (error) {
+    console.error("Error generating general schedule:", error);
+    
+    // Clean up the flag file even if there's an error
+    if (fs.existsSync(GENERATION_FLAG_PATH)) {
+      try {
+        fs.unlinkSync(GENERATION_FLAG_PATH);
+        console.log("Removed schedule generation flag file after error");
+      } catch (e) {
+        console.error("Failed to remove flag file:", e);
       }
     }
     
-    return schedule;
-  } catch (error) {
-    console.error('Error generating schedule:', error);
-    throw error;
+    return false;
   }
+}
+
+/**
+ * Checks if a schedule generation process is currently running
+ * @returns boolean True if schedule generation is in progress
+ */
+export function isScheduleGenerationInProgress(): boolean {
+  return fs.existsSync(GENERATION_FLAG_PATH);
 }

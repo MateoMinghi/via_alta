@@ -8,18 +8,33 @@ async function sendResetEmail(email: string, ivd_id: string, token: string) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const resetLink = `${baseUrl}/create_password/${token}`;
   
+  // Get user data to include name in email
+  let userName = "Usuario";
+  try {
+    const userData = await authenticatedRequest<ViaDisenioResponse>(
+      `/v1/users/find_one?ivd_id=${ivd_id}`
+    );
+    
+    if (userData.data && userData.data.name) {
+      userName = userData.data.name;
+    }
+  } catch (error) {
+    console.error('Error getting user data for email:', error);
+    // Continue with default name if there's an error
+  }
+  
   return await sendEmail({
     to: email,
     subject: 'Restablecimiento de contraseña - Via Alta',
-    text: `Hola,\n\nHemos recibido una solicitud para restablecer tu contraseña.\n\nPara continuar, haz clic en el siguiente enlace:\n${resetLink}\n\nSi no solicitaste restablecer tu contraseña, puedes ignorar este mensaje.\n\nEste enlace expirará en 15 minutos.\n\nSaludos,\nEquipo Via Alta`,
+    text: `Hola ${userName},\n\nHemos recibido una solicitud para restablecer tu contraseña.\n\nPara continuar, haz clic en el siguiente enlace:\n${resetLink}\n\nSi no solicitaste restablecer tu contraseña, puedes ignorar este mensaje.\n\nEste enlace expirará en 15 minutos.\n\nSaludos,\nEquipo Via Alta`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Restablecimiento de Contraseña</h2>
-        <p>Hola,</p>
+        <p>Hola ${userName},</p>
         <p>Hemos recibido una solicitud para restablecer tu contraseña. Si no realizaste esta solicitud, puedes ignorar este correo.</p>
         <p>Para crear una nueva contraseña, haz clic en el siguiente botón:</p>
         <p style="text-align: center;">
-          <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px;">Crear nueva contraseña</a>
+          <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #b91c1c; color: white; text-decoration: none; border-radius: 5px;">Crear nueva contraseña</a>
         </p>
         <p>O copia y pega el siguiente enlace en tu navegador:</p>
         <p style="word-break: break-all;">${resetLink}</p>

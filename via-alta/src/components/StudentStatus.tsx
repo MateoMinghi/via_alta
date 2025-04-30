@@ -1,20 +1,36 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import confirmStudentsEnrollment from '@/lib/models/student';
 import { useRouter } from 'next/navigation';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Search, Calendar, ChevronDown, ChevronRight, LayoutGrid, List,
+  Search,
+  Calendar,
+  ChevronDown,
+  ChevronRight,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
+import { useStudentDbStatus } from '@/api/useStudentDbStatus';
 
 interface Student {
   id: string;
@@ -32,6 +48,28 @@ interface StudentStatusProps {
   students: Student[];
 }
 
+function StudentStatusDot({ studentId }: { studentId: string }) {
+  const { status, loading } = useStudentDbStatus(studentId);
+  
+  
+  if (loading) {
+    return <div className="w-4 h-4 rounded-full bg-gray-300 animate-pulse"></div>;
+  }
+  
+  let dotColor = 'bg-red-500'; // Color por defecto
+  
+  
+  if (status === 'requiere-cambios') {
+    dotColor = 'bg-amber-400'; //Ambar
+  } else if (status === 'inscrito') {
+    dotColor = 'bg-emerald-500'; //Verde
+  } else {
+    dotColor = 'bg-red-500'; // Rojo (no inscrito)
+  }
+
+  return <div className={`w-4 h-4 rounded-full ${dotColor}`}></div>;
+}
+
 export default function StudentStatus({ students }: StudentStatusProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredStudents, setFilteredStudents] = useState(students);
@@ -40,6 +78,10 @@ export default function StudentStatus({ students }: StudentStatusProps) {
   const [isCommentOpen, setIsCommentOpen] = useState(false);
   const [expandedSemesters, setExpandedSemesters] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState('table');
+  const [isModifyingStatus, setIsModifyingStatus] = useState(false);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<{ success: number; failed: number } | null>(null);
 
   const groupedStudents = filteredStudents.reduce(
     (acc, student) => {
@@ -85,11 +127,10 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     const query = searchQuery.toLowerCase();
     const results = students.filter(
       (student) =>
-        student.id.toLowerCase().includes(query) ||
+        (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)) ||
         student.name.toLowerCase().includes(query) ||
         student.first_surname.toLowerCase().includes(query) ||
-        student.second_surname.toLowerCase().includes(query) ||
-        (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)),
+        student.second_surname.toLowerCase().includes(query)
     );
     setFilteredStudents(results);
 
@@ -119,7 +160,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
   }, [searchQuery, students]);
 
   const handleViewSchedule = (studentId: string) => {
-    router.push(`dashboard/horarios/${studentId}`);
+    router.push(`/dashboard/horarios/${studentId}`);
   };
 
   const toggleSemester = (semester: string) => {
@@ -161,20 +202,70 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     }
   };
 
+  const modifyStatus = async (status: string) => {
+    if (status === 'true') {
+      setIsConfirmDialogOpen(true);
+    }
+  };
+
+  const confirmAllSchedules = async () => {
+    try {
+      setProcessingStatus(true);
+      setIsConfirmDialogOpen(false);
+
+      const response = await fetch('/api/confirm-all-schedules', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`Inscripciones confirmadas: ${result.data.confirmed} estudiantes procesados`);
+        setConfirmationResult({
+          success: result.data.confirmed,
+          failed: result.data.failed || 0,
+        });
+
+        window.location.reload();
+      } else {
+        toast.error(`Error al confirmar inscripciones: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error al confirmar inscripciones:', error);
+      toast.error('Error al procesar la confirmación de inscripciones');
+    } finally {
+      setProcessingStatus(false);
+    }
+  };
+
   return (
     <div className="w-full mx-auto">
       <Tabs defaultValue="table" value={viewMode} onValueChange={setViewMode} className="w-full mb-4">
-        <TabsList className="grid w-[200px] grid-cols-2 mb-4">
-          <TabsTrigger value="table" className="flex items-center gap-2">
-            <List className="h-4 w-4" />
-            <span>Lista</span>
-          </TabsTrigger>
-          <TabsTrigger value="grid" className="flex items-center gap-2">
-            <LayoutGrid className="h-4 w-4" />
-            <span>Bloques</span>
-          </TabsTrigger>
-        </TabsList>
-        
+        <div className="flex justify-between items-center mb-4">
+          <TabsList className="flex gap-2">
+            <TabsTrigger value="table" className="flex items-center gap-2">
+              <List className="h-4 w-4" />
+              <span>Lista</span>
+            </TabsTrigger>
+            <TabsTrigger value="grid" className="flex items-center gap-2">
+              <LayoutGrid className="h-4 w-4" />
+              <span>Bloques</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <Button
+            variant="secondary"
+            className="bg-red-700 text-white"
+            onClick={() => modifyStatus('true')}
+            disabled={processingStatus}
+          >
+            {processingStatus ? 'Procesando...' : 'Confirmar inscripciones'}
+          </Button>
+        </div>
+
         <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -187,7 +278,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
               className="pl-10 bg-gray-50 border-gray-200"
             />
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-md border border-gray-200">
               {['inscrito', 'requiere-cambios', 'no-inscrito'].map((status) => (
@@ -242,7 +333,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                             </TableCell>
                             <TableCell>
                               <div className="flex justify-center">
-                                <div className={`w-4 h-4 rounded-full ${getStatusColor(student.status)}`} />
+                                <StudentStatusDot studentId={student.ivd_id} />
                               </div>
                             </TableCell>
                             <TableCell>
@@ -251,7 +342,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                   variant="default"
                                   size="sm"
                                   className="flex items-center gap-1 text-white"
-                                  onClick={() => handleViewSchedule(student.id)}
+                                  onClick={() => handleViewSchedule(student.ivd_id)}
                                 >
                                   <Calendar className="h-4 w-4" />
                                   <span>Ver horario</span>
@@ -272,7 +363,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
             )}
           </div>
         </TabsContent>
-        
+
         <TabsContent value="grid">
           <div>
             <p className="font-bold text-xl text-via mb-4">ESTUDIANTES ACTIVOS POR SEMESTRE</p>
@@ -297,11 +388,12 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                 <span className="font-medium">
                                   {student.name} {student.first_surname} {student.second_surname}
                                 </span>
-                                <span
-                                  className={`px-2 py-1 text-xs rounded text-white ${getStatusColor(student.status)}`}
-                                >
-                                  {student.status === 'active' ? 'no inscrito' : student.status.replace('-', ' ') || 'no inscrito'}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <StudentStatusDot studentId={student.ivd_id} />
+                                  <span className="text-xs">
+                                    {student.status === 'active' ? 'Verificando...' : student.status.replace('-', ' ') || 'Verificando...'}
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex justify-between items-center text-sm text-gray-500">
                                 <div>
@@ -311,7 +403,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                   variant="outline"
                                   size="sm"
                                   className="flex items-center gap-1 border-via text-via hover:bg-red-50"
-                                  onClick={() => handleViewSchedule(student.id)}
+                                  onClick={() => handleViewSchedule(student.ivd_id)}
                                 >
                                   <Calendar className="h-3 w-3" />
                                   <span className="text-xs">Horario</span>
@@ -336,6 +428,29 @@ export default function StudentStatus({ students }: StudentStatusProps) {
             <DialogTitle>Comentario del Estudiante</DialogTitle>
           </DialogHeader>
           <p className="mt-4">{selectedComment}</p>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar todas las inscripciones pendientes</DialogTitle>
+          </DialogHeader>
+          <p className="py-4">Esta acción realizará lo siguiente:</p>
+          <ul className="list-disc pl-5 space-y-1 text-sm">
+            <li>Confirmará automáticamente la inscripción de todos los estudiantes que no lo hayan hecho</li>
+            <li>Registrará los horarios correspondientes para cada estudiante según su semestre</li>
+            <li>Cambiará el estado de todos los estudiantes a "Inscrito"</li>
+          </ul>
+          <p className="py-2 text-amber-600 font-medium">Esta acción no se puede deshacer. ¿Deseas continuar?</p>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button className="bg-red-700 text-white" onClick={confirmAllSchedules}>
+              Confirmar todos
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

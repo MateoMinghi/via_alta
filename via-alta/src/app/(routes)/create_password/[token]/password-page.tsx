@@ -1,7 +1,7 @@
-// This is a server component that simply renders the client component
+// Este es un componente del servidor que simplemente renderiza el componente cliente
 export default function CreatePasswordPage({ token }: { token: string }) {
     return <CreatePasswordClient token={token} />;
   }
   
-  // Import client component
+  // Importa el componente cliente
   import { CreatePasswordClient } from './password-client.tsx';

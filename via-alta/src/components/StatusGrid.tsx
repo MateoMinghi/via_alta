@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, Calendar } from 'lucide-react';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface Student {
     id: string;
@@ -54,7 +56,7 @@ export default function StatusGrid({ students }: StatusTableProps) {
         const query = searchQuery.toLowerCase();
         const results = students.filter(
             (student) =>
-                student.id.toLowerCase().includes(query) ||
+                student.ivd_id.toLowerCase().includes(query) ||
                 student.name.toLowerCase().includes(query) ||
                 (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)),
         );
@@ -62,6 +64,10 @@ export default function StatusGrid({ students }: StatusTableProps) {
     }, [searchQuery, students]);
 
     const handleViewSchedule = (studentId: string) => {
+        if (!studentId) {
+            toast.error('Este estudiante no tiene un ID de matrícula válido');
+            return;
+        }
         router.push(`dashboard/horarios/${studentId}`);
     };
 
@@ -132,7 +138,7 @@ export default function StatusGrid({ students }: StatusTableProps) {
                                                         variant="outline"
                                                         size="sm"
                                                         className="flex items-center gap-1 border-via text-via hover:bg-red-50"
-                                                        onClick={() => handleViewSchedule(student.id)}
+                                                        onClick={() => handleViewSchedule(student.ivd_id)}
                                                     >
                                                         <Calendar className="h-3 w-3" />
                                                         <span className="text-xs">Horario</span>

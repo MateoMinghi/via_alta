@@ -18,6 +18,7 @@ interface ViaDisenioUser {
   status: string;
   type: string;
   semester?: number;
+  regular?: boolean;
   role: {
     id: number;
     name: string;
@@ -111,6 +112,27 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Check if the student is regular or irregular
+      let isRegularStudent = true; // Default to regular
+      if (userData.data.role.name === 'student') {
+        // Check if the API provides the regular status directly
+        if (userData.data.regular !== undefined) {
+          isRegularStudent = !!userData.data.regular;
+        } else {
+          // If not provided directly, make an additional API call to determine status
+          try {
+            const studentDetails = await authenticatedRequest<any>(
+              `/v1/users/${userData.data.id}/details`
+            );
+            if (studentDetails && studentDetails.data) {
+              isRegularStudent = !(studentDetails.data.irregular || false);
+            }
+          } catch (detailsError) {
+            console.warn('Failed to fetch detailed student info, assuming regular student:', detailsError);
+          }
+        }
+      }
+
       // Prepare user data with sensitive information removed
       const userInfo = {
         id: userData.data.id,
@@ -123,20 +145,27 @@ export async function POST(request: NextRequest) {
         status: userData.data.status,
         type: userData.data.type,
         role: userData.data.role,
-        has_password: !!localUser
+        has_password: !!localUser,
+        semester: userData.data.semester,
+        regular: isRegularStudent // Add the regular/irregular status
       };
       
       // Create a response object
       const response = NextResponse.json({ user: userInfo });
       
-      // Set the cookie in the response object
+      // Set the cookie in the response object - with more secure settings and explicit expiration
+      const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+      const expiryDate = new Date(Date.now() + oneWeekInMs);
+      
       response.cookies.set({
         name: 'user',
         value: JSON.stringify(userInfo),
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 60 * 24 * 7, // 1 week
+        expires: expiryDate, // Explicitly set expiration date
         path: '/',
+        sameSite: 'lax', // Add sameSite for additional security
       });
       
       // Return the response with the cookie

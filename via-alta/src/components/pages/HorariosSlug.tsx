@@ -2,126 +2,149 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Button } from '../ui/button';
-import CoordinadorSchedule from '../CoordinadorSchedule';
-import { ResponseType } from "@/types/response";
-import { toast } from 'sonner';
-import { Save } from 'lucide-react';
 
-interface Subject {
-  id: number;
-  title: string;
-  professor: string;
-  credits: number;
-  salon: string;
-  semester: number;
-  hours: { day: string; time: string }[];
+import { GeneralScheduleItem } from '@/lib/models/general-schedule';
+import { toast } from 'sonner';
+import HorarioSemestre from '../HorarioSemestre';
+import HorarioAlumno from '../HorarioAlumno';
+import { useGetStudentSchedule, ScheduleItem } from '@/api/useGetStudentSchedule';
+
+interface HorariosSlugProps {
+  slug?: string;
 }
 
-export default function HorariosSlug() {
+export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
+  const [filteredSchedule, setFilteredSchedule] = useState<GeneralScheduleItem[]>([]);
+  const [isIrregular, setIsIrregular] = useState<boolean>(false);
   const params = useParams();
-  const { slug } = params;
+  const urlSlug = params?.slug as string | undefined;
+  
+  // Usar slug de la URL si no se proporciona uno
+  const slug = propSlug || urlSlug;
+  
+  //Determinar el tipo de vista basado en el slug
+  const viewType = typeof slug === 'string' && slug.includes('-') ? 'semestre' : 'estudiante';
 
-  // Parse slug to extract the semester number
+  //Parsear el número de semestre del slug
   const getSemesterNumber = (slugStr: string) => {
     if (!slugStr) return null;
     
-    // If slug is in format "semestre-X"
+    // Si slug tiene un formato como "semestre-1"
     if (slugStr.includes('-')) {
       const parts = slugStr.split('-');
       return parseInt(parts[parts.length - 1], 10);
     }
     
-    // If slug is just a number
     const num = parseInt(slugStr, 10);
     return isNaN(num) ? null : num;
   };
 
   const semesterNum = getSemesterNumber(slug as string);
+  
+  const studentSchedule = useGetStudentSchedule(
+    viewType === 'estudiante' ? slug : undefined, 
+    viewType === 'estudiante' ? 1 : undefined
+  );
 
-  // Fetch and filter subjects for the specific semester
-  const fetchSubjects = async () => {
+  // determinar si el estudiante es irregular
+  useEffect(() => {
+    if (viewType === 'estudiante' && slug) {
+      // Revisar si el estudiante es irregular
+      const checkStudentStatus = async () => {
+        try {
+          const response = await fetch(`/api/student-info?studentId=${slug}`);
+          const data = await response.json();
+          
+          if (data.success && data.student) {
+            // Si el estudiante tiene un campo isIrregular, usarlo
+            // de lo contrario, asumir que es regular
+            setIsIrregular(data.student.isIrregular || false);
+            console.log(`Student ${slug} isIrregular:`, data.student.isIrregular);
+          } else {
+            console.warn(`Could not determine if student ${slug} is irregular, defaulting to regular`);
+            setIsIrregular(false);
+          }
+        } catch (err) {
+          console.error(`Error checking if student ${slug} is irregular:`, err);
+          setIsIrregular(false);
+        }
+      };
+      
+      checkStudentStatus();
+    }
+  }, [slug, viewType]);
+
+  // Para mappear los datos del horario general
+  const mapRawScheduleItem = (raw: any): GeneralScheduleItem => ({
+    IdHorarioGeneral: raw.IdHorarioGeneral ?? raw.idhorariogeneral,
+    NombreCarrera: raw.NombreCarrera ?? raw.nombrecarrera,
+    IdGrupo: raw.IdGrupo ?? raw.idgrupo,
+    Dia: raw.Dia ?? raw.dia,
+    HoraInicio: (raw.HoraInicio ?? raw.horainicio ?? '').slice(0,5),
+    HoraFin: (raw.HoraFin ?? raw.horafin ?? '').slice(0,5),
+    Semestre: raw.Semestre ?? raw.semestre,
+    MateriaNombre: raw.MateriaNombre ?? raw.materianombre,
+    ProfesorNombre: raw.ProfesorNombre ?? raw.profesornombre,
+  });
+  
+  // Convertir el horario del estudiante a un formato general
+  const convertStudentScheduleToGeneralFormat = (items: ScheduleItem[] | null): GeneralScheduleItem[] => {
+    if (!items) return [];
+    
+    return items.map(item => ({
+      IdHorarioGeneral: 0,
+      NombreCarrera: "", 
+      IdGrupo: item.idgrupo,
+      Dia: item.dia,
+      HoraInicio: item.horainicio.slice(0, 5),
+      HoraFin: item.horafin.slice(0, 5),
+      Semestre: item.semestre,
+      MateriaNombre: item.materianombre,
+      ProfesorNombre: item.profesornombre,
+    }));
+  };
+
+  // Jalar el horario del semestre
+  const fetchSchedule = async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/schedule');
       const result = await response.json();
-      
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch schedule');
-      }      console.log('Raw data from API:', result.data);
-      console.log('Filtering for semester:', semesterNum);
-      
-      // Filter subjects for the current semester and transform the data
-      const subjectsForSemester = result.data
-        .filter((item: any) => {
-          // Check for both uppercase and lowercase field names
-          const itemSemester = item.Semestre || item.semestre;
-          console.log('Item:', item);
-          console.log('Item semester:', itemSemester, 'Target semester:', semesterNum);
-          return itemSemester === semesterNum;
-        })
-        .reduce((acc: Subject[], item: any) => {
-          // Find if we already have this subject in our accumulator
-          const subjectTitle = item.materianombre || item.MateriaNombre || item.NombreCarrera || item.nombrecarrera;
-          const professorName = item.profesornombre || item.ProfesorNombre || `Prof ${item.IdProfesor || item.idprofesor}`;
-          
-          const existingSubject = acc.find(
-            s => s.title === subjectTitle && s.professor === professorName
-          );
-
-          if (existingSubject) {
-            // Add the new hour to existing subject
-            existingSubject.hours.push({
-              day: item.Dia || item.dia,
-              time: item.HoraInicio || item.horainicio
-            });
-            return acc;
-          } else {
-            // Create new subject entry
-            const newSubject = {
-              id: item.IdMateria || item.idmateria || acc.length + 1,
-              title: subjectTitle,
-              professor: professorName,
-              salon: item.classroom || item.Salon || 'Por asignar',
-              semester: item.Semestre || item.semestre,
-              credits: item.credits || 0,
-              hours: [{
-                day: item.Dia || item.dia,
-                time: item.HoraInicio || item.horainicio
-              }]
-            };
-            console.log('Creating new subject:', newSubject);
-            acc.push(newSubject);
-            return acc;
-          }
-        }, []);
-
-      setFilteredSubjects(subjectsForSemester);
-      
-      if (subjectsForSemester.length === 0) {
+      }
+      // Mapear y filtrar los datos
+      const mapped = result.data.map(mapRawScheduleItem);
+      const scheduleForSemester = mapped.filter((item: GeneralScheduleItem) => {
+        const itemSemester = item.Semestre ?? null;
+        return itemSemester === semesterNum;
+      });
+      console.log('Filtered schedule for semester', semesterNum, scheduleForSemester); // DEBUG
+      setFilteredSchedule(scheduleForSemester);
+      if (scheduleForSemester.length === 0) {
         toast.warning(`No hay materias disponibles para el semestre ${semesterNum}`);
       }
     } catch (err) {
-      console.error('Error fetching subjects:', err);
-      setError(err instanceof Error ? err.message : 'Error al cargar las materias');
-      toast.error('Error al cargar las materias');
+      setError(err instanceof Error ? err.message : 'Error al cargar el horario');
+      toast.error('Error al cargar el horario');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (semesterNum !== null) {
-      fetchSubjects();
+    // Para la vista de semestre, solo cargar el horario si el número de semestre es válido
+    if (viewType === 'semestre' && semesterNum !== null) {
+      fetchSchedule();
     }
-  }, [semesterNum]);
+    // Para la vista de estudiante, no es necesario cargar el horario del semestre
+  }, [semesterNum, viewType]);
 
-  // Function to clear the current view but not delete actual data
+  // Función para limpiar la vista
   const handleClearView = () => {
-    setFilteredSubjects([]);
+    setFilteredSchedule([]);
     toast.success('Vista limpiada');
   };
 
@@ -129,39 +152,17 @@ export default function HorariosSlug() {
     try {
       setLoading(true);
       
-      // Convert Subject format back to GeneralScheduleItem format
-      const scheduleItems = filteredSubjects.flatMap(subject => 
-        subject.hours.map(hour => ({
-          teacher: subject.professor,
-          subject: subject.title,
-          classroom: subject.salon,
-          semester: subject.semester,
-          day: hour.day,
-          time: hour.time,
-          endTime: (() => {
-            const [h, m] = hour.time.split(':').map(Number);
-            const date = new Date();
-            date.setHours(h, m, 0, 0);
-            date.setHours(date.getHours() + 1);
-            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-          })()
-        }))
-      );
-
       const response = await fetch('/api/schedule', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ schedule: scheduleItems }),
+        body: JSON.stringify({ schedule: filteredSchedule }),
       });
-
       const result = await response.json();
-      
       if (!result.success) {
         throw new Error(result.error || 'Failed to save schedule');
       }
-
       toast.success('Horario guardado correctamente');
     } catch (err) {
       console.error('Error saving schedule:', err);
@@ -171,57 +172,97 @@ export default function HorariosSlug() {
     }
   };
 
-  if (loading) {
+  if (viewType === 'semestre' && loading) {
     return (
       <div className="p-4">
-        <p className="text-center">Cargando materias...</p>
+        <p className="text-center">Cargando materias del semestre...</p>
+      </div>
+    );
+  }
+  
+  if (viewType === 'estudiante' && studentSchedule.loading) {
+    return (
+      <div className="p-4">
+        <p className="text-center">Cargando horario del estudiante...</p>
       </div>
     );
   }
 
-  if (error) {
+  if (viewType === 'semestre' && error) {
     return (
       <div className="p-4">
         <p className="text-center text-red-600">Error: {error}</p>
       </div>
     );
   }
+  
+  if (viewType === 'estudiante' && studentSchedule.error) {
+    return (
+      <div className="p-4">
+        <p className="text-center text-red-600">Error: {studentSchedule.error}</p>
+      </div>
+    );
+  }
 
-  if (semesterNum === null) {
+  
+  if (viewType === 'semestre' && semesterNum === null) {
     return (
       <div className="p-4">
         <p className="text-center text-red-600">Semestre no válido</p>
       </div>
     );
   }
+  
+  if (viewType === 'estudiante' && !slug) {
+    return (
+      <div className="p-4">
+        <p className="text-center text-red-600">ID de estudiante no válido</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4">
-      <p className="text-3xl font-bold mb-4">
-        Horario del Semestre {semesterNum}
-      </p>
-      {filteredSubjects.length > 0 ? (
-        <CoordinadorSchedule subjects={filteredSubjects} />
-      ) : (
-        <p className="text-center py-4">No hay materias disponibles para el semestre {semesterNum}</p>
-      )}
-      <div className="flex justify-between mt-8 gap-4">
-        <Button 
-          variant="outline" 
-          className="w-full border-red-700 text-red-700 hover:bg-red-50"
-          onClick={handleClearView}
-        >
-          Limpiar Vista
-        </Button>
-        <Button 
-          className="w-full bg-red-700 text-white hover:bg-red-800"
-          onClick={handleSaveChanges}
-          disabled={loading}
-        >
-          <Save className="mr-2 h-4 w-4" />
-          {loading ? 'Guardando...' : 'Guardar'}
-        </Button>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">
+          {viewType === 'semestre' 
+            ? `Horario del Semestre ${semesterNum}` 
+            : `Horario del Estudiante ${slug}`}
+        </h1>
+        {viewType === 'estudiante' && (
+          <>
+            {isIrregular && (
+              <p className="text-sm text-amber-600 mt-1">
+                Este estudiante es irregular y requiere un horario personalizado
+              </p>
+            )}
+            {!isIrregular && (
+              <p className="text-sm text-green-600 mt-1">
+                Este estudiante es regular y sigue el horario estándar de su semestre
+              </p>
+            )}
+            {studentSchedule.isIndividual && (
+              <p className="text-sm text-green-600 mt-1">
+                Este estudiante tiene un horario personalizado
+              </p>
+            )}
+          </>
+        )}
       </div>
+      
+      {viewType === 'semestre' ? (
+        <HorarioSemestre
+          schedule={filteredSchedule}
+          semesterNum={semesterNum}
+        />
+      ) : (
+        <HorarioAlumno
+          schedule={convertStudentScheduleToGeneralFormat(studentSchedule.result)}
+          alumnoId={slug as string}
+          isRegular={!isIrregular} // Usar el estado de irregularidad
+          isCoordinatorView={true} // Siempre permite que la coordinadora edite
+        />
+      )}
     </div>
   );
 }

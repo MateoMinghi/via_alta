@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -13,7 +14,7 @@ import {
 } from '@/components/ui/table';
 
 interface Student {
-  id: string;
+  ivd_id: string;
   name: string;
   semestre: string;
   status: string;
@@ -39,7 +40,7 @@ export default function RequestTable({ students }: RequestTableProps) {
 
     const query = searchQuery.toLowerCase();
     const results = students.filter(
-      (student) => (student.id.toLowerCase().includes(query)
+      (student) => (student.ivd_id.toLowerCase().includes(query)
                 || student.name.toLowerCase().includes(query))
                 && student.status === 'requiere-cambios',
     );
@@ -52,7 +53,11 @@ export default function RequestTable({ students }: RequestTableProps) {
   };
 
   const handleViewSchedule = (studentId: string) => {
-    router.push(`coordinador/horarios/${studentId}`);
+    if (!studentId) {
+      toast.error('Este estudiante no tiene un ID de matrícula válido');
+      return;
+    }
+    router.push(`/dashboard/horarios/${studentId}`);
   };
 
   const getStatusColor = (status: string) => {
@@ -94,8 +99,8 @@ export default function RequestTable({ students }: RequestTableProps) {
           </TableHeader>
           <TableBody>
             {filteredStudents.map((student) => (
-              <TableRow key={student.id} className="border-b border-gray-200">
-                <TableCell className="font-medium text-gray-500">{student.id}</TableCell>
+              <TableRow key={student.ivd_id} className="border-b border-gray-200">
+                <TableCell className="font-medium text-gray-500">{student.ivd_id}</TableCell>
                 <TableCell>{student.name}</TableCell>
                 <TableCell className="text-center">
                   Semestre {student.semestre}
@@ -114,7 +119,7 @@ export default function RequestTable({ students }: RequestTableProps) {
                   <Button
                     variant="default"
                     className="flex items-center gap-1 text-white"
-                    onClick={() => handleViewSchedule(student.id)}
+                    onClick={() => handleViewSchedule(student.ivd_id)}
                   >
                     <Calendar className="h-4 w-4" />
                     <span>Ver horario</span>

@@ -27,6 +27,7 @@ export interface User {
   semester?: number | null;
   role: UserRole;
   has_password?: boolean;
+  regular?: boolean; // Added regular property to identify regular vs irregular students
 }
 
 interface AuthContextType {
@@ -61,13 +62,105 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        setIsLoading(true);
+        
+        // Try to get user from cookie first
         const storedUser = Cookies.get('user');
+        
         if (storedUser) {
-          setUser(JSON.parse(storedUser));
+          // If user exists in cookies, parse it
+          const parsedUser = JSON.parse(storedUser);
+          
+          // If it's a student, check their current status from the database
+          if (parsedUser.role?.name === 'student') {
+            try {
+              // Call the student status API to get current status
+              const studentId = parsedUser.ivd_id?.toString();
+              if (studentId) {
+                const statusResponse = await fetch(`/api/student-status?studentId=${studentId}`, {
+                  method: 'GET',
+                  credentials: 'include',
+                });
+                
+                if (statusResponse.ok) {
+                  const statusData = await statusResponse.json();
+                  
+                  if (statusData.success && statusData.status) {
+                    // Update the user's status if it differs
+                    if (parsedUser.status !== statusData.status) {
+                      console.log(`Updating user status from ${parsedUser.status} to ${statusData.status}`);
+                      const updatedUser = {
+                        ...parsedUser,
+                        status: statusData.status
+                      };
+                      
+                      // Update cookies and localStorage
+                      const expiryDate = new Date();
+                      expiryDate.setDate(expiryDate.getDate() + 7);
+                      
+                      Cookies.set('user', JSON.stringify(updatedUser), { 
+                        expires: expiryDate,
+                        path: '/',
+                        secure: window.location.protocol === 'https:'
+                      });
+                      
+                      localStorage.setItem('via_alta_user', JSON.stringify(updatedUser));
+                      
+                      // Set updated user
+                      setUser(updatedUser);
+                    } else {
+                      // Status is the same, just set the user
+                      setUser(parsedUser);
+                    }
+                  } else {
+                    setUser(parsedUser);
+                  }
+                } else {
+                  // If API call fails, still set the user from cookie
+                  setUser(parsedUser);
+                }
+              } else {
+                // No student ID, just set the user from cookie
+                setUser(parsedUser);
+              }
+            } catch (statusErr) {
+              console.error('Error checking student status:', statusErr);
+              // If status check fails, fall back to cookie data
+              setUser(parsedUser);
+            }
+          } else {
+            // Not a student, just set the user from cookie
+            setUser(parsedUser);
+          }
+          
+          setIsLoading(false);
+        } else {
+          // If no user in cookies, check with the server for a valid session
+          const response = await fetch('/api/auth/session', {
+            method: 'GET',
+            credentials: 'include', // Important for cookies
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.user) {
+              setUser(data.user);
+              
+              // Set client-side cookie with explicit expiration
+              const expiryDate = new Date();
+              expiryDate.setDate(expiryDate.getDate() + 7); // 7 days from now
+              
+              Cookies.set('user', JSON.stringify(data.user), { 
+                expires: expiryDate,
+                path: '/',
+                secure: window.location.protocol === 'https:'
+              }); // Refresh client-side cookie
+            }
+          }
+          setIsLoading(false);
         }
       } catch (err) {
         console.error('Error checking authentication:', err);
-      } finally {
         setIsLoading(false);
       }
     };
@@ -97,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ivdId, 
           password: password ? password : undefined 
         }),
+        credentials: 'include', // Important for receiving cookies
       });
       
       const data = await response.json();
@@ -121,13 +215,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('User not found');
       }
       
-      // Store the user in state and cookies
+      // Store the user in state, cookies and localStorage
       setUser(userData);
-      Cookies.set('user', JSON.stringify(userData), { expires: 7 }); // Expires in 7 days
+      
+      // Set client-side cookie with explicit expiration
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 7); // 7 days from now
+      
+      const userJson = JSON.stringify(userData);
+      
+      Cookies.set('user', userJson, { 
+        expires: expiryDate,
+        path: '/',
+        secure: window.location.protocol === 'https:'
+      }); // Expires in 7 days
+      
+      // Also store in localStorage as backup
+      localStorage.setItem('via_alta_user', userJson);
       
       // Redirect based on role
       if (userData.role.name === 'student') {
-        router.push('/estudiante');
+        if(userData.status === 'inscrito' || userData.status === 'requiere-cambios') { 
+          // Already confirmed schedule, redirect to confirmation page
+          router.push('/estudiante/confirmacion');
+        }
+        else {
+          // Check if student is regular or irregular
+          if (userData.regular === false) {
+            // Irregular student
+            router.push('/estudiante');
+          } else {
+            // Regular student (default case when regular is undefined or true)
+            router.push('/estudiante');
+          }
+        }
       } else if (['admin', 'coordinator'].includes(userData.role.name)) {
         router.push('/dashboard');
       } else {
@@ -144,13 +265,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
+      setIsLoading(true);
+      
       // Call the API to remove the HTTP-only cookie
       await fetch('/api/auth', {
         method: 'DELETE',
+        credentials: 'include', // Important for cookies
       });
       
-      // Also remove the client-side cookie
+      // Remove client-side cookie
       Cookies.remove('user');
+      
+      // Remove from localStorage too
+      localStorage.removeItem('via_alta_user');
       
       // Clear user state
       setUser(null);
@@ -163,6 +290,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
     } catch (err) {
       console.error('Logout error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 

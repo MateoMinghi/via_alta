@@ -1,23 +1,23 @@
 import React from 'react';
 import HorariosSlug from '@/components/pages/HorariosSlug';
 
-// Using a more flexible type definition to accommodate Promise params
+// Usando una definición de tipo más flexible para acomodar parámetros como Promesas
 interface AsyncPageProps {
   params: Promise<{
     slug: string;
   }>;
 }
 
-// Make the page component async to handle the Promise params
+// Haz que el componente de la página sea asíncrono para manejar los parámetros como Promesas
 export default async function Page({ params }: AsyncPageProps) {
-  // Await the params to extract the slug
+  // Espera los parámetros para extraer el slug
   const resolvedParams = await params;
   const { slug } = resolvedParams;
   
   return (
     <main>
-      {/* If HorariosSlug doesn't accept a slug prop, don't pass it */}
-      <HorariosSlug />
+      {/* Pasar el Componente de horarioslug */}
+      <HorariosSlug slug={slug} />
     </main>
   );
 }

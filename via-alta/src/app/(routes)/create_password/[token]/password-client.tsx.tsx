@@ -1,21 +1,21 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';     // Importación de React y hooks necesarios
+import { useForm } from 'react-hook-form';              // Importación de react-hook-form para manejar formularios
+import { zodResolver } from '@hookform/resolvers/zod';  // Importación de Zod para la validación de formularios
+import { z } from 'zod';                                // Importación de Zod para definir esquemas de validación
+import { useRouter } from 'next/navigation';            // Importación de useRouter para la navegación
+import Image from 'next/image';                         // Importación de Image para manejar imágenes
+import { Loader2 } from 'lucide-react';                 // Importación de un ícono de carga
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';        // Importación del botón personalizado
+import { Input } from '@/components/ui/input';          // Importación del campo de entrada personalizado
+import { Checkbox } from '@/components/ui/checkbox';    // Importación del checkbox personalizado
 import {
   Card,
   CardContent,
   CardHeader,
-} from '@/components/ui/card';
+} from '@/components/ui/card';                          // Importación de los componentes de tarjeta personalizados
 import {
   Form,
   FormControl,
@@ -24,8 +24,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
+} from '@/components/ui/form';                          // Importación de los componentes de formulario personalizados
 
+// Esquema de validación usando Zod para la contraseña y su confirmación
 const passwordSchema = z
   .object({
     password: z.string().min(8, {
@@ -42,20 +43,23 @@ const passwordSchema = z
     path: ["confirmPassword"],
   });
 
+// Definición del tipo para las props del componente
 type CreatePasswordFormProps = {
   token: string;
 };
 
-// Client component with the form logic
+// Componente principal para crear una nueva contraseña
 export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [verifying, setVerifying] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [tokenValid, setTokenValid] = useState(false);
-  const [userData, setUserData] = useState<{ ivd_id: string } | null>(null);
+  // Estados locales del componente
+  const [isLoading, setIsLoading] = useState(false);  // Estado de carga
+  const [verifying, setVerifying] = useState(true);  // Estado de verificación del token
+  const [showPassword, setShowPassword] = useState(false);  // Estado para mostrar/ocultar contraseña
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);  // Mensajes de éxito o error
+  const [tokenValid, setTokenValid] = useState(false);  // Estado que indica si el token es válido
+  const [userData, setUserData] = useState<{ ivd_id: string } | null>(null);  // Datos del usuario
   const router = useRouter();
   
+  // Verificación del token al cargar el componente
   useEffect(() => {
     async function verifyToken() {
       try {
@@ -75,13 +79,14 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
         });
         setTokenValid(false);
       } finally {
-        setVerifying(false);
+        setVerifying(false);  // Finaliza la verificación
       }
     }
 
     verifyToken();
   }, [token]);
 
+  // Inicialización del formulario con react-hook-form y validación Zod
   const form = useForm<z.infer<typeof passwordSchema>>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -90,9 +95,10 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
     },
   });
 
+  // Función que maneja el envío del formulario
   async function onSubmit(values: z.infer<typeof passwordSchema>) {
-    setIsLoading(true);
-    setMessage(null);
+    setIsLoading(true);  // Indicamos que está en proceso
+    setMessage(null);  // Limpiamos cualquier mensaje previo
 
     try {
       const response = await fetch('/api/auth/create-password', {
@@ -112,28 +118,30 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
         throw new Error(data.error || 'Ocurrió un error al establecer la contraseña');
       }
 
+      // Si la contraseña se crea con éxito
       setMessage({
         text: 'Contraseña creada exitosamente. Redirigiendo al inicio de sesión...',
         type: 'success',
       });
 
-      // Reset form after successful submission
-      form.reset();
-      
-      // Redirect to login page after 3 seconds
+      form.reset();  // Limpiamos el formulario
+
+      // Redirigimos al inicio de sesión después de 3 segundos
       setTimeout(() => {
         router.push('/');
       }, 3000);
     } catch (error) {
+      // En caso de error
       setMessage({
         text: error instanceof Error ? error.message : 'Ocurrió un error inesperado',
         type: 'error',
       });
     } finally {
-      setIsLoading(false);
+      setIsLoading(false);  // Finalizamos el proceso
     }
   }
 
+  // Mientras se está verificando el token, mostramos un loader
   if (verifying) {
     return (
       <div className="flex bg-black/70 h-screen items-center justify-center">
@@ -145,6 +153,7 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
     );
   }
 
+  // Si el token no es válido, mostramos un mensaje de error
   if (!tokenValid) {
     return (
       <div className="flex bg-black/70 h-screen items-center justify-center">
@@ -163,6 +172,7 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
     );
   }
 
+  // Formulario para crear la nueva contraseña
   return (
     <div className="flex bg-black/70 h-screen items-center justify-center">
       <Card className="flex flex-col items-center w-[400px]">
@@ -179,6 +189,7 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
         <CardContent className="w-full">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col items-center gap-y-4 w-full">
+              {/* Mensajes de éxito o error */}
               {message && (
                 <div 
                   className={`text-sm p-2 border rounded-md w-full ${
@@ -191,6 +202,7 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
                 </div>
               )}
 
+              {/* Campo para la nueva contraseña */}
               <FormField
                 control={form.control}
                 name="password"
@@ -212,6 +224,7 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
                 )}
               />
 
+              {/* Campo para confirmar la nueva contraseña */}
               <FormField
                 control={form.control}
                 name="confirmPassword"
@@ -230,6 +243,7 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
                 )}
               />
 
+              {/* Opción para mostrar u ocultar la contraseña */}
               <div className="flex items-center space-x-2 w-full">
                 <Checkbox 
                   id="showPassword" 
@@ -244,6 +258,7 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
                 </label>
               </div>
 
+              {/* Botón para enviar el formulario */}
               <Button 
                 type="submit" 
                 className="w-full mt-4" 
@@ -259,6 +274,7 @@ export function CreatePasswordClient({ token }: CreatePasswordFormProps) {
                 )}
               </Button>
 
+              {/* Enlace para volver al inicio de sesión */}
               <Button 
                 variant="link" 
                 type="button" 

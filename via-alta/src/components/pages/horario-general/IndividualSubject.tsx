@@ -81,22 +81,22 @@ export function IndividualSubject({
         {isEditing ? (
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-IdProfesor" className="text-right">ID Profesor</Label>
+              <Label htmlFor="edit-IdProfesor" className="text-right">ID Grupo</Label>
               <Input
                 id="edit-IdProfesor"
                 type="number"
-                value={editedSubject.IdProfesor}
-                onChange={(e) => setEditedSubject({...editedSubject, IdProfesor: parseInt(e.target.value)})}
+                value={editedSubject.IdGrupo}
+                onChange={(e) => setEditedSubject({...editedSubject, IdGrupo: parseInt(e.target.value)})}
                 className="col-span-3"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-IdMateria" className="text-right">ID Materia</Label>
+              <Label htmlFor="edit-IdMateria" className="text-right">Nombre Materia</Label>
               <Input
                 id="edit-IdMateria"
-                type="number"
-                value={editedSubject.IdMateria}
-                onChange={(e) => setEditedSubject({...editedSubject, IdMateria: parseInt(e.target.value)})}
+                type="text"
+                value={editedSubject.MateriaNombre || ''}
+                onChange={(e) => setEditedSubject({...editedSubject, MateriaNombre: e.target.value})}
                 className="col-span-3"
               />
             </div>
@@ -151,7 +151,7 @@ export function IndividualSubject({
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-Semestre" className="text-right">Semestre</Label>
               <Select 
-                value={editedSubject.Semestre.toString()} 
+                value={editedSubject.Semestre?.toString() || '1'} 
                 onValueChange={(value) => setEditedSubject({...editedSubject, Semestre: parseInt(value)})}
               >
                 <SelectTrigger className="col-span-3">
@@ -168,12 +168,12 @@ export function IndividualSubject({
         ) : (
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <div className="font-semibold">ID Profesor:</div>
-              <div className="col-span-3">{subject.IdProfesor}</div>
+              <div className="font-semibold">ID Grupo:</div>
+              <div className="col-span-3">{subject.IdGrupo}</div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <div className="font-semibold">ID Materia:</div>
-              <div className="col-span-3">{subject.IdMateria}</div>
+              <div className="font-semibold">Nombre Materia:</div>
+              <div className="col-span-3">{subject.MateriaNombre}</div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <div className="font-semibold">Día:</div>
