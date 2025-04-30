@@ -285,7 +285,7 @@ export default function Estudiante() {
             }
             
             // Navigate to confirmation page with a special parameter to always show confirmation
-            window.location.href = '/estudiante/confirmacion?show=confirmed';
+            window.location.href = '/estudiante/confirmacion';
           } else {
             // Confirmación exitosa en producción
             localStorage.setItem('studentStatus', 'inscrito');
@@ -314,7 +314,7 @@ export default function Estudiante() {
             }
             
             // Navigate to confirmation page with a special parameter to always show confirmation
-            window.location.href = '/estudiante/confirmacion?show=confirmed';
+            window.location.href = '/estudiante/confirmacion';
           }
         } else {
           throw new Error(result?.message || "Error al confirmar horario");
@@ -382,7 +382,7 @@ export default function Estudiante() {
         toast.success('Solicitud de cambios enviada correctamente');
         
         // Navigate to confirmation page with a special parameter to always show correct confirmation
-        window.location.href = '/estudiante/confirmacion?show=confirmed';
+        window.location.href = '/estudiante/confirmacion';
       } catch (error) {
         console.error('Error al solicitar cambios:', error);
         toast.error(error instanceof Error ? error.message : 'Error al enviar la solicitud de cambios');
@@ -481,7 +481,7 @@ export default function Estudiante() {
                   )}
                   
                   {/* Botón para solicitar cambios solo visible cuando no está confirmado */}
-                  {currentStatus !== 'inscrito' && (
+                  {currentStatus !== 'inscrito' && currentStatus !== 'requiere-cambios' && (
                     <Button 
                       className="w-full border-2 border-red-700 text-red-700 hover:bg-red-50 font-bold" 
                       variant="outline"

@@ -15,6 +15,23 @@ export async function GET(request: NextRequest) {
     }
     
     console.log(`Checking status for student with ivd_id: ${studentId}`);
+
+    // Revisar la tabla 'alumno' para ver si el estudiante está inscrito
+    const studentResult = await Student.queryStudentConfirmation(studentId);
+    
+    if (studentResult.rows.length > 0) {
+      // Si el estudiante está en la tabla 'alumno', verificar el estado de confirmación
+      if(studentResult.rows[0].confirmacion){
+        return NextResponse.json({
+          success: true,
+          status: 'inscrito'
+        });
+      }
+    }
+    else{
+      // Si no estamos en la tabla 'alumno', el estado es "no-inscrito" (rojo)
+      console.log(`Student ${studentId} not found in alumno table, status: no-inscrito`);
+    }
     
     // Primero revisar la tabla 'solicitud' para ver si el estudiante tiene una solicitud pendiente
     const requestResult = await Student.queryStudentRequests(studentId);
@@ -28,28 +45,10 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Revisar la tabla 'alumno' para ver si el estudiante está inscrito
-    const studentResult = await Student.queryStudentConfirmation(studentId);
-    
-    if (studentResult.rows.length > 0) {
-      // Si el estudiante está en la tabla 'alumno', verificar el estado de confirmación
-      const confirmacion = studentResult.rows[0].confirmacion;
-      const status = confirmacion ? 'inscrito' : 'no-inscrito';
-      console.log(`Student ${studentId} found in alumno table, confirmacion: ${confirmacion}, status: ${status}`);
-      
-      return NextResponse.json({
-        success: true,
-        status: status
-      });
-    } else {
-      // Si no estamos en la tabla 'alumno', el estado es "no-inscrito" (rojo)
-      console.log(`Student ${studentId} not found in alumno table, status: no-inscrito`);
       return NextResponse.json({
         success: true,
         status: 'no-inscrito'
       });
-    }
-    
   } catch (error) {
     console.error('Error checking student status:', error);
     return NextResponse.json({ 
