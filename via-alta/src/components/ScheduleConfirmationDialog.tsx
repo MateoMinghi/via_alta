@@ -25,7 +25,7 @@ const ScheduleConfirmationDialog: React.FC<ScheduleConfirmationDialogProps> = ({
 }) => {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="border border-blue-500">
+      <AlertDialogContent className="border border-red-500">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-2xl font-bold">
             Confirmación de Horario

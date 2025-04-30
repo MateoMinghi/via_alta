@@ -5,7 +5,7 @@ import { authenticatedRequest } from '@/lib/m2mAuth';
 import LocalUser from '@/lib/models/local-user';
 
 // Send create password email using our email configuration
-async function sendCreatePasswordEmail(email: string, ivd_id: string, token: string, expirationMinutes: number, isFirstTimeUser: boolean) {
+async function sendCreatePasswordEmail(email: string, ivd_id: string, token: string, expirationMinutes: number, isFirstTimeUser: boolean, userName: string = "Usuario") {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   
   // Different path for first-time users vs password reset
@@ -19,15 +19,15 @@ async function sendCreatePasswordEmail(email: string, ivd_id: string, token: str
   return await sendEmail({
     to: email,
     subject: 'Creación de contraseña - Via Alta',
-    text: `Hola,\n\nBienvenido a Via Alta. Para completar tu registro, necesitas crear una contraseña.\n\nPara continuar, haz clic en el siguiente enlace:\n${passwordLink}\n\nEste enlace expirará en ${expirationMinutes} minutos.\n\nSaludos,\nEquipo Via Alta`,
+    text: `Hola ${userName},\n\nBienvenido a Via Alta. Para completar tu registro, necesitas crear una contraseña.\n\nPara continuar, haz clic en el siguiente enlace:\n${passwordLink}\n\nEste enlace expirará en ${expirationMinutes} minutos.\n\nSaludos,\nEquipo Via Alta`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>${titleText}</h2>
-        <p>Hola,</p>
+        <p>Hola ${userName},</p>
         <p>Para completar tu registro en Via Alta, necesitas crear una contraseña.</p>
         <p>Para continuar, haz clic en el siguiente botón:</p>
         <p style="text-align: center;">
-          <a href="${passwordLink}" style="display: inline-block; padding: 10px 20px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px;">${buttonText}</a>
+          <a href="${passwordLink}" style="display: inline-block; padding: 10px 20px; background-color: #b91c1c; color: white; text-decoration: none; border-radius: 5px;">${buttonText}</a>
         </p>
         <p>O copia y pega el siguiente enlace en tu navegador:</p>
         <p style="word-break: break-all;">${passwordLink}</p>
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const tokenData = await PasswordReset.createTokenWithExpiration(ivd_id, email, expiresAt);
     
     // Send email with the appropriate link based on whether it's a first-time user
-    await sendCreatePasswordEmail(email, ivd_id, tokenData.token, Number(expirationMinutes), isFirstTimeUser);
+    await sendCreatePasswordEmail(email, ivd_id, tokenData.token, Number(expirationMinutes), isFirstTimeUser, userInfo.name);
     
     // Return success response
     return NextResponse.json({ 
