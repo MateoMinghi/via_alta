@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import pool from '@/config/database';
 import Schedule from '@/lib/models/schedule';
 import Student from '@/lib/models/student'; // Assuming you have a Student model
+import { sendScheduleConfirmationEmail } from '@/config/mail'; // Import the new email function
 
 // Configuracion de la API
 const API_BASE_URL = process.env.API_BASE_URL;
@@ -266,6 +267,49 @@ export async function POST(request: NextRequest) {
       // Terminar la transacción
       await client.query('COMMIT');
       console.log('[SCHEDULE CONFIRMATION] Transaction committed successfully');
+      
+      // Enviar correo de confirmación al estudiante con los detalles del horario
+      try {
+        // Obtener los detalles del estudiante incluyendo su correo electrónico
+        const studentDetails = await getStudentDetails(studentId);
+        
+        if (studentDetails && studentDetails.email) {
+          console.log(`[SCHEDULE CONFIRMATION] Sending confirmation email to ${studentDetails.email}`);
+          
+          // Construir el nombre completo del estudiante
+          const studentName = [
+            studentDetails.name,
+            studentDetails.first_surname,
+            studentDetails.second_surname
+          ].filter(Boolean).join(' ');
+          
+          // Obtener los detalles completos del horario desde la base de datos
+          // Esto garantiza que tenemos toda la información actualizada para el correo
+          const detailedSchedule = await Schedule.findDetailedStudentSchedule(studentId);
+          
+          if (detailedSchedule.length === 0) {
+            console.warn('[SCHEDULE CONFIRMATION] No detailed schedule found for email, using provided schedule data');
+          }
+          
+          // Usar el horario detallado si está disponible, o el horario proporcionado si no
+          const scheduleForEmail = detailedSchedule.length > 0 ? detailedSchedule : schedule;
+          
+          // Enviar correo electrónico con los detalles del horario
+          await sendScheduleConfirmationEmail(
+            studentDetails.email,
+            studentName,
+            studentId,
+            scheduleForEmail
+          );
+          
+          console.log('[SCHEDULE CONFIRMATION] Confirmation email sent successfully');
+        } else {
+          console.warn(`[SCHEDULE CONFIRMATION] Could not send email - student email not found for ID: ${studentId}`);
+        }
+      } catch (emailError) {
+        // No interrumpimos el flujo principal si falla el envío de correo
+        console.error('[SCHEDULE CONFIRMATION] Error sending confirmation email:', emailError);
+      }
       
       return NextResponse.json({ 
         success: true, 
