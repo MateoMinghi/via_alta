@@ -19,7 +19,7 @@ async function sendSetupTokenEmail(email: string, name: string, ivd_id: string, 
         <p>Bienvenido a Via Alta. Para completar tu registro, necesitas configurar una contraseña.</p>
         <p>Para continuar, haz clic en el siguiente botón:</p>
         <p style="text-align: center;">
-          <a href="${setupPasswordLink}" style="display: inline-block; padding: 10px 20px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px;">Configurar contraseña</a>
+          <a href="${setupPasswordLink}" style="display: inline-block; padding: 10px 20px; background-color: #b91c1c; color: white; text-decoration: none; border-radius: 5px;">Configurar contraseña</a>
         </p>
         <p>O copia y pega el siguiente enlace en tu navegador:</p>
         <p style="word-break: break-all;">${setupPasswordLink}</p>
