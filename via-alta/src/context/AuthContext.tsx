@@ -68,8 +68,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedUser = Cookies.get('user');
         
         if (storedUser) {
-          // If user exists in cookies, parse and set it
-          setUser(JSON.parse(storedUser));
+          // If user exists in cookies, parse it
+          const parsedUser = JSON.parse(storedUser);
+          
+          // If it's a student, check their current status from the database
+          if (parsedUser.role?.name === 'student') {
+            try {
+              // Call the student status API to get current status
+              const studentId = parsedUser.ivd_id?.toString();
+              if (studentId) {
+                const statusResponse = await fetch(`/api/student-status?studentId=${studentId}`, {
+                  method: 'GET',
+                  credentials: 'include',
+                });
+                
+                if (statusResponse.ok) {
+                  const statusData = await statusResponse.json();
+                  
+                  if (statusData.success && statusData.status) {
+                    // Update the user's status if it differs
+                    if (parsedUser.status !== statusData.status) {
+                      console.log(`Updating user status from ${parsedUser.status} to ${statusData.status}`);
+                      const updatedUser = {
+                        ...parsedUser,
+                        status: statusData.status
+                      };
+                      
+                      // Update cookies and localStorage
+                      const expiryDate = new Date();
+                      expiryDate.setDate(expiryDate.getDate() + 7);
+                      
+                      Cookies.set('user', JSON.stringify(updatedUser), { 
+                        expires: expiryDate,
+                        path: '/',
+                        secure: window.location.protocol === 'https:'
+                      });
+                      
+                      localStorage.setItem('via_alta_user', JSON.stringify(updatedUser));
+                      
+                      // Set updated user
+                      setUser(updatedUser);
+                    } else {
+                      // Status is the same, just set the user
+                      setUser(parsedUser);
+                    }
+                  } else {
+                    setUser(parsedUser);
+                  }
+                } else {
+                  // If API call fails, still set the user from cookie
+                  setUser(parsedUser);
+                }
+              } else {
+                // No student ID, just set the user from cookie
+                setUser(parsedUser);
+              }
+            } catch (statusErr) {
+              console.error('Error checking student status:', statusErr);
+              // If status check fails, fall back to cookie data
+              setUser(parsedUser);
+            }
+          } else {
+            // Not a student, just set the user from cookie
+            setUser(parsedUser);
+          }
+          
           setIsLoading(false);
         } else {
           // If no user in cookies, check with the server for a valid session

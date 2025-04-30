@@ -14,6 +14,7 @@ import EstudianteStatusBanner from '../EstudianteStatusBanner';
 import EstudianteHeader from '../EstudianteHeader';
 import { useGetStudentAcademicHistory } from '@/api/useGetStudentAcademicHistory';
 import Cookies from 'js-cookie';
+import { useStudentDbStatus } from '@/api/useStudentDbStatus';
 
 /**
  * Interfaz que define la estructura de una materia en el horario
@@ -27,6 +28,25 @@ interface Subject {
   salon: string;       // Ubicación/salón
   semester: number;    // Semestre al que pertenece
   hours: { day: string; time: string; timeStart?: string; timeEnd?: string }[]; // Días y horas de clase
+}
+
+/**
+ * Custom component to directly check student status from the database
+ * This component acts as a "source of truth" for the student status
+ */
+function StudentStatusCheck({ studentId, children }: { studentId: string, children: (status: string) => React.ReactNode }) {
+  const { status, loading, error } = useStudentDbStatus(studentId);
+  
+  if (loading) {
+    return <div>Verificando estado...</div>;
+  }
+  
+  if (error) {
+    console.error("Error checking student status:", error);
+  }
+  
+  // Pass the current status from the database to the children function
+  return <>{children(status || 'no-inscrito')}</>;
 }
 
 export default function Estudiante() {
@@ -441,32 +461,57 @@ export default function Estudiante() {
 
         {/* Botones de acción */}
         <div className="flex flex-col sm:flex-row justify-between gap-8 py-8">
-          {/* Botón de confirmar o mensaje de confirmado */}
-          {user && !(user.status === 'inscrito') ? (
-            <Button 
-              className="w-full font-bold bg-red-700 hover:bg-red-800"
-              onClick={() => setIsConfirmDialogOpen(true)}
-              disabled={filteredSubjects.length === 0 || isModifyingStatus}
-            >
-              Confirmar Horario
-            </Button>
+          {updatedUser?.ivd_id ? (
+            <StudentStatusCheck studentId={updatedUser.ivd_id.toString()}>
+              {(currentStatus) => (
+                <>
+                  {/* Botón de confirmar o mensaje de confirmado */}
+                  {currentStatus !== 'inscrito' ? (
+                    <Button 
+                      className="w-full font-bold bg-red-700 hover:bg-red-800"
+                      onClick={() => setIsConfirmDialogOpen(true)}
+                      disabled={filteredSubjects.length === 0 || isModifyingStatus}
+                    >
+                      Confirmar Horario
+                    </Button>
+                  ) : (
+                    <div className="w-full text-center p-2 bg-green-50 border-2 border-green-700 rounded-full flex flex-col sm:flex-row items-center justify-center gap-2">
+                      <p className="text-green-700 font-semibold">
+                        Ya has confirmado tu horario.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Botón para solicitar cambios solo visible cuando no está confirmado */}
+                  {currentStatus !== 'inscrito' && (
+                    <Button 
+                      className="w-full border-2 border-red-700 text-red-700 hover:bg-red-50 font-bold" 
+                      variant="outline"
+                      onClick={() => setIsChangesDialogOpen(true)}
+                      disabled={filteredSubjects.length === 0 || isModifyingStatus}
+                    >
+                      Solicitar Cambios
+                    </Button>
+                  )}
+                  
+                  {/* Para usuarios con status requiere-cambios, mostrar botón para ver estado de solicitud */}
+                  {currentStatus === 'requiere-cambios' && (
+                    <div className="w-full">
+                      <Button 
+                        className="w-full border-2 border-amber-500 text-amber-700 hover:bg-amber-50 font-bold" 
+                        variant="outline"
+                        onClick={() => router.push('/estudiante/confirmacion')}
+                      >
+                        Ver estado de solicitud
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </StudentStatusCheck>
           ) : (
-            <div className="w-full text-center p-2 bg-green-50 border-2 border-green-700 rounded-full">
-              <p className="text-green-700 font-semibold">
-                Ya has confirmado tu horario.
-              </p>
-            </div>
+            <p>No ID available to check student status</p>
           )}
-          
-          {/* Botón para solicitar cambios */}
-          <Button 
-            className="w-full border-2 border-red-700 text-red-700 hover:bg-red-50 font-bold" 
-            variant="outline"
-            onClick={() => setIsChangesDialogOpen(true)}
-            disabled={filteredSubjects.length === 0 || isModifyingStatus}
-          >
-            Solicitar Cambios
-          </Button>
         </div>
   
         {/* Diálogo de confirmación */}
