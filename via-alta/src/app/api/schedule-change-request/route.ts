@@ -210,6 +210,27 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const studentId = searchParams.get('studentId');
+    const countOnly = searchParams.get('count') === 'true';
+
+    // If count parameter is true, return the total count of pending change requests
+    if (countOnly) {
+      console.log('GET request received for pending change requests count');
+      
+      const countQuery = `
+        SELECT COUNT(*) as count FROM Solicitud 
+        WHERE estado = 'pendiente'
+      `;
+      
+      const countResult = await pool.query(countQuery);
+      const count = parseInt(countResult.rows[0].count) || 0;
+      
+      console.log(`Found ${count} pending change requests`);
+      
+      return NextResponse.json({ 
+        success: true, 
+        count: count
+      });
+    }
 
     if (!studentId) {
       return NextResponse.json({ 
