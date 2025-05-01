@@ -33,6 +33,12 @@ interface CourseSubject {
   degreeIds?: number[]; // Store degree IDs for filtering
 }
 
+interface RawCourseData {
+  id: number;
+  name: string;
+  plans?: Plan[];
+}
+
 export default function ProfessorClasses({ professor, onSave, onCancel }: ProfessorClassesProps) {
   const [subjects, setSubjects] = useState<CourseSubject[]>([]);
   const [filteredSubjects, setFilteredSubjects] = useState<CourseSubject[]>([]);
@@ -88,15 +94,15 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
           
           if (data.success && Array.isArray(data.data)) {
             // Process courses to extract degree IDs for filtering
-            const processedCourses = data.data.map(course => {
+            const processedCourses: CourseSubject[] = data.data.map((course: RawCourseData) => {
               // Extract all degree IDs from plans
-              const degreeIds = course.plans?.map(plan => plan.degree.id) || [];
+              const degreeIds: number[] = course.plans?.map((plan: Plan) => plan.degree.id) || [];
               
               return {
-                id: course.id,
-                name: course.name,
-                plans: course.plans,
-                degreeIds: degreeIds
+              id: course.id,
+              name: course.name,
+              plans: course.plans,
+              degreeIds: degreeIds
               };
             });
             
