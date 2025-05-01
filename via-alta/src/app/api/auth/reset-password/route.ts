@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import PasswordReset from '@/lib/models/password-reset';
+import LocalUser from '@/lib/models/local-user';
 import { sendEmail } from '@/config/mail';
 import { authenticatedRequest } from '@/lib/m2mAuth';
 
@@ -94,6 +95,15 @@ export async function POST(request: NextRequest) {
     
     if (!userExists) {
       return NextResponse.json({ error: 'No se encontró un usuario con ese ID y correo electrónico' }, { status: 404 });
+    }
+    
+    // Check if user exists in our local users table
+    const localUser = await LocalUser.findByIvdId(ivd_id);
+    
+    if (!localUser) {
+      return NextResponse.json({ 
+        error: 'No existe una cuenta con ese ID. Primero debes registrarte para poder restablecer tu contraseña.' 
+      }, { status: 404 });
     }
 
     // Check if user already has a valid token
