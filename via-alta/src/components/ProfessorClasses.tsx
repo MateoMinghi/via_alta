@@ -43,11 +43,12 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
   const [degrees, setDegrees] = useState<Degree[]>([]);
   const [selectedDegree, setSelectedDegree] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isLoadingDegrees, setIsLoadingDegrees] = useState(true);
   
   // Use the existing hook to get subjects instead of direct fetch
-  const { result: subjectResults, loading: isLoading, error: subjectError } = useGetSubjects();
+  const { result: subjectResults, loading: isLoadingSubjects, error: subjectError } = useGetSubjects();
   
-  // Extract unique degrees from the subjects data
+  // Extract unique degrees from the subjects data (as a fallback)
   const extractUniqueDegrees = (subjects: Subject[]): Degree[] => {
     const degreeMap = new Map<number, Degree>();
     
@@ -63,6 +64,69 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
     
     return Array.from(degreeMap.values());
   };
+
+  // Fetch degrees from the correct endpoint
+  useEffect(() => {
+    const fetchDegrees = async () => {
+      try {
+        setIsLoadingDegrees(true);
+        console.log("DEBUG: Starting degree fetch process");
+        const response = await fetch('/api/getDegrees');
+        
+        console.log("DEBUG: Degree API response status:", response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("DEBUG: Full degree API response:", data);
+          
+          // Check for the correct response structure from the getDegrees endpoint
+          // It returns { degrees: [...], status: 'success' } instead of { success: true, data: [...] }
+          if (data.degrees && Array.isArray(data.degrees) && data.degrees.length > 0) {
+            console.log("DEBUG: Processing degrees data:", data.degrees);
+            setDegrees(data.degrees);
+            console.log(`DEBUG: Successfully loaded ${data.degrees.length} degrees`);
+          } else {
+            console.warn("DEBUG: API response doesn't have expected degrees array:", data);
+            // Use default degrees as fallback
+            console.log("DEBUG: Falling back to hardcoded degrees");
+            setDegrees([
+              { id: 1, name: "Diseño de Modas", status: "active" },
+              { id: 2, name: "Diseño de Interiores", status: "active" },
+              { id: 3, name: "Diseño Gráfico", status: "active" }
+            ]);
+          }
+        } else {
+          console.warn(`DEBUG: Degrees API request failed with status: ${response.status}`);
+          try {
+            const errorText = await response.text();
+            console.error("DEBUG: API error response:", errorText);
+          } catch (textError) {
+            console.error("DEBUG: Could not read error response text");
+          }
+          // Use default degrees as fallback
+          console.log("DEBUG: Falling back to hardcoded degrees due to API error");
+          setDegrees([
+            { id: 1, name: "Diseño de Modas", status: "active" },
+            { id: 2, name: "Diseño de Interiores", status: "active" },
+            { id: 3, name: "Diseño Gráfico", status: "active" }
+          ]);
+        }
+      } catch (error) {
+        console.error("DEBUG: Error fetching degrees:", error);
+        // Use default degrees as fallback
+        console.log("DEBUG: Falling back to hardcoded degrees due to exception");
+        setDegrees([
+          { id: 1, name: "Diseño de Modas", status: "active" },
+          { id: 2, name: "Diseño de Interiores", status: "active" },
+          { id: 3, name: "Diseño Gráfico", status: "active" }
+        ]);
+      } finally {
+        setIsLoadingDegrees(false);
+      }
+    };
+    
+    fetchDegrees();
+  }, []);
   
   // Process subjects data when it's loaded
   useEffect(() => {
@@ -92,67 +156,6 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
       }
     }
   }, [subjectResults, subjectError]);
-  
-  // Fetch degrees separately
-  useEffect(() => {
-    const fetchDegrees = async () => {
-      try {
-        const response = await fetch('/api/degrees');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && Array.isArray(data.data)) {
-            setDegrees(data.data);
-          } else {
-            // Fallback: Extract degrees from subjects
-            const extractedDegrees = extractUniqueDegrees(subjects);
-            if (extractedDegrees.length > 0) {
-              setDegrees(extractedDegrees);
-            } else {
-              // Hard-coded fallback degrees if no degree data is available
-              setDegrees([
-                { id: 1, name: "Diseño de Modas", status: "active" },
-                { id: 2, name: "Diseño de Interiores", status: "active" },
-                { id: 3, name: "Diseño Gráfico", status: "active" }
-              ]);
-            }
-          }
-        } else {
-          // Fallback: Extract degrees from subjects
-          const extractedDegrees = extractUniqueDegrees(subjects);
-          if (extractedDegrees.length > 0) {
-            setDegrees(extractedDegrees);
-          } else {
-            // Hard-coded fallback degrees
-            setDegrees([
-              { id: 1, name: "Diseño de Modas", status: "active" },
-              { id: 2, name: "Diseño de Interiores", status: "active" },
-              { id: 3, name: "Diseño Gráfico", status: "active" }
-            ]);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching degrees:", error);
-        
-        // Fallback: Extract degrees from subjects or use hard-coded ones
-        const extractedDegrees = extractUniqueDegrees(subjects);
-        if (extractedDegrees.length > 0) {
-          setDegrees(extractedDegrees);
-        } else {
-          // Hard-coded fallback degrees
-          setDegrees([
-            { id: 1, name: "Diseño de Modas", status: "active" },
-            { id: 2, name: "Diseño de Interiores", status: "active" },
-            { id: 3, name: "Diseño Gráfico", status: "active" }
-          ]);
-        }
-      }
-    };
-    
-    // Only fetch degrees when subjects are loaded
-    if (subjects.length > 0) {
-      fetchDegrees();
-    }
-  }, [subjects]);
   
   // Set selected subjects when professor or subjects change
   useEffect(() => {
@@ -296,7 +299,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
           </div>
         </div>
         
-        {isLoading ? (
+        {isLoadingSubjects ? (
           <div className="text-center py-8">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mb-2"></div>
             <p className="text-gray-500">Cargando materias disponibles...</p>
