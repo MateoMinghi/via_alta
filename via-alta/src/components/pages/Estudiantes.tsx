@@ -16,6 +16,7 @@ export default function Estudiantes() {
   const { result, loading, error }: ResponseType = useGetStudents();
   const [activeView, setActiveView] = useState<'all' | 'semester'>('all');
   const router = useRouter();
+  const [pendingChangesCount, setPendingChangesCount] = useState(0);
 
   // Filter to only show active students based on the "active" status flag
   const activeStudents = result 
@@ -34,9 +35,31 @@ export default function Estudiantes() {
       })
     : [];
 
-  const pendingChangesCount = activeStudents 
-    ? activeStudents.filter((student: Student) => student.status === 'requiere-cambios').length
-    : 0;
+  // Fetch count of pending change requests directly from the database
+  useEffect(() => {
+    const fetchPendingRequestsCount = async () => {
+      try {
+        // Make a direct fetch to the database using a simple query parameter
+        const response = await fetch('/api/schedule-change-request?count=true');
+        const data = await response.json();
+        
+        if (data.success && typeof data.count === 'number') {
+          console.log('Pending change requests count:', data.count);
+          setPendingChangesCount(data.count);
+        } else {
+          console.error('Failed to fetch change requests count:', data);
+          setPendingChangesCount(0);
+        }
+      } catch (err) {
+        console.error('Error fetching change requests count:', err);
+        setPendingChangesCount(0);
+      }
+    };
+
+    fetchPendingRequestsCount();
+  }, []);
+
+  console.log('Pending changes count:', pendingChangesCount); // Add logging to verify count
 
   const handleViewSchedule = (studentId: string) => {
     router.push(`dashboard/horarios/${studentId}`);

@@ -76,11 +76,32 @@ class Student {
   }
 
   // Método específico para confirmar horario
-  static async confirmSchedule(id: string) {
-    const query =
-      "UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1 RETURNING *";
-    const result = await pool.query(query, [id]);
-    return result.rows[0] as StudentData;
+  static async confirmSchedule(id: string): Promise<StudentData> {
+    const client = await pool.connect(); // Get a dedicated client
+    try {
+      await client.query('BEGIN'); // Start transaction
+  
+      // Update and return the student record
+      const updateResult = await client.query(
+        'UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1 RETURNING *',
+        [id]
+      );
+  
+      // Delete the request
+      await client.query(
+        'DELETE FROM solicitud WHERE idalumno = $1',
+        [id]
+      );
+  
+      await client.query('COMMIT'); // Commit if both succeed
+      return updateResult.rows[0] as StudentData;
+  
+    } catch (error) {
+      await client.query('ROLLBACK'); // Rollback on error
+      throw error; // Re-throw for error handling upstream
+    } finally {
+      client.release(); // Release the client back to the pool
+    }
   }
 
   // Actualiza todos los registros de la tabla Alumno y pone Confirmacion en TRUE

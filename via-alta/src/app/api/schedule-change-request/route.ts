@@ -210,6 +210,50 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const studentId = searchParams.get('studentId');
+    const countOnly = searchParams.get('count') === 'true';
+    const fetchAll = searchParams.get('fetchAll') === 'true';
+
+    // If count parameter is true, fetch either the count or all requests
+    if (countOnly) {
+      console.log('GET request received for pending change requests');
+      
+      // Determine whether to fetch all requests or just the count
+      if (fetchAll) {
+        // Fetch all pending change requests with details
+        const requestsQuery = `
+          SELECT * FROM solicitud 
+          WHERE estado = 'pendiente'
+          ORDER BY fecha DESC
+        `;
+        
+        const requestsResult = await pool.query(requestsQuery);
+        const requests = requestsResult.rows;
+        
+        console.log(`Found ${requests.length} pending change requests:`, requests);
+        
+        return NextResponse.json({ 
+          success: true, 
+          count: requests.length,
+          requests: requests
+        });
+      } else {
+        // Just return the count
+        const countQuery = `
+          SELECT COUNT(*) as count FROM solicitud 
+          WHERE estado = 'pendiente'
+        `;
+        
+        const countResult = await pool.query(countQuery);
+        const count = parseInt(countResult.rows[0].count) || 0;
+        
+        console.log(`Found ${count} pending change requests`);
+        
+        return NextResponse.json({ 
+          success: true, 
+          count: count
+        });
+      }
+    }
 
     if (!studentId) {
       return NextResponse.json({ 
