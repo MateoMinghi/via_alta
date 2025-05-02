@@ -1,7 +1,7 @@
 -- Script to DELETE all tables from the database
 
--- Disable foreign key checks temporarily
-SET session_replication_role = 'replica';
+-- Note: Instead of using session_replication_role which requires superuser privileges,
+-- we'll drop tables with CASCADE option to handle dependencies
 
 -- Drop tables in reverse order of dependencies
 DROP TABLE IF EXISTS HorarioGeneral CASCADE;
@@ -18,6 +18,3 @@ DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS Ciclo CASCADE;
 DROP TABLE IF EXISTS Salon CASCADE;
 DROP TABLE IF EXISTS Materia CASCADE;
-
--- Re-enable foreign key checks
-SET session_replication_role = 'origin';
