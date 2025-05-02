@@ -125,45 +125,11 @@ export default function HorariosSlug() {
       {loading && <p>cargando...</p>}
       {result !== null && (
         <>
-          <p className="font-bold text-2xl">Horarios de Alumnos Irregulares:</p>
-          <StudentSearch students={result} />
 
           <p className="font-bold text-2xl">Horarios Generales:</p>
           <SemesterGrid semesters={semesters} />
 
-          <div className="mt-8 mb-4">
-            <Button 
-              onClick={generateGroups} 
-              disabled={isGenerating} 
-              size="lg"
-              className="bg-green-600 hover:bg-green-700 text-white mr-4"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generando grupos...
-                </>
-              ) : (
-                'Generar Grupos'
-              )}
-            </Button>
-
-            <Button 
-              onClick={generateGeneralSchedule} 
-              disabled={isGeneratingSchedule} 
-              size="lg"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {isGeneratingSchedule ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generando horario general...
-                </>
-              ) : (
-                'Generar Horario General'
-              )}
-            </Button>
-          </div>
+          
         </>
       )}
     </div>
