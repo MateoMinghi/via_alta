@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { BookOpen, Edit } from 'lucide-react';
 import { Professor } from '@/api/getProfessors';
+import { cn } from '@/lib/utils';
 
 interface ProfessorListProps {
   professors: Professor[];
@@ -44,24 +45,25 @@ export default function ProfessorList({ professors, onSelectProfessor, onEditCla
                         : 0} materias asignadas
                     </TableCell>
                     <TableCell className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
+                      {/* Availability button with direct styling */}
+                      <button 
                         onClick={() => onSelectProfessor(professor)}
-                        className="flex items-center gap-1"
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center gap-1 text-xs font-medium"
+                        style={{ minHeight: '28px' }}
                       >
                         <Edit className="h-3 w-3" />
                         <span>Disponibilidad</span>
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
+                      </button>
+                      
+                      {/* Classes button with direct styling */}
+                      <button 
                         onClick={() => onEditClasses(professor)}
-                        className="flex items-center gap-1"
+                        className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-md flex items-center gap-1 text-xs font-medium"
+                        style={{ minHeight: '28px' }}
                       >
                         <BookOpen className="h-3 w-3" />
                         <span>Materias</span>
-                      </Button>
+                      </button>
                     </TableCell>
                   </TableRow>
                 ))}
