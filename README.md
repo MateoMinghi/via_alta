@@ -12,3 +12,6 @@ https://drive.google.com/file/d/1LpANJfxrblV-Qz8mnM84a_dUV8-hth7a/view?usp=shari
 
 # Link Video Avance 5
 https://drive.google.com/file/d/167d7GUEz33Wevw8BRS4z2KmXvBC5Y7lQ/view?usp=sharing
+
+# Link Video Avance 6
+https://drive.google.com/drive/folders/1bIdrck0nwyWCYFHdn4H9Wx-wIl2h7i5M?usp=sharing
