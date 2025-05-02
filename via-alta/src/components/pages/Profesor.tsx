@@ -80,7 +80,7 @@ export default function Profesor() {
                 // Update the selected professor with the most recent data from the database
                 const updatedProfessor = {
                     ...professor,
-                    classes: data.data.clases || ''
+                    classes: data.data.clases || data.data.Clases || ''
                 };
                 
                 // Update the selected professor state
@@ -181,7 +181,7 @@ export default function Profesor() {
                     // Update the selected professor with the fresh data
                     const updatedProfessor = {
                         ...selectedProfessor,
-                        classes: data.data.clases || ''
+                        classes: data.data.clases || data.data.Clases || ''
                     };
                     
                     console.log("Updated professor object:", updatedProfessor);
