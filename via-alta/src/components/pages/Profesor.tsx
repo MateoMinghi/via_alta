@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Save, X, RefreshCw, BookOpen } from 'lucide-react';
+import { Save, X, RefreshCw, BookOpen, ListFilter } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import ProfessorGrid from '../ProfessorGrid';
 import ProfessorSearch from '../ProfessorSearch';
 import ProfessorClasses from '../ProfessorClasses';
 import ProfessorClassesList from '../ProfessorClassesList';
+import ProfessorList from '../ProfessorList';
 import { getProfessors, getProfessorsFromDatabase } from '@/api/getProfessors';
 import { saveAvailabilityToDatabase, getAvailabilityFromDatabase } from '@/lib/utils/availability-utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export type Professor = {
     id: number;
@@ -26,6 +28,7 @@ export default function Profesor() {
     const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [showClassesEditor, setShowClassesEditor] = useState(false);
+    const [viewMode, setViewMode] = useState<'list' | 'search'>('list');
 
     const fetchData = async () => {
         setLoading(true);
@@ -56,7 +59,9 @@ export default function Profesor() {
 
     useEffect(() => {
         fetchData();
-    }, []);    const handleProfessorSelect = async (professor: Professor) => {
+    }, []);
+
+    const handleProfessorSelect = async (professor: Professor) => {
         console.log("Selected professor details:", professor);
         try {
             // First, fetch availability before updating any state
@@ -98,6 +103,12 @@ export default function Profesor() {
         }
     };
 
+    const handleEditClasses = (professor: Professor) => {
+        handleProfessorSelect(professor).then(() => {
+            setShowClassesEditor(true);
+        });
+    };
+
     const removeSelectedProfessor = () => {
         setSelectedProfessor(null);
         setSelectedSlots({});
@@ -122,7 +133,9 @@ export default function Profesor() {
         } finally {
             setIsSaving(false);
         }
-    };    const handleClassesEditComplete = async (updatedClasses?: string) => {
+    };
+
+    const handleClassesEditComplete = async (updatedClasses?: string) => {
         setShowClassesEditor(false);
         
         if (selectedProfessor) {
@@ -162,7 +175,8 @@ export default function Profesor() {
                 console.log("Fetched professor data:", data);
                 
                 if (data.success && data.data) {
-                    console.log("Professor data from API:", data.data);                    console.log("Classes from API:", data.data.clases);
+                    console.log("Professor data from API:", data.data);
+                    console.log("Classes from API:", data.data.clases);
                     
                     // Update the selected professor with the fresh data
                     const updatedProfessor = {
@@ -191,7 +205,9 @@ export default function Profesor() {
                 console.error("Error fetching updated professor data:", err);
             }
         }
-    };return (
+    };
+
+    return (
         <div className="container mx-auto py-6 px-4 md:px-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                 <p className="text-3xl font-bold">Registro de Profesores</p>
@@ -224,7 +240,47 @@ export default function Profesor() {
             {!loading && professors !== null && !error && (
                 <>
                     {professors.length > 0 ? (
-                        <ProfessorSearch professors={professors} onProfessorSelect={handleProfessorSelect} />
+                        <div className="mb-6">
+                            {!selectedProfessor && (
+                                <Tabs defaultValue="list" className="w-full mb-6">
+                                    <TabsList className="mb-4">
+                                        <TabsTrigger value="list" className="flex items-center gap-1" onClick={() => setViewMode('list')}>
+                                            <ListFilter className="h-4 w-4" />
+                                            <span>Lista de Profesores</span>
+                                        </TabsTrigger>
+                                        <TabsTrigger value="search" className="flex items-center gap-1" onClick={() => setViewMode('search')}>
+                                            <BookOpen className="h-4 w-4" />
+                                            <span>Búsqueda</span>
+                                        </TabsTrigger>
+                                    </TabsList>
+                                    
+                                    <TabsContent value="list" className="mt-0">
+                                        <ProfessorList 
+                                            professors={professors}
+                                            onSelectProfessor={handleProfessorSelect}
+                                            onEditClasses={handleEditClasses}
+                                        />
+                                    </TabsContent>
+                                    
+                                    <TabsContent value="search" className="mt-0">
+                                        <ProfessorSearch 
+                                            professors={professors} 
+                                            onProfessorSelect={handleProfessorSelect} 
+                                        />
+                                    </TabsContent>
+                                </Tabs>
+                            )}
+                            
+                            {selectedProfessor && (
+                                <Button 
+                                    variant="outline" 
+                                    className="mb-4"
+                                    onClick={removeSelectedProfessor}
+                                >
+                                    ← Volver a la lista de profesores
+                                </Button>
+                            )}
+                        </div>
                     ) : (
                         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4 mb-6">
                             <p className="font-medium mb-2">No se encontraron profesores</p>
