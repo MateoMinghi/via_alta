@@ -49,6 +49,31 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [degrees, setDegrees] = useState<Degree[]>([]);
 
+  // Log professor data to debug
+  useEffect(() => {
+    console.log("Professor data in ProfessorClasses:", professor);
+  }, [professor]);
+
+  // Helper function to format professor name properly
+  const formatProfessorName = () => {
+    if (!professor) return "";
+    
+    if (professor.first_surname || professor.second_surname) {
+      // If we have surname data, prioritize using name + surnames format
+      const nameParts = [];
+      if (professor.first_name) nameParts.push(professor.first_name);
+      if (professor.first_surname) nameParts.push(professor.first_surname);
+      if (professor.second_surname) nameParts.push(professor.second_surname);
+      return nameParts.length > 0 ? nameParts.join(' ') : professor.name;
+    } 
+    else if (professor.first_name || professor.last_name) {
+      // Fall back to first_name and last_name fields
+      return `${professor.first_name || ''} ${professor.last_name || ''}`.trim();
+    }
+    // Fallback to just the name field
+    return professor.name || 'Profesor';
+  };
+
   // Fetch degrees from API
   useEffect(() => {
     const fetchDegrees = async () => {
@@ -275,7 +300,12 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Asigne las materias para {professor?.name}</CardTitle>
+        <div>
+          <CardTitle className="text-lg">Asigne las materias para {formatProfessorName()}</CardTitle>
+          <div className="text-sm text-gray-500 mt-1">
+            ID: {professor?.id} {professor?.ivd_id ? `• IVD ID: ${professor.ivd_id}` : ''} • Departamento: {professor?.department}
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

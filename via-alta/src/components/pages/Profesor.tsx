@@ -18,6 +18,11 @@ export type Professor = {
     name: string;
     department: string;
     classes?: string;
+    ivd_id?: string;
+    first_name?: string;
+    last_name?: string;
+    first_surname?: string;
+    second_surname?: string;
 };
 
 export default function Profesor() {
@@ -113,6 +118,24 @@ export default function Profesor() {
         setSelectedProfessor(null);
         setSelectedSlots({});
         setShowClassesEditor(false);
+    };
+
+    // Helper function to format professor name properly
+    const formatProfessorName = (professor: Professor): string => {
+        if (professor.first_surname || professor.second_surname) {
+            // If we have surname data, prioritize using name + surnames format
+            const nameParts = [];
+            if (professor.first_name) nameParts.push(professor.first_name);
+            if (professor.first_surname) nameParts.push(professor.first_surname);
+            if (professor.second_surname) nameParts.push(professor.second_surname);
+            return nameParts.length > 0 ? nameParts.join(' ') : professor.name;
+        } 
+        else if (professor.first_name || professor.last_name) {
+            // Fall back to first_name and last_name fields
+            return `${professor.first_name || ''} ${professor.last_name || ''}`.trim();
+        }
+        // Fallback to just the name field
+        return professor.name || 'Profesor';
     };
 
     const handleSaveAvailability = async () => {
@@ -306,9 +329,9 @@ export default function Profesor() {
                                 <Card className="p-3">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="font-medium text-lg">{selectedProfessor.name}</p>
+                                            <p className="font-medium text-lg">{formatProfessorName(selectedProfessor)}</p>
                                             <p className="text-sm text-muted-foreground">
-                                                ID: {selectedProfessor.id} • Departamento: {selectedProfessor.department}
+                                                ID: {selectedProfessor.id} {selectedProfessor.ivd_id && `• IVD ID: ${selectedProfessor.ivd_id}`} • Departamento: {selectedProfessor.department}
                                             </p>
                                         </div>
                                         <Button
@@ -325,7 +348,10 @@ export default function Profesor() {
                                 {/* Display classes list */}
                                 {selectedProfessor.classes && (
                                     <div className="mt-4">
-                                        <ProfessorClassesList classes={selectedProfessor.classes} />
+                                        <ProfessorClassesList 
+                                            classes={selectedProfessor.classes}
+                                            professor={selectedProfessor}
+                                        />
                                     </div>
                                 )}
 
