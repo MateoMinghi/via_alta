@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { studentId, schedule } = await request.json();
+    const { studentId, schedule, confirm = false } = await request.json();
     
     if (!studentId || !schedule || !Array.isArray(schedule)) {
       return NextResponse.json({ 
@@ -206,6 +206,7 @@ export async function POST(request: NextRequest) {
     
     console.log('[SCHEDULE CONFIRMATION] Beginning process for student ID:', studentId);
     console.log(`[SCHEDULE CONFIRMATION] Schedule items count: ${schedule.length}`);
+    console.log(`[SCHEDULE CONFIRMATION] Confirmation requested: ${confirm}`);
     
     const client = await Schedule.getClient();
     console.log('[SCHEDULE CONFIRMATION] Database connection established');
@@ -260,61 +261,69 @@ export async function POST(request: NextRequest) {
         console.warn(`[SCHEDULE CONFIRMATION] No valid group IDs to insert for student: ${studentId}`);
       }
       
-      // Siempre confirmamos el horario del estudiante
-      await Student.confirmSchedule(studentId);
-      console.log(`[SCHEDULE CONFIRMATION] Updated confirmation status to TRUE for student: ${studentId}`);
+      // Confirmar el horario solo si se ha solicitado explícitamente
+      if (confirm) {
+        await Student.confirmSchedule(studentId);
+        console.log(`[SCHEDULE CONFIRMATION] Updated confirmation status to TRUE for student: ${studentId}`);
+      } else {
+        console.log(`[SCHEDULE CONFIRMATION] Schedule saved without confirmation for student: ${studentId}`);
+      }
       
       // Terminar la transacción
       await client.query('COMMIT');
       console.log('[SCHEDULE CONFIRMATION] Transaction committed successfully');
       
-      // Enviar correo de confirmación al estudiante con los detalles del horario
-      try {
-        // Obtener los detalles del estudiante incluyendo su correo electrónico
-        const studentDetails = await getStudentDetails(studentId);
-        
-        if (studentDetails && studentDetails.email) {
-          console.log(`[SCHEDULE CONFIRMATION] Sending confirmation email to ${studentDetails.email}`);
+      // Enviar correo de confirmación al estudiante con los detalles del horario solo si se confirma
+      if (confirm) {
+        try {
+          // Obtener los detalles del estudiante incluyendo su correo electrónico
+          const studentDetails = await getStudentDetails(studentId);
           
-          // Construir el nombre completo del estudiante
-          const studentName = [
-            studentDetails.name,
-            studentDetails.first_surname,
-            studentDetails.second_surname
-          ].filter(Boolean).join(' ');
-          
-          // Obtener los detalles completos del horario desde la base de datos
-          // Esto garantiza que tenemos toda la información actualizada para el correo
-          const detailedSchedule = await Schedule.findDetailedStudentSchedule(studentId);
-          
-          if (detailedSchedule.length === 0) {
-            console.warn('[SCHEDULE CONFIRMATION] No detailed schedule found for email, using provided schedule data');
+          if (studentDetails && studentDetails.email) {
+            console.log(`[SCHEDULE CONFIRMATION] Sending confirmation email to ${studentDetails.email}`);
+            
+            // Construir el nombre completo del estudiante
+            const studentName = [
+              studentDetails.name,
+              studentDetails.first_surname,
+              studentDetails.second_surname
+            ].filter(Boolean).join(' ');
+            
+            // Obtener los detalles completos del horario desde la base de datos
+            // Esto garantiza que tenemos toda la información actualizada para el correo
+            const detailedSchedule = await Schedule.findDetailedStudentSchedule(studentId);
+            
+            if (detailedSchedule.length === 0) {
+              console.warn('[SCHEDULE CONFIRMATION] No detailed schedule found for email, using provided schedule data');
+            }
+            
+            // Usar el horario detallado si está disponible, o el horario proporcionado si no
+            const scheduleForEmail = detailedSchedule.length > 0 ? detailedSchedule : schedule;
+            console.log('[EMAIL SCHEDULE DATA]', JSON.stringify(scheduleForEmail.slice(0, 2)));
+            
+            // Enviar correo electrónico con los detalles del horario
+            await sendScheduleConfirmationEmail(
+              studentDetails.email,
+              studentName,
+              studentId,
+              scheduleForEmail
+            );
+            
+            console.log('[SCHEDULE CONFIRMATION] Confirmation email sent successfully');
+          } else {
+            console.warn(`[SCHEDULE CONFIRMATION] Could not send email - student email not found for ID: ${studentId}`);
           }
-          
-          // Usar el horario detallado si está disponible, o el horario proporcionado si no
-          const scheduleForEmail = detailedSchedule.length > 0 ? detailedSchedule : schedule;
-          
-          // Enviar correo electrónico con los detalles del horario
-          await sendScheduleConfirmationEmail(
-            studentDetails.email,
-            studentName,
-            studentId,
-            scheduleForEmail
-          );
-          
-          console.log('[SCHEDULE CONFIRMATION] Confirmation email sent successfully');
-        } else {
-          console.warn(`[SCHEDULE CONFIRMATION] Could not send email - student email not found for ID: ${studentId}`);
+        } catch (emailError) {
+          // No interrumpimos el flujo principal si falla el envío de correo
+          console.error('[SCHEDULE CONFIRMATION] Error sending confirmation email:', emailError);
         }
-      } catch (emailError) {
-        // No interrumpimos el flujo principal si falla el envío de correo
-        console.error('[SCHEDULE CONFIRMATION] Error sending confirmation email:', emailError);
       }
       
       return NextResponse.json({ 
         success: true, 
-        message: 'Schedule confirmed successfully',
-        itemsProcessed: insertedCount
+        message: confirm ? 'Schedule confirmed successfully' : 'Schedule saved successfully',
+        itemsProcessed: insertedCount,
+        isConfirmed: confirm
       });
     } catch (error) {
       await client.query('ROLLBACK');

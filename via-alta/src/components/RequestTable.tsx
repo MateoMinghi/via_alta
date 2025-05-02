@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
-import { Search, Eye, Calendar } from 'lucide-react';
+import { Search, Eye, Calendar, CheckCircle2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,6 +54,9 @@ export default function RequestTable({ students }: RequestTableProps) {
   const [selectedComment, setSelectedComment] = useState('');
   const [isCommentOpen, setIsCommentOpen] = useState(false);
   const [studentNames, setStudentNames] = useState<Record<string, string>>({});
+  const [solveDialogOpen, setSolveDialogOpen] = useState(false);
+  const [requestToSolve, setRequestToSolve] = useState<ChangeRequest | null>(null);
+  const [solvingRequest, setSolvingRequest] = useState(false);
 
   // Fetch change requests from database
   useEffect(() => {
@@ -183,6 +187,47 @@ export default function RequestTable({ students }: RequestTableProps) {
     router.push(`/dashboard/horarios/${studentId}`);
   };
 
+  // Handle opening the solve request dialog
+  const handleSolveRequest = (request: ChangeRequest) => {
+    setRequestToSolve(request);
+    setSolveDialogOpen(true);
+  };
+
+  // Handle the actual solving of the request
+  const confirmSolveRequest = async () => {
+    if (!requestToSolve) return;
+    
+    try {
+      setSolvingRequest(true);
+      const response = await fetch(`/api/schedule-change-request?requestId=${requestToSolve.idsolicitud}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success(`Solicitud resuelta correctamente`);
+        
+        // Remove the solved request from the list
+        setChangeRequests(prevRequests => 
+          prevRequests.filter(req => req.idsolicitud !== requestToSolve.idsolicitud)
+        );
+        setFilteredRequests(prevRequests => 
+          prevRequests.filter(req => req.idsolicitud !== requestToSolve.idsolicitud)
+        );
+        
+        setSolveDialogOpen(false);
+      } else {
+        toast.error(`Error: ${data.message || 'No se pudo resolver la solicitud'}`);
+      }
+    } catch (error) {
+      console.error('Error solving request:', error);
+      toast.error('Ocurrió un error al resolver la solicitud');
+    } finally {
+      setSolvingRequest(false);
+    }
+  };
+
   // Format date to a readable format
   const formatDate = (dateString: string) => {
     try {
@@ -237,6 +282,7 @@ export default function RequestTable({ students }: RequestTableProps) {
                 <TableHead className="text-center self-center font-medium">Estado</TableHead>
                 <TableHead className="" />
                 <TableHead className="" />
+                <TableHead className="" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -272,6 +318,16 @@ export default function RequestTable({ students }: RequestTableProps) {
                       <span>Ver horario</span>
                     </Button>
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-1 bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                      onClick={() => handleSolveRequest(request)}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Resolver</span>
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -279,12 +335,65 @@ export default function RequestTable({ students }: RequestTableProps) {
         </div>
       )}
 
+      {/* Dialog for viewing comments */}
       <Dialog open={isCommentOpen} onOpenChange={setIsCommentOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Comentario del Estudiante</DialogTitle>
           </DialogHeader>
           <p className="mt-4">{selectedComment}</p>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for solving requests */}
+      <Dialog open={solveDialogOpen} onOpenChange={setSolveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resolver solicitud</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas marcar esta solicitud como resuelta? Esta acción eliminará la solicitud de la base de datos.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {requestToSolve && (
+            <div className="my-4 p-4 bg-gray-50 rounded-md">
+              <p><strong>Estudiante:</strong> {getStudentName(requestToSolve.idalumno)}</p>
+              <p><strong>Matrícula:</strong> {requestToSolve.idalumno}</p>
+              <p><strong>Fecha:</strong> {formatDate(requestToSolve.fecha)}</p>
+              <div className="mt-2">
+                <p><strong>Comentario:</strong></p>
+                <p className="mt-1 italic">{requestToSolve.descripcion}</p>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSolveDialogOpen(false)}
+              disabled={solvingRequest}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="default"
+              className="bg-green-600 hover:bg-green-700"
+              onClick={confirmSolveRequest}
+              disabled={solvingRequest}
+            >
+              {solvingRequest ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Resolviendo...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Confirmar y resolver
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

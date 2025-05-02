@@ -28,11 +28,13 @@ const ScheduleConfirmationDialog: React.FC<ScheduleConfirmationDialogProps> = ({
       <AlertDialogContent className="border border-red-500">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-2xl font-bold">
-            Confirmación de Horario
+            {isCoordinator 
+              ? "Guardar Horario Individual" 
+              : "Confirmación de Horario"}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-gray-600 text-base py-2">
             {isCoordinator 
-              ? "¿Está seguro que desea guardar este horario? Esta acción confirmará la selección de materias para el estudiante."
+              ? "¿Está seguro que desea guardar este horario específicamente para este estudiante? Esta acción creará un horario individualizado para el alumno, pero el estudiante aún necesitará confirmarlo."
               : "¿Estás seguro que deseas confirmar este horario? Una vez confirmado, no podrás realizar cambios sin la autorización del coordinador."}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -44,7 +46,7 @@ const ScheduleConfirmationDialog: React.FC<ScheduleConfirmationDialogProps> = ({
             onClick={onConfirm}
             className="bg-red-700 text-white hover:bg-red-800"
           >
-            Confirmar
+            {isCoordinator ? "Guardar Horario Individual" : "Confirmar"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

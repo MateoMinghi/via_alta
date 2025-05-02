@@ -1171,27 +1171,44 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
                 isObligatory: item.isObligatory,
                 isRecommended: item.isRecommended
               }));
-              
-              // Guardar el horario individual del estudiante
-              const res = await fetch('/api/student-schedule', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ 
-                  studentId: alumnoId,
-                  schedule: scheduleToSave,
-                  confirm: true // Indica que queremos confirmar el horario
-                }) 
-              });
-              const data = await res.json();
-              
-              if (data.success) {
-                toast.success('Horario guardado y confirmado exitosamente');
+
+              // Vista de coordinador: Guardar sin confirmar
+              if (isCoordinatorView && alumnoId) {
+                const res = await fetch('/api/student-schedule', { 
+                  method: 'POST', 
+                  headers: { 'Content-Type': 'application/json' }, 
+                  body: JSON.stringify({ 
+                    studentId: alumnoId,
+                    schedule: scheduleToSave,
+                    confirm: false // El coordinador no confirma el horario
+                  }) 
+                });
+                const data = await res.json();
                 
-                // Mostrar mensaje de éxito
-                window.alert("El horario ha sido guardado correctamente y se ha confirmado para el estudiante.");
+                if (data.success) {
+                  toast.success('Horario individual guardado exitosamente');
+                  window.alert("El horario ha sido guardado correctamente para el estudiante. El estudiante deberá confirmarlo para completar el proceso.");
+                } else {
+                  toast.error(`Error al guardar el horario: ${data.error || 'Error desconocido'}`);
+                }
+              } 
+              // Vista de estudiante: Guardar y confirmar
+              else if (!isCoordinatorView && alumnoId) {
+                const res = await fetch('/api/student-schedule', { 
+                  method: 'POST', 
+                  headers: { 'Content-Type': 'application/json' }, 
+                  body: JSON.stringify({ 
+                    studentId: alumnoId,
+                    schedule: scheduleToSave,
+                    confirm: true // El estudiante sí confirma el horario
+                  }) 
+                });
+                const data = await res.json();
                 
-                // Si no es vista de coordinador, confirmar el horario también
-                if (!isCoordinatorView && alumnoId) {
+                if (data.success) {
+                  toast.success('Horario guardado y confirmado exitosamente');
+                  
+                  // Confirmar el horario también
                   console.log('Confirming student schedule...');
                   const confirmRes = await fetch('/api/confirm-schedule', {
                     method: 'POST',
@@ -1202,13 +1219,14 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
                   const confirmData = await confirmRes.json();
                   if (confirmData.success) {
                     toast.success('Confirmación de horario registrada');
+                    window.alert("Tu horario ha sido guardado y confirmado exitosamente.");
                   } else {
                     console.error('Error confirming schedule:', confirmData.error);
                     // No mostrar error al usuario ya que el horario se guardó correctamente
                   }
+                } else {
+                  toast.error(`Error al guardar el horario: ${data.error || 'Error desconocido'}`);
                 }
-              } else {
-                toast.error(`Error al guardar el horario: ${data.error || 'Error desconocido'}`);
               }
             } catch (err) {
               console.error('Error saving schedule:', err);
