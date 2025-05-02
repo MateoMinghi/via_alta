@@ -359,10 +359,75 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
       const fetchSchedule = async () => {
         setIsLoading(true);
         try {
-          // Si el alumnoId está definido, usarlo para obtener el horario del estudiante
-          const endpoint = alumnoId 
-            ? `/api/student-schedule?studentId=${alumnoId}` 
-            : '/api/schedule';
+          // Explicitly fetch the student's semester - try different approaches to ensure we get it
+          let studentSemester = null;
+          
+          // Method 1: Try to get the student data directly through API
+          if (alumnoId) {
+            try {
+              console.log('Fetching student data to determine semester...');
+              // Direct API call to get student data
+              const studentRes = await fetch(`/api/student?id=${alumnoId}`);
+              const studentData = await studentRes.json();
+              
+              if (studentData.success && studentData.data && studentData.data.semester) {
+                studentSemester = studentData.data.semester;
+                console.log(`Found student semester from student API: ${studentSemester}`);
+              } else {
+                console.log('Student API did not return semester info:', studentData);
+              }
+            } catch (err) {
+              console.error('Error fetching student data from /api/student endpoint:', err);
+            }
+            
+            // Method 2: If method 1 fails, try using student-details endpoint
+            if (!studentSemester) {
+              try {
+                console.log('Trying alternative student-details endpoint...');
+                const detailsRes = await fetch(`/api/student-details?studentId=${alumnoId}`);
+                const detailsData = await detailsRes.json();
+                
+                if (detailsData.success && detailsData.data && detailsData.data.semester) {
+                  studentSemester = detailsData.data.semester;
+                  console.log(`Found student semester from details API: ${studentSemester}`);
+                } else {
+                  console.log('Student details API did not return semester info:', detailsData);
+                }
+              } catch (err) {
+                console.error('Error fetching student details:', err);
+              }
+            }
+            
+            // Method 3: Fallback to hard-coded value for testing if methods 1 and 2 fail
+            if (!studentSemester && isCoordinatorView) {
+              console.log('WARNING: Using fallback semester value for coordinator view');
+              // Determine fallback semester from URL params if available
+              const urlParams = new URLSearchParams(window.location.search);
+              const semesterFromURL = urlParams.get('semester');
+              
+              if (semesterFromURL) {
+                studentSemester = semesterFromURL;
+                console.log(`Using semester from URL: ${studentSemester}`);
+              } else {
+                // Last resort - force semester 5 for testing (we can remove this after fixing)
+                studentSemester = 5;
+                console.log(`Using hardcoded semester: ${studentSemester} for debugging`);
+              }
+            }
+          }
+          
+          // Construct the API endpoint with the semester parameter
+          let endpoint = '/api/schedule';
+          
+          if (alumnoId) {
+            endpoint = `/api/student-schedule?studentId=${alumnoId}`;
+            if (studentSemester) {
+              endpoint += `&semester=${studentSemester}`;
+              console.log(`Fetching schedule with explicit semester parameter: ${endpoint}`);
+            } else {
+              console.warn('No semester information available - API may default to semester 1');
+            }
+          }
           
           console.log(`Fetching schedule from: ${endpoint}`);
           const res = await fetch(endpoint);
@@ -442,7 +507,7 @@ export default function HorarioAlumno({ schedule: providedSchedule, alumnoId, is
       };
       fetchSchedule();
     }
-  }, [providedSchedule, alumnoId, isRegular]);
+  }, [providedSchedule, alumnoId, isRegular, isCoordinatorView]);
   
   // Generar el horario
   const handleGenerateSchedule = async () => {
