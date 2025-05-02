@@ -18,6 +18,7 @@ export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
   const [error, setError] = useState<string | null>(null);
   const [filteredSchedule, setFilteredSchedule] = useState<GeneralScheduleItem[]>([]);
   const [isIrregular, setIsIrregular] = useState<boolean>(false);
+  const [studentSemester, setStudentSemester] = useState<number | undefined>(undefined);
   const params = useParams();
   const urlSlug = params?.slug as string | undefined;
   
@@ -43,9 +44,50 @@ export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
 
   const semesterNum = getSemesterNumber(slug as string);
   
+  // Fetch student information including semester when in student view
+  useEffect(() => {
+    if (viewType === 'estudiante' && slug) {
+      const fetchStudentInfo = async () => {
+        try {
+          console.log(`Fetching student info for ID: ${slug}`);
+          const response = await fetch(`/api/student-info?studentId=${slug}`);
+          const data = await response.json();
+          
+          if (data.success && data.student) {
+            // Get the student's semester from the API
+            const semester = data.student.semester || data.student.Semestre;
+            
+            if (semester) {
+              console.log(`Found semester ${semester} for student ${slug}`);
+              setStudentSemester(semester);
+            } else {
+              console.warn(`No semester found for student ${slug}, defaulting to semester 1`);
+              setStudentSemester(1);
+            }
+            
+            // Set irregular status
+            setIsIrregular(data.student.isIrregular || false);
+            console.log(`Student ${slug} isIrregular:`, data.student.isIrregular);
+          } else {
+            console.warn(`Could not determine semester for student ${slug}, defaulting to semester 1`);
+            setStudentSemester(1);
+            setIsIrregular(false);
+          }
+        } catch (err) {
+          console.error(`Error checking student info for ${slug}:`, err);
+          setStudentSemester(1);
+          setIsIrregular(false);
+        }
+      };
+      
+      fetchStudentInfo();
+    }
+  }, [slug, viewType]);
+  
+  // Now use the actual student semester in the hook
   const studentSchedule = useGetStudentSchedule(
     viewType === 'estudiante' ? slug : undefined, 
-    viewType === 'estudiante' ? 1 : undefined
+    viewType === 'estudiante' ? studentSemester : undefined
   );
 
   // determinar si el estudiante es irregular
