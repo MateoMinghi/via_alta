@@ -15,6 +15,24 @@ interface ProfessorListProps {
 }
 
 export default function ProfessorList({ professors, onSelectProfessor, onEditClasses }: ProfessorListProps) {
+  // Helper function to format professor name using appropriate name fields
+  const formatProfessorName = (professor: Professor): string => {
+    if (professor.first_surname || professor.second_surname) {
+      // If we have surname data, prioritize using name + surnames format
+      const nameParts = [];
+      if (professor.name) nameParts.push(professor.name);
+      if (professor.first_surname) nameParts.push(professor.first_surname);
+      if (professor.second_surname) nameParts.push(professor.second_surname);
+      return nameParts.join(' ');
+    } 
+    else if (professor.first_name || professor.last_name) {
+      // Fall back to first_name and last_name fields
+      return `${professor.first_name || ''} ${professor.last_name || ''}`.trim();
+    }
+    // Fallback to just the name field
+    return professor.name || 'Unknown';
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -26,7 +44,7 @@ export default function ProfessorList({ professors, onSelectProfessor, onEditCla
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
+                  <TableHead>IVD ID</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Departamento</TableHead>
                   <TableHead>Materias</TableHead>
@@ -36,8 +54,8 @@ export default function ProfessorList({ professors, onSelectProfessor, onEditCla
               <TableBody>
                 {professors.map((professor) => (
                   <TableRow key={professor.id}>
-                    <TableCell>{professor.id}</TableCell>
-                    <TableCell className="font-medium">{professor.name}</TableCell>
+                    <TableCell>{professor.ivd_id || professor.id}</TableCell>
+                    <TableCell className="font-medium">{formatProfessorName(professor)}</TableCell>
                     <TableCell>{professor.department}</TableCell>
                     <TableCell>
                       {professor.classes 

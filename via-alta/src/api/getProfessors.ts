@@ -5,6 +5,11 @@ export type Professor = {
     name: string; // Nombre completo del profesor
     department: string; // Departamento al que pertenece el profesor
     classes?: string; // Clases que imparte el profesor, opcional
+    ivd_id?: string; // ID del Instituto Virtual Docente
+    first_name?: string; // Primer nombre del profesor
+    last_name?: string; // Apellido del profesor
+    first_surname?: string; // Primer apellido del profesor
+    second_surname?: string; // Segundo apellido del profesor
 };
 
 // Configuración de la API
@@ -78,8 +83,13 @@ export async function getProfessors(): Promise<{ loading: boolean; result: Profe
         // Transformamos los datos de la API al formato esperado de profesores
         const formattedProfessors = professorsData.map((professor: any) => ({
             id: professor.id || 0, // Si no tiene ID, usamos 0
-            name: `${professor.title || ''} ${professor.first_name || ''} ${professor.last_name || ''}`.trim(), // Nombre completo del profesor
+            name: professor.name || '', // Nombre del profesor
             department: professor.department || 'General', // Departamento del profesor, por defecto "General"
+            ivd_id: professor.ivd_id || null, // Añadimos el ID del Instituto Virtual Docente
+            first_name: professor.name || '', // Guardamos el campo 'name' como first_name para compatibilidad
+            last_name: professor.first_surname || '', // Guardamos el primer apellido como last_name para compatibilidad
+            first_surname: professor.first_surname || '', // Primer apellido
+            second_surname: professor.second_surname || '' // Segundo apellido
         }));
 
         // Sincronizamos los datos obtenidos con la base de datos local
@@ -193,7 +203,8 @@ export async function getProfessorsFromDatabase(): Promise<Professor[]> {
                 id: parseInt(prof.IdProfesor), // Convertimos el ID a número
                 name: prof.Nombre, // Nombre del profesor
                 department: 'General', // Asignamos un departamento por defecto
-                classes: prof.Clases || '' // Clases que imparte, por defecto vacío
+                classes: prof.Clases || '', // Clases que imparte, por defecto vacío
+                ivd_id: prof.IvdId || null  // ID del Instituto Virtual Docente
             }));
         }
         throw new Error(data.error || 'Error fetching professors from database'); // Si la solicitud falla, lanzamos un error
