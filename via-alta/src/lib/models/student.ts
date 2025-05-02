@@ -80,24 +80,39 @@ class Student {
     const client = await pool.connect(); // Get a dedicated client
     try {
       await client.query('BEGIN'); // Start transaction
+
+      console.log(`[STUDENT CONFIRM] Starting confirmation process for student: ${id}`);
+      
+      // Check if student has pending requests
+      const requestsQuery = 'SELECT COUNT(*) FROM solicitud WHERE idalumno = $1';
+      const requestsResult = await client.query(requestsQuery, [id]);
+      const requestCount = parseInt(requestsResult.rows[0].count);
+      
+      console.log(`[STUDENT CONFIRM] Found ${requestCount} pending requests for student: ${id}`);
   
-      // Update and return the student record
+      // Update student record to confirmed status
       const updateResult = await client.query(
         'UPDATE Alumno SET Confirmacion = TRUE WHERE IdAlumno = $1 RETURNING *',
         [id]
       );
+      console.log(`[STUDENT CONFIRM] Updated confirmation status to TRUE for student: ${id}`);
   
-      // Delete the request
-      await client.query(
-        'DELETE FROM solicitud WHERE idalumno = $1',
-        [id]
-      );
+      // Delete any existing change requests
+      if (requestCount > 0) {
+        const deleteResult = await client.query(
+          'DELETE FROM solicitud WHERE idalumno = $1 RETURNING *',
+          [id]
+        );
+        console.log(`[STUDENT CONFIRM] Deleted ${deleteResult.rowCount} change requests for student: ${id}`);
+      }
   
       await client.query('COMMIT'); // Commit if both succeed
+      console.log(`[STUDENT CONFIRM] Successfully completed confirmation process for student: ${id}`);
       return updateResult.rows[0] as StudentData;
   
     } catch (error) {
       await client.query('ROLLBACK'); // Rollback on error
+      console.error(`[STUDENT CONFIRM] Error during confirmation process for student ${id}:`, error);
       throw error; // Re-throw for error handling upstream
     } finally {
       client.release(); // Release the client back to the pool
@@ -303,6 +318,20 @@ class Student {
       LIMIT 1
     `;
     return await pool.query(query, [studentId]);
+  }
+
+  // Fuerza la eliminación de todas las solicitudes para un estudiante
+  static async forceDeleteRequests(studentId: string): Promise<number> {
+    try {
+      console.log(`[FORCE DELETE] Forcibly deleting all requests for student: ${studentId}`);
+      const query = 'DELETE FROM solicitud WHERE idalumno = $1 RETURNING *';
+      const result = await pool.query(query, [studentId]);
+      console.log(`[FORCE DELETE] Successfully deleted ${result.rowCount} requests for student: ${studentId}`);
+      return result.rowCount || 0;
+    } catch (error) {
+      console.error(`[FORCE DELETE] Error deleting requests for student ${studentId}:`, error);
+      throw error;
+    }
   }
 }
 

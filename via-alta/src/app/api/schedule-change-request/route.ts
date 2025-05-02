@@ -311,3 +311,75 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const requestId = searchParams.get('requestId');
+    const studentId = searchParams.get('studentId');
+
+    // Require either requestId or studentId
+    if (!requestId && !studentId) {
+      console.log('DELETE request failed: Missing requestId or studentId parameter');
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Either requestId or studentId is required' 
+      }, { status: 400 });
+    }
+    
+    console.log(`DELETE request received for change request: ${requestId || 'all requests for student ' + studentId}`);
+    
+    // Connect to the database
+    const client = await pool.connect();
+    console.log('Database connection established for delete operation');
+    
+    try {
+      // Start transaction
+      await client.query('BEGIN');
+      
+      let deleteQuery;
+      let params;
+      
+      if (requestId) {
+        // Delete specific request by ID
+        deleteQuery = 'DELETE FROM solicitud WHERE idsolicitud = $1 RETURNING *';
+        params = [requestId];
+        console.log(`Attempting to delete change request with ID: ${requestId}`);
+      } else {
+        // Delete all requests for a student
+        deleteQuery = 'DELETE FROM solicitud WHERE idalumno = $1 RETURNING *';
+        params = [studentId];
+        console.log(`Attempting to delete all change requests for student ID: ${studentId}`);
+      }
+      
+      const result = await client.query(deleteQuery, params);
+      const deletedCount = result.rowCount;
+      
+      // Commit the transaction
+      await client.query('COMMIT');
+      console.log(`Successfully deleted ${deletedCount} change request(s)`);
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: `${deletedCount} change request(s) resolved successfully`,
+        deletedCount: deletedCount,
+        deletedRequests: result.rows
+      });
+    } catch (error) {
+      // Rollback on error
+      await client.query('ROLLBACK');
+      console.error('Error during delete operation:', error);
+      throw error;
+    } finally {
+      client.release();
+      console.log('Database connection released after delete operation');
+    }
+  } catch (error) {
+    console.error('Error resolving change request:', error);
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Error resolving change request',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}

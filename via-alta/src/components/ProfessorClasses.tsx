@@ -12,7 +12,7 @@ interface ProfessorClassesProps {
   onCancel: () => void;
 }
 
-// Define interfaces for API response structure
+// Define interfaces for API response structure based on actual data
 interface Degree {
   id: number;
   name: string;
@@ -26,85 +26,211 @@ interface Plan {
   degree: Degree;
 }
 
-interface Subject {
+interface CourseSubject {
   id: number;
   name: string;
-  credits: string;
-  plans: Plan[];
-  // Other properties as needed
+  plans?: Plan[];
+  degreeIds?: number[]; // Store degree IDs for filtering
+}
+
+interface RawCourseData {
+  id: number;
+  name: string;
+  plans?: Plan[];
 }
 
 export default function ProfessorClasses({ professor, onSave, onCancel }: ProfessorClassesProps) {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [filteredSubjects, setFilteredSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<CourseSubject[]>([]);
+  const [filteredSubjects, setFilteredSubjects] = useState<CourseSubject[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedSubjects, setSelectedSubjects] = useState<Set<number>>(new Set());
-  const [degrees, setDegrees] = useState<Degree[]>([]);
-  const [selectedDegree, setSelectedDegree] = useState<string>("all");
+  const [selectedDegreeId, setSelectedDegreeId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [degrees, setDegrees] = useState<Degree[]>([]);
 
-  // Load subjects and professor's classes when component mounts
+  // Fetch degrees from API
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDegrees = async () => {
       try {
-        // Fetch available subjects
-        const response = await fetch('/api/subjects');
+        console.log("Fetching degrees from API...");
+        const response = await fetch('/api/getDegrees');
+        
         if (response.ok) {
           const data = await response.json();
-          if (data.success) {
-            const subjectsData = data.data;
-            setSubjects(subjectsData);
-            setFilteredSubjects(subjectsData); // Initialize filteredSubjects
-            
-            // Extract unique degrees from subjects
-            const uniqueDegrees = extractUniqueDegrees(subjectsData);
-            setDegrees(uniqueDegrees);
-          }
-        }
-
-        // Parse existing classes if professor has any
-        if (professor?.classes) {
-          // Handle both formats - IDs or names
-          if (/^\d+(,\d+)*$/.test(professor.classes)) {
-            // If it's a list of numbers (old format)
-            const classIds = professor.classes.split(',')
-              .map(id => parseInt(id.trim()))
-              .filter(id => !isNaN(id));
-            setSelectedSubjects(new Set(classIds));
+          console.log("API Degrees response:", data);
+          
+          if (data.degrees && Array.isArray(data.degrees)) {
+            console.log("Using degrees from API:", data.degrees);
+            setDegrees(data.degrees);
           } else {
-            // If it's a list of names (new format)
-            // Find the IDs that match the names
-            const classNames = professor.classes.split(',').map(name => name.trim());
-            const matchingIds = subjects
-              .filter(subject => classNames.includes(subject.name))
-              .map(subject => subject.id);
-            setSelectedSubjects(new Set(matchingIds));
+            console.warn("API didn't return valid degrees data");
+            setDegrees([]);
           }
+        } else {
+          console.warn("Failed to fetch degrees");
+          setDegrees([]);
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching degrees:", error);
+        setDegrees([]);
+      }
+    };
+    
+    fetchDegrees();
+  }, []);
+
+  // Fetch course details with plan information
+  useEffect(() => {
+    const fetchCourseDetails = async () => {
+      setIsLoading(true);
+      try {
+        // Create a new API endpoint that returns complete course data with plans
+        const response = await fetch('/api/course-details');
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Course details response:", data);
+          
+          if (data.success && Array.isArray(data.data)) {
+            // Process courses to extract degree IDs for filtering
+            const processedCourses: CourseSubject[] = data.data.map((course: RawCourseData) => {
+              // Extract all degree IDs from plans
+              const degreeIds: number[] = course.plans?.map((plan: Plan) => plan.degree.id) || [];
+              
+              return {
+              id: course.id,
+              name: course.name,
+              plans: course.plans,
+              degreeIds: degreeIds
+              };
+            });
+            
+            console.log("Processed courses with degree IDs:", processedCourses);
+            setSubjects(processedCourses);
+            setFilteredSubjects(processedCourses);
+          } else {
+            // Fallback to basic subjects
+            fetchBasicSubjects();
+          }
+        } else {
+          console.warn("Failed to fetch course details");
+          // Fallback to basic subjects
+          fetchBasicSubjects();
+        }
+      } catch (error) {
+        console.error("Error fetching course details:", error);
+        // Fallback to basic subjects
+        fetchBasicSubjects();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    // Fallback function for fetching basic subject data
+    const fetchBasicSubjects = async () => {
+      try {
+        const response = await fetch('/api/subjects');
+        
+        if (response.ok) {
+          const subjectsData = await response.json();
+          
+          if (Array.isArray(subjectsData)) {
+            // Map to our required structure
+            const mappedSubjects = subjectsData.map(subject => ({
+              id: subject.id,
+              name: subject.name
+            }));
+            
+            setSubjects(mappedSubjects);
+            setFilteredSubjects(mappedSubjects);
+          } else {
+            setSubjects([]);
+            setFilteredSubjects([]);
+            toast.error("Invalid subjects data format");
+          }
+        } else {
+          setSubjects([]);
+          setFilteredSubjects([]);
+          toast.error("Failed to fetch subjects");
+        }
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+        setSubjects([]);
+        setFilteredSubjects([]);
         toast.error("Error loading subjects");
       }
     };
+    
+    fetchCourseDetails();
+  }, []);
 
-    fetchData();
-  }, [professor, subjects.length]);
-  
-  // Extract unique degrees from the subjects data
-  const extractUniqueDegrees = (subjects: Subject[]): Degree[] => {
-    const degreeMap = new Map<number, Degree>();
+  // Set selected subjects when professor data changes
+  useEffect(() => {
+    if (!professor?.classes || subjects.length === 0) return;
     
-    subjects.forEach(subject => {
-      subject.plans?.forEach(plan => {
-        if (plan.degree && !degreeMap.has(plan.degree.id)) {
-          degreeMap.set(plan.degree.id, plan.degree);
-        }
-      });
-    });
+    try {
+      // Handle both formats - IDs or names
+      if (/^\d+(,\d+)*$/.test(professor.classes)) {
+        // If it's a list of numbers (old format)
+        const classIds = professor.classes.split(',')
+          .map(id => parseInt(id.trim()))
+          .filter(id => !isNaN(id));
+        setSelectedSubjects(new Set(classIds));
+      } else {
+        // If it's a list of names (new format)
+        // Find the IDs that match the names
+        const classNames = professor.classes.split(',').map(name => name.trim());
+        const matchingIds = subjects
+          .filter(subject => classNames.includes(subject.name))
+          .map(subject => subject.id);
+        setSelectedSubjects(new Set(matchingIds));
+      }
+    } catch (error) {
+      console.error("Error processing professor's classes:", error);
+    }
+  }, [professor?.classes, subjects]);
+
+  // Filter subjects by degree ID and search query
+  useEffect(() => {
+    let filtered = [...subjects];
     
-    return Array.from(degreeMap.values());
+    // Apply degree filter
+    if (selectedDegreeId !== "all") {
+      const degreeId = parseInt(selectedDegreeId);
+      console.log(`Filtering by degree ID: ${degreeId}`);
+      
+      // Filter subjects that have the selected degree ID in their degreeIds array
+      filtered = filtered.filter(subject => 
+        subject.degreeIds?.includes(degreeId)
+      );
+      
+      console.log(`Found ${filtered.length} subjects for degree ID ${degreeId}`);
+    }
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(subject => 
+        subject.name.toLowerCase().includes(query)
+      );
+    }
+    
+    setFilteredSubjects(filtered);
+  }, [subjects, selectedDegreeId, searchQuery]);
+
+  // Toggle a subject selection
+  const toggleSubject = (subjectId: number) => {
+    const newSelected = new Set(selectedSubjects);
+    if (newSelected.has(subjectId)) {
+      newSelected.delete(subjectId);
+    } else {
+      newSelected.add(subjectId);
+    }
+    setSelectedSubjects(newSelected);
   };
 
+  // Save the selected subjects
   const handleSave = async () => {
     if (!professor) return;
     
@@ -137,9 +263,6 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
       }
 
       toast.success('Materias actualizadas correctamente');
-      
-      // Pass the updated classes string back to the parent component
-      // This ensures the UI is updated immediately without waiting for an API fetch
       onSave(classesString);
     } catch (error) {
       console.error("Error saving professor classes:", error);
@@ -149,63 +272,29 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
     }
   };
 
-  const toggleSubject = (subjectId: number) => {
-    const newSelected = new Set(selectedSubjects);
-    if (newSelected.has(subjectId)) {
-      newSelected.delete(subjectId);
-    } else {
-      newSelected.add(subjectId);
-    }
-    setSelectedSubjects(newSelected);
-  };
-
-  // Update filtered subjects based on both degree and search query
-  useEffect(() => {
-    let filtered = [...subjects];
-    
-    // Apply degree filter
-    if (selectedDegree !== "all") {
-      filtered = filtered.filter(subject => 
-        subject.plans?.some(plan => 
-          plan.degree && plan.degree.name === selectedDegree
-        )
-      );
-    }
-    
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(subject => 
-        subject.name.toLowerCase().includes(query)
-      );
-    }
-    
-    setFilteredSubjects(filtered);
-  }, [subjects, selectedDegree, searchQuery]);
-
-  const handleDegreeChange = (value: string) => {
-    setSelectedDegree(value);
-  };
-  
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">Asigne las materias para {professor?.name}</CardTitle>
-      </CardHeader>      <CardContent>        <div className="space-y-4">
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-2 block">Filtrar por Carrera:</label>
-            <Select onValueChange={handleDegreeChange} value={selectedDegree}>
+            <Select 
+              value={selectedDegreeId}
+              onValueChange={(value) => {
+                console.log("Selected degree ID changed to:", value);
+                setSelectedDegreeId(value);
+              }}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Todas las carreras" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las carreras</SelectItem>
                 {degrees.map((degree) => (
-                  <SelectItem key={degree.id} value={degree.name}>{degree.name}</SelectItem>
+                  <SelectItem key={degree.id} value={degree.id.toString()}>{degree.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -216,35 +305,51 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
             <input
               type="text"
               value={searchQuery}
-              onChange={handleSearchChange}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar materia..."
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
             />
           </div>
-        </div>        {subjects.length === 0 ? (
-          <div className="text-center py-4">
+        </div>
+        
+        {isLoading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mb-2"></div>
             <p className="text-gray-500">Cargando materias disponibles...</p>
           </div>
+        ) : subjects.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-gray-500">No hay materias disponibles</p>
+          </div>
         ) : filteredSubjects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {filteredSubjects.map((subject) => (
-              <div 
-                key={subject.id} 
-                className={`p-2 border rounded-md cursor-pointer ${
-                  selectedSubjects.has(subject.id) ? 'bg-red-100 border-red-500' : 'hover:bg-gray-50'
-                }`}
-                onClick={() => toggleSubject(subject.id)}
-              >
-                <div className="flex items-center">
-                  <div className={`w-5 h-5 mr-2 flex items-center justify-center border rounded ${
-                    selectedSubjects.has(subject.id) ? 'bg-red-500 border-red-500' : 'border-gray-400'
-                  }`}>
-                    {selectedSubjects.has(subject.id) && <Check className="w-4 h-4 text-white" />}
+          <div className="max-h-[400px] overflow-y-auto mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {filteredSubjects.map((subject) => (
+                <div 
+                  key={subject.id} 
+                  className={`p-2 border rounded-md cursor-pointer ${
+                    selectedSubjects.has(subject.id) ? 'bg-red-100 border-red-500' : 'hover:bg-gray-50'
+                  }`}
+                  onClick={() => toggleSubject(subject.id)}
+                >
+                  <div className="flex items-center">
+                    <div className={`w-5 h-5 mr-2 flex items-center justify-center border rounded ${
+                      selectedSubjects.has(subject.id) ? 'bg-red-500 border-red-500' : 'border-gray-400'
+                    }`}>
+                      {selectedSubjects.has(subject.id) && <Check className="w-4 h-4 text-white" />}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm">{subject.name}</span>
+                      {subject.plans && subject.plans.length > 0 && (
+                        <span className="text-xs text-gray-500">
+                          {subject.plans[0].degree.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-sm">{subject.name}</span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ) : (
           <div className="text-center py-4">
