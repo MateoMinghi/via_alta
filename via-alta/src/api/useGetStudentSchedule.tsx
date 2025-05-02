@@ -97,6 +97,7 @@ export function useGetStudentSchedule(studentId: string | undefined, semester: n
         body: JSON.stringify({
           studentId,
           schedule: validScheduleItems,
+          confirm: true, // Explicitly set confirm to true when confirming schedule
           testMode: false,
         }),
       });

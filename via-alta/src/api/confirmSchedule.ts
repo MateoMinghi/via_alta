@@ -4,8 +4,8 @@
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 
-// Importa el modelo de estudiante
-const Student = require('@/models/student');
+// Importa el modelo de estudiante con la ruta correcta
+import Student from '@/lib/models/student';
 
 /**
  * Maneja las solicitudes POST para confirmar el horario de un estudiante.
@@ -17,8 +17,11 @@ export async function POST(request: NextRequest) {
     // Extrae el ID del estudiante del cuerpo de la solicitud
     const { studentId } = await request.json();
     
+    console.log(`[CONFIRM API] Processing confirmation request for student: ${studentId}`);
+    
     // Verifica que el ID del estudiante esté presente
     if (!studentId) {
+      console.log('[CONFIRM API] Missing student ID in request');
       return NextResponse.json({ 
         success: false, 
         message: 'ID de estudiante requerido' 
@@ -26,15 +29,19 @@ export async function POST(request: NextRequest) {
     }
     
     // Llama al método del modelo para confirmar el horario del estudiante
+    console.log(`[CONFIRM API] Calling confirmSchedule for student: ${studentId}`);
     const updatedStudent = await Student.confirmSchedule(studentId);
     
     // Si no se encuentra el estudiante, responde con un error 404
     if (!updatedStudent) {
+      console.log(`[CONFIRM API] Student not found: ${studentId}`);
       return NextResponse.json({ 
         success: false, 
         message: 'Estudiante no encontrado' 
       }, { status: 404 }); // 404 Not Found
     }
+    
+    console.log(`[CONFIRM API] Confirmation successful for student: ${studentId}`);
     
     // Responde con éxito y los datos actualizados del estudiante
     return NextResponse.json({ 
@@ -44,7 +51,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     // Maneja cualquier error inesperado durante el proceso
-    console.error('Error al confirmar horario:', error);
+    console.error('[CONFIRM API] Error confirming schedule:', error);
 
     return NextResponse.json({ 
       success: false, 
