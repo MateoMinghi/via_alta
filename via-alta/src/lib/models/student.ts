@@ -327,7 +327,7 @@ class Student {
       const query = 'DELETE FROM solicitud WHERE idalumno = $1 RETURNING *';
       const result = await pool.query(query, [studentId]);
       console.log(`[FORCE DELETE] Successfully deleted ${result.rowCount} requests for student: ${studentId}`);
-      return result.rowCount;
+      return result.rowCount || 0;
     } catch (error) {
       console.error(`[FORCE DELETE] Error deleting requests for student ${studentId}:`, error);
       throw error;
