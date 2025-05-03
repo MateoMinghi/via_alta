@@ -9,6 +9,11 @@ interface Professor {
     id: number;
     name: string;
     department: string;
+    ivd_id?: string;
+    first_name?: string;
+    last_name?: string;
+    first_surname?: string;
+    second_surname?: string;
 }
 interface ProfessorsSearchProps {
   professors: Professor[]
@@ -26,9 +31,16 @@ export default function ProfessorSearch({ professors, onProfessorSelect }: Profe
     }
 
     const query = searchQuery.toLowerCase();
-    const results = professors.filter((professor) => professor.id.toString().includes(query)
-            || professor.name.toLowerCase().includes(query)
-            || professor.department.toLowerCase().includes(query));
+    const results = professors.filter((professor) => 
+      professor.id.toString().includes(query) ||
+      (professor.ivd_id && String(professor.ivd_id).toLowerCase().includes(query)) ||
+      professor.name.toLowerCase().includes(query) ||
+      professor.department.toLowerCase().includes(query) ||
+      (professor.first_name && professor.first_name.toLowerCase().includes(query)) ||
+      (professor.last_name && professor.last_name.toLowerCase().includes(query)) ||
+      (professor.first_surname && professor.first_surname.toLowerCase().includes(query)) ||
+      (professor.second_surname && professor.second_surname.toLowerCase().includes(query))
+    );
 
     setSearchResults(results);
   }, [searchQuery, professors]);
@@ -40,12 +52,27 @@ export default function ProfessorSearch({ professors, onProfessorSelect }: Profe
     setSearchQuery('');
   };
 
+  // Function to get full name display
+  const getFullName = (professor: Professor) => {
+    if (professor.first_name || professor.first_surname || professor.second_surname) {
+      const parts = [
+        professor.first_name || '',
+        professor.last_name || '',
+        professor.first_surname || '',
+        professor.second_surname || ''
+      ].filter(Boolean);
+      
+      return parts.length > 0 ? parts.join(' ') : professor.name;
+    }
+    return professor.name;
+  };
+
   return (
     <div className="mx-auto py-8 mb-8 w-full">
       <div className="mx-auto relative">
         <div className="flex gap-2">
           <Input
-            placeholder="Buscar por Id, nombre o departamento..."
+            placeholder="Buscar por Id, IVD ID, nombre o departamento..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1"
@@ -77,15 +104,11 @@ export default function ProfessorSearch({ professors, onProfessorSelect }: Profe
                   >
                     <div className="flex flex-row justify-between w-full">
                       <div>
-                        <p className="font-medium">{professor.name}</p>
+                        <p className="font-medium">{getFullName(professor)}</p>
                         <p className="text-xs text-muted-foreground">
-                          ID:
-                          {' '}
-                          {professor.id}
-                          {' '}
-                          •
-                          {' '}
-                          {professor.department}
+                          ID: {professor.id}
+                          {professor.ivd_id && ` • IVD ID: ${professor.ivd_id}`}
+                          {' • '}{professor.department}
                         </p>
                       </div>
                     </div>

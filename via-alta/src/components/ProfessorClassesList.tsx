@@ -3,15 +3,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ProfessorClassesListProps {
   classes: string;
+  professor?: {
+    name: string;
+    id: number;
+    ivd_id?: string;
+    department?: string;
+  };
 }
 
-export default function ProfessorClassesList({ classes }: ProfessorClassesListProps) {
+export default function ProfessorClassesList({ classes, professor }: ProfessorClassesListProps) {
   const classesList = classes ? classes.split(',').map(className => className.trim()) : [];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Materias Asignadas</CardTitle>
+        <div>
+          <CardTitle>Materias Asignadas</CardTitle>
+          {professor && (
+            <div className="text-sm text-gray-500 mt-1">
+              {professor.name} • ID: {professor.id} {professor.ivd_id && `• IVD ID: ${professor.ivd_id}`}
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {classesList.length > 0 ? (

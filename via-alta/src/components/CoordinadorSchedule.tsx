@@ -72,6 +72,7 @@ function timeToMinutes(time: string | undefined | null): number {
 }
 
 // Main component
+
 export default function CoordinadorSchedule({ 
   subjects, 
   onEdit, 
@@ -84,6 +85,18 @@ export default function CoordinadorSchedule({
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GeneralScheduleItem | null>(null);
+  // Carrera (major) filter
+  const [selectedMajor, setSelectedMajor] = useState<string>('All');
+  // Get unique majors from subjects
+  const majors = useMemo(() => {
+    const set = new Set(subjects.map(i => i.NombreCarrera).filter(Boolean));
+    return Array.from(set);
+  }, [subjects]);
+  // Filtered subjects by major
+  const filteredSubjects = useMemo(() => {
+    if (selectedMajor === 'All') return subjects;
+    return subjects.filter(i => i.NombreCarrera === selectedMajor);
+  }, [subjects, selectedMajor]);
 
   // Matrix for schedule
   const scheduleMatrix = useMemo(() => {
@@ -94,7 +107,7 @@ export default function CoordinadorSchedule({
         matrix[time][day] = [];
       });
     });
-    subjects.forEach(item => {
+    filteredSubjects.forEach(item => {
       const normalizedDay = normalizeDay(item.Dia);
       const startTime = timeToMinutes(item.HoraInicio);
       const endTime = timeToMinutes(item.HoraFin);
@@ -108,7 +121,7 @@ export default function CoordinadorSchedule({
       });
     });
     return matrix;
-  }, [subjects]);
+  }, [filteredSubjects]);
 
   // Handler for clicking a subject - now only handles dialog
   const handleSubjectClick = (e: React.MouseEvent, item: GeneralScheduleItem) => {
@@ -164,6 +177,20 @@ export default function CoordinadorSchedule({
 
   return (
     <div className="w-full flex flex-col gap-4">
+      {/* Major filter */}
+      <div className="flex gap-4 items-center mb-2">
+        <label className="mr-2">Carrera:</label>
+        <select
+          value={selectedMajor}
+          onChange={e => setSelectedMajor(e.target.value)}
+          className="border p-1 rounded"
+        >
+          <option value="All">All</option>
+          {majors.map(m => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+      </div>
       <div className="overflow-x-auto">
         <div className="min-w-[800px]">
           <div className="grid grid-cols-[100px_repeat(5,1fr)] grid-rows-[auto_repeat(19,2.5rem)]">

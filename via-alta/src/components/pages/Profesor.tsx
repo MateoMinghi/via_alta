@@ -2,20 +2,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Save, X, RefreshCw, BookOpen } from 'lucide-react';
+import { Save, X, RefreshCw, BookOpen, ListFilter } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import ProfessorGrid from '../ProfessorGrid';
 import ProfessorSearch from '../ProfessorSearch';
 import ProfessorClasses from '../ProfessorClasses';
 import ProfessorClassesList from '../ProfessorClassesList';
+import ProfessorList from '../ProfessorList';
 import { getProfessors, getProfessorsFromDatabase } from '@/api/getProfessors';
 import { saveAvailabilityToDatabase, getAvailabilityFromDatabase } from '@/lib/utils/availability-utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export type Professor = {
     id: number;
     name: string;
     department: string;
     classes?: string;
+    ivd_id?: string;
+    first_name?: string;
+    last_name?: string;
+    first_surname?: string;
+    second_surname?: string;
 };
 
 export default function Profesor() {
@@ -26,6 +33,7 @@ export default function Profesor() {
     const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [showClassesEditor, setShowClassesEditor] = useState(false);
+    const [viewMode, setViewMode] = useState<'list' | 'search'>('list');
 
     const fetchData = async () => {
         setLoading(true);
@@ -56,7 +64,9 @@ export default function Profesor() {
 
     useEffect(() => {
         fetchData();
-    }, []);    const handleProfessorSelect = async (professor: Professor) => {
+    }, []);
+
+    const handleProfessorSelect = async (professor: Professor) => {
         console.log("Selected professor details:", professor);
         try {
             // First, fetch availability before updating any state
@@ -75,7 +85,7 @@ export default function Profesor() {
                 // Update the selected professor with the most recent data from the database
                 const updatedProfessor = {
                     ...professor,
-                    classes: data.data.clases || ''
+                    classes: data.data.clases || data.data.Clases || ''
                 };
                 
                 // Update the selected professor state
@@ -98,10 +108,34 @@ export default function Profesor() {
         }
     };
 
+    const handleEditClasses = (professor: Professor) => {
+        handleProfessorSelect(professor).then(() => {
+            setShowClassesEditor(true);
+        });
+    };
+
     const removeSelectedProfessor = () => {
         setSelectedProfessor(null);
         setSelectedSlots({});
         setShowClassesEditor(false);
+    };
+
+    // Helper function to format professor name properly
+    const formatProfessorName = (professor: Professor): string => {
+        if (professor.first_surname || professor.second_surname) {
+            // If we have surname data, prioritize using name + surnames format
+            const nameParts = [];
+            if (professor.first_name) nameParts.push(professor.first_name);
+            if (professor.first_surname) nameParts.push(professor.first_surname);
+            if (professor.second_surname) nameParts.push(professor.second_surname);
+            return nameParts.length > 0 ? nameParts.join(' ') : professor.name;
+        } 
+        else if (professor.first_name || professor.last_name) {
+            // Fall back to first_name and last_name fields
+            return `${professor.first_name || ''} ${professor.last_name || ''}`.trim();
+        }
+        // Fallback to just the name field
+        return professor.name || 'Profesor';
     };
 
     const handleSaveAvailability = async () => {
@@ -122,7 +156,9 @@ export default function Profesor() {
         } finally {
             setIsSaving(false);
         }
-    };    const handleClassesEditComplete = async (updatedClasses?: string) => {
+    };
+
+    const handleClassesEditComplete = async (updatedClasses?: string) => {
         setShowClassesEditor(false);
         
         if (selectedProfessor) {
@@ -162,12 +198,13 @@ export default function Profesor() {
                 console.log("Fetched professor data:", data);
                 
                 if (data.success && data.data) {
-                    console.log("Professor data from API:", data.data);                    console.log("Classes from API:", data.data.clases);
+                    console.log("Professor data from API:", data.data);
+                    console.log("Classes from API:", data.data.clases);
                     
                     // Update the selected professor with the fresh data
                     const updatedProfessor = {
                         ...selectedProfessor,
-                        classes: data.data.clases || ''
+                        classes: data.data.clases || data.data.Clases || ''
                     };
                     
                     console.log("Updated professor object:", updatedProfessor);
@@ -191,7 +228,9 @@ export default function Profesor() {
                 console.error("Error fetching updated professor data:", err);
             }
         }
-    };return (
+    };
+
+    return (
         <div className="container mx-auto py-6 px-4 md:px-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                 <p className="text-3xl font-bold">Registro de Profesores</p>
@@ -224,7 +263,47 @@ export default function Profesor() {
             {!loading && professors !== null && !error && (
                 <>
                     {professors.length > 0 ? (
-                        <ProfessorSearch professors={professors} onProfessorSelect={handleProfessorSelect} />
+                        <div className="mb-6">
+                            {!selectedProfessor && (
+                                <Tabs defaultValue="list" className="w-full mb-6">
+                                    <TabsList className="mb-4">
+                                        <TabsTrigger value="list" className="flex items-center gap-1" onClick={() => setViewMode('list')}>
+                                            <ListFilter className="h-4 w-4" />
+                                            <span>Lista de Profesores</span>
+                                        </TabsTrigger>
+                                        <TabsTrigger value="search" className="flex items-center gap-1" onClick={() => setViewMode('search')}>
+                                            <BookOpen className="h-4 w-4" />
+                                            <span>Búsqueda</span>
+                                        </TabsTrigger>
+                                    </TabsList>
+                                    
+                                    <TabsContent value="list" className="mt-0">
+                                        <ProfessorList 
+                                            professors={professors}
+                                            onSelectProfessor={handleProfessorSelect}
+                                            onEditClasses={handleEditClasses}
+                                        />
+                                    </TabsContent>
+                                    
+                                    <TabsContent value="search" className="mt-0">
+                                        <ProfessorSearch 
+                                            professors={professors} 
+                                            onProfessorSelect={handleProfessorSelect} 
+                                        />
+                                    </TabsContent>
+                                </Tabs>
+                            )}
+                            
+                            {selectedProfessor && (
+                                <Button 
+                                    variant="outline" 
+                                    className="mb-4"
+                                    onClick={removeSelectedProfessor}
+                                >
+                                    ← Volver a la lista de profesores
+                                </Button>
+                            )}
+                        </div>
                     ) : (
                         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4 mb-6">
                             <p className="font-medium mb-2">No se encontraron profesores</p>
@@ -250,9 +329,9 @@ export default function Profesor() {
                                 <Card className="p-3">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="font-medium text-lg">{selectedProfessor.name}</p>
+                                            <p className="font-medium text-lg">{formatProfessorName(selectedProfessor)}</p>
                                             <p className="text-sm text-muted-foreground">
-                                                ID: {selectedProfessor.id} • Departamento: {selectedProfessor.department}
+                                                ID: {selectedProfessor.id} {selectedProfessor.ivd_id && `• IVD ID: ${selectedProfessor.ivd_id}`} • Departamento: {selectedProfessor.department}
                                             </p>
                                         </div>
                                         <Button
@@ -269,7 +348,10 @@ export default function Profesor() {
                                 {/* Display classes list */}
                                 {selectedProfessor.classes && (
                                     <div className="mt-4">
-                                        <ProfessorClassesList classes={selectedProfessor.classes} />
+                                        <ProfessorClassesList 
+                                            classes={selectedProfessor.classes}
+                                            professor={selectedProfessor}
+                                        />
                                     </div>
                                 )}
 
