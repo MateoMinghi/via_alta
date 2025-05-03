@@ -6,7 +6,7 @@ import SemesterGrid from '@/components/SemesterGrid';
 import { useGetStudents } from '@/api/useGetStudents';
 import { ResponseType } from "@/types/response";
 import { Button } from '@/components/ui/button';
-import { Calendar, ChevronRight, Loader2 } from 'lucide-react';
+import { Calendar, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import EstudianteHeader from '@/components/EstudianteHeader';
