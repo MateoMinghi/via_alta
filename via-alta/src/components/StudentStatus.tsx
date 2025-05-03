@@ -48,26 +48,33 @@ interface StudentStatusProps {
   students: Student[];
 }
 
-function StudentStatusDot({ studentId }: { studentId: string }) {
+function StudentStatusDot({ studentId, hidden }: { studentId: string; hidden?: boolean }) {
   const { status, loading } = useStudentDbStatus(studentId);
-  
   
   if (loading) {
     return <div className="w-4 h-4 rounded-full bg-gray-300 animate-pulse"></div>;
   }
   
-  let dotColor = 'bg-red-500'; // Color por defecto
-  
+  let dotColor = 'bg-red-500'; // Default color
   
   if (status === 'requiere-cambios') {
-    dotColor = 'bg-amber-400'; //Ambar
+    dotColor = 'bg-amber-400'; // Amber
   } else if (status === 'inscrito') {
-    dotColor = 'bg-emerald-500'; //Verde
+    dotColor = 'bg-emerald-500'; // Green
   } else {
-    dotColor = 'bg-red-500'; // Rojo (no inscrito)
+    dotColor = 'bg-red-500'; // Red (not enrolled)
   }
 
-  return <div className={`w-4 h-4 rounded-full ${dotColor}`}></div>;
+  return (
+    <div className="flex items-center gap-1">
+      <div className={`w-4 h-4 rounded-full ${dotColor}`}></div>
+      {!hidden && (
+        <span className="text-xs text-gray-500">
+          {status === 'active' ? 'no-inscrito' : status}
+        </span>
+      )}
+    </div>
+  );
 }
 
 export default function StudentStatus({ students }: StudentStatusProps) {
@@ -78,11 +85,11 @@ export default function StudentStatus({ students }: StudentStatusProps) {
   const [isCommentOpen, setIsCommentOpen] = useState(false);
   const [expandedSemesters, setExpandedSemesters] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState('table');
-  const [isModifyingStatus, setIsModifyingStatus] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [processingStatus, setProcessingStatus] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<{ success: number; failed: number } | null>(null);
 
+ 
   const groupedStudents = filteredStudents.reduce(
     (acc, student) => {
       const key = student.isIrregular ? 'irregular' : student.semestre;
@@ -170,12 +177,6 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     }));
   };
 
-  const showStudentComment = (comment: string) => {
-    if (!comment) return;
-    setSelectedComment(comment);
-    setIsCommentOpen(true);
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'inscrito':
@@ -186,19 +187,6 @@ export default function StudentStatus({ students }: StudentStatusProps) {
         return 'bg-red-500';
       default:
         return 'bg-red-500';
-    }
-  };
-
-  const getTextStatusColor = (status: string) => {
-    switch (status) {
-      case 'inscrito':
-        return 'bg-emerald-500 text-white';
-      case 'requiere-cambios':
-        return 'bg-amber-400 text-white';
-      case 'no-inscrito':
-        return 'bg-red-500 text-white';
-      default:
-        return 'bg-red-500 text-white';
     }
   };
 
@@ -258,7 +246,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
 
           <Button
             variant="secondary"
-            className="bg-red-700 text-white"
+            className="bg-via text-white rounded-md px-6 py-3 text-lg"
             onClick={() => modifyStatus('true')}
             disabled={processingStatus}
           >
@@ -333,7 +321,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                             </TableCell>
                             <TableCell>
                               <div className="flex justify-center">
-                                <StudentStatusDot studentId={student.ivd_id} />
+                                <StudentStatusDot studentId={student.ivd_id} hidden={true} />
                               </div>
                             </TableCell>
                             <TableCell>
@@ -389,10 +377,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                   {student.name} {student.first_surname} {student.second_surname}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <StudentStatusDot studentId={student.ivd_id} />
-                                  <span className="text-xs">
-                                    {student.status === 'active' ? 'Verificando...' : student.status.replace('-', ' ') || 'Verificando...'}
-                                  </span>
+                                  <StudentStatusDot studentId={student.ivd_id} hidden={false}/>
                                 </div>
                               </div>
                               <div className="flex justify-between items-center text-sm text-gray-500">

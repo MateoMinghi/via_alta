@@ -9,6 +9,7 @@ import ProfessorSearch from '../ProfessorSearch';
 import ProfessorClasses from '../ProfessorClasses';
 import ProfessorClassesList from '../ProfessorClassesList';
 import ProfessorList from '../ProfessorList';
+import ProfessorListWithSearch from '../ProfessorListWithSearch';
 import { getProfessors, getProfessorsFromDatabase } from '@/api/getProfessors';
 import { saveAvailabilityToDatabase, getAvailabilityFromDatabase } from '@/lib/utils/availability-utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -230,11 +231,14 @@ export default function Profesor() {
         }
     };
 
-    return (
-        <div className="container mx-auto py-6 px-4 md:px-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                <p className="text-3xl font-bold">Registro de Profesores</p>
-            </div>
+    return ( 
+        <div className="text-start max-w-7xl mx-auto py-8 flex flex-col gap-8">
+             <div>
+        <h2 className="font-bold text-3xl mb-4">Registro de Profesores</h2>
+        <div className="p-4 bg-white rounded-lg text-gray-600">
+          <p>En esta sección, el coordinador puede gestionar los profesores activos, asignar materias, registrar su disponibilidad horaria, buscar profesores, entre otras funciones. Si tienes alguna duda, contacta al soporte técnico.</p>
+        </div>
+      </div>
 
             {loading && (
                 <div className="py-8 flex justify-center items-center">
@@ -265,33 +269,13 @@ export default function Profesor() {
                     {professors.length > 0 ? (
                         <div className="mb-6">
                             {!selectedProfessor && (
-                                <Tabs defaultValue="list" className="w-full mb-6">
-                                    <TabsList className="mb-4">
-                                        <TabsTrigger value="list" className="flex items-center gap-1" onClick={() => setViewMode('list')}>
-                                            <ListFilter className="h-4 w-4" />
-                                            <span>Lista de Profesores</span>
-                                        </TabsTrigger>
-                                        <TabsTrigger value="search" className="flex items-center gap-1" onClick={() => setViewMode('search')}>
-                                            <BookOpen className="h-4 w-4" />
-                                            <span>Búsqueda</span>
-                                        </TabsTrigger>
-                                    </TabsList>
-                                    
-                                    <TabsContent value="list" className="mt-0">
-                                        <ProfessorList 
-                                            professors={professors}
-                                            onSelectProfessor={handleProfessorSelect}
-                                            onEditClasses={handleEditClasses}
-                                        />
-                                    </TabsContent>
-                                    
-                                    <TabsContent value="search" className="mt-0">
-                                        <ProfessorSearch 
-                                            professors={professors} 
-                                            onProfessorSelect={handleProfessorSelect} 
-                                        />
-                                    </TabsContent>
-                                </Tabs>
+                                <div className="mb-4">
+                                    <ProfessorListWithSearch 
+                                        professors={professors}
+                                        onSelectProfessor={handleProfessorSelect}
+                                        onEditClasses={handleEditClasses}
+                                    />
+                                </div>
                             )}
                             
                             {selectedProfessor && (

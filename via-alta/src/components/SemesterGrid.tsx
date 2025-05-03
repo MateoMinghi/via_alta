@@ -26,17 +26,12 @@ export default function SemesterGrid({ semesters }: SemesterGridProps) {
   const router = useRouter();
 
   return (
-    <>
-      <Link href="/dashboard/horarios/horario-general">
-        <Button variant="botonGrande" className="bg-red-700 text-white hover:bg-red-800">
-          Ver Horario General
-        </Button>
-      </Link>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-center mb-8">
       {semesters.map((semester) => (
-        <Card key={semester.id} className="flex flex-col items-center my-8">
-          <CardHeader className="flex flex-row justify-between w-full">
+        <Card key={semester.id} className="flex flex-col items-center mb-8 border-2">
+          <CardHeader className="flex flex-row justify-between w-full gap-8">
             <CardTitle className="font-light">
-              Horario del Semestre
+              Semestre
               {' '}
               <span className="font-bold">
                
@@ -59,6 +54,6 @@ export default function SemesterGrid({ semesters }: SemesterGridProps) {
           </CardFooter>
         </Card>
       ))}
-    </>
+    </div>
   );
 }
