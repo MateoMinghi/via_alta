@@ -63,12 +63,7 @@ export default function ProfessorListWithSearch({
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <CardTitle>Profesores</CardTitle>
-      </CardHeader>
-      
-      <CardContent>
+<div>
         {/* Search bar */}
         <div className="flex gap-2 mb-4">
           <div className="relative flex-1">
@@ -77,19 +72,9 @@ export default function ProfessorListWithSearch({
               placeholder="Buscar por Id, IVD ID, nombre o departamento..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8"
+              className="pl-10 bg-gray-50 border-gray-200"
             />
           </div>
-          {searchQuery && (
-            <Button
-              variant="outline"
-              onClick={() => setSearchQuery('')}
-              className="flex items-center gap-1"
-            >
-              <X className="h-4 w-4" />
-              Limpiar
-            </Button>
-          )}
         </div>
 
         {/* Professors table */}
@@ -116,25 +101,15 @@ export default function ProfessorListWithSearch({
                         ? professor.classes.split(',').length 
                         : 0} materias asignadas
                     </TableCell>
-                    <TableCell className="flex gap-2">
+                    <TableCell>
                       {/* Availability button */}
                       <button 
                         onClick={() => onSelectProfessor(professor)}
-                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center gap-1 text-xs font-medium"
+                        className="px-3 py-1 bg-via hover:bg-via/90 text-white rounded-md flex items-center gap-1 text-xs font-medium"
                         style={{ minHeight: '28px' }}
                       >
                         <Edit className="h-3 w-3" />
                         <span>Disponibilidad</span>
-                      </button>
-                      
-                      {/* Classes button */}
-                      <button 
-                        onClick={() => onEditClasses(professor)}
-                        className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-md flex items-center gap-1 text-xs font-medium"
-                        style={{ minHeight: '28px' }}
-                      >
-                        <BookOpen className="h-3 w-3" />
-                        <span>Materias</span>
                       </button>
                     </TableCell>
                   </TableRow>
@@ -151,7 +126,6 @@ export default function ProfessorListWithSearch({
             </p>
           </div>
         )}
-      </CardContent>
-    </Card>
+</div>
   );
 }

@@ -5,8 +5,8 @@ import { useParams } from 'next/navigation';
 
 import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 import { toast } from 'sonner';
-import HorarioSemestre from '../HorarioSemestre';
-import HorarioAlumno from '../HorarioAlumno';
+import HorarioSemestre from '@/components/HorarioSemestre';
+import HorarioAlumno from '@/components/HorarioAlumno';
 import { useGetStudentSchedule, ScheduleItem } from '@/api/useGetStudentSchedule';
 
 interface HorariosSlugProps {

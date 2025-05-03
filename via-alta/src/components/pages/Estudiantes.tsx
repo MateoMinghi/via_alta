@@ -1,9 +1,9 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import SolicitudesBanner from '../SolicitudesBanner';
+import SolicitudesBanner from '@/components/SolicitudesBanner';
 import { useGetStudents, Student } from '@/api/useGetStudents';
 import { ResponseType } from "@/types/response";
-import StudentStatus from '../StudentStatus';
+import StudentStatus from '@/components/StudentStatus';
 
 export default function Estudiantes() {
   const { result, loading, error }: ResponseType = useGetStudents();

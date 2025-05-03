@@ -2,17 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Save, X, RefreshCw, BookOpen, ListFilter } from 'lucide-react';
+import { Save, X, RefreshCw, BookOpen } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import ProfessorGrid from '../ProfessorGrid';
-import ProfessorSearch from '../ProfessorSearch';
-import ProfessorClasses from '../ProfessorClasses';
-import ProfessorClassesList from '../ProfessorClassesList';
-import ProfessorList from '../ProfessorList';
-import ProfessorListWithSearch from '../ProfessorListWithSearch';
+import ProfessorGrid from '@/components/ProfessorGrid';
+import ProfessorClasses from '@/components/ProfessorClasses';
+import ProfessorClassesList from '@/components/ProfessorClassesList';
+import ProfessorListWithSearch from '@/components/ProfessorListWithSearch';
 import { getProfessors, getProfessorsFromDatabase } from '@/api/getProfessors';
 import { saveAvailabilityToDatabase, getAvailabilityFromDatabase } from '@/lib/utils/availability-utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export type Professor = {
     id: number;
@@ -281,7 +278,7 @@ export default function Profesor() {
                             {selectedProfessor && (
                                 <Button 
                                     variant="outline" 
-                                    className="mb-4"
+                                    className="mb-4 text-gray-700 hover:text-gray-900"
                                     onClick={removeSelectedProfessor}
                                 >
                                     ← Volver a la lista de profesores
@@ -296,10 +293,10 @@ export default function Profesor() {
                     )}
 
                     {selectedProfessor !== null && (
-                        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="mt-6 grid grid-cols-1 lg:grid-cols-5 gap-6">
                             {/* Left Column - Professor Details and Classes */}
-                            <div className="flex flex-col space-y-6">
-                            <div>
+                            <div className="flex flex-col space-y-6 lg:col-span-2">
+                                <div>
                                     <div className="flex justify-between items-center mb-4">
                                         <h2 className="text-lg font-semibold">Gestión de Materias</h2>
                                         <Button
@@ -310,34 +307,34 @@ export default function Profesor() {
                                             {selectedProfessor.classes ? 'Editar Materias' : 'Asignar Materias'}
                                         </Button>
                                     </div>
-                                <Card className="p-3">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="font-medium text-lg">{formatProfessorName(selectedProfessor)}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                ID: {selectedProfessor.id} {selectedProfessor.ivd_id && `• IVD ID: ${selectedProfessor.ivd_id}`} • Departamento: {selectedProfessor.department}
-                                            </p>
+                                    <Card className="p-3">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-medium text-lg">{formatProfessorName(selectedProfessor)}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    ID: {selectedProfessor.id} {selectedProfessor.ivd_id && `• IVD ID: ${selectedProfessor.ivd_id}`} • Departamento: {selectedProfessor.department}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={removeSelectedProfessor}
+                                                className="h-8 w-8 text-red-500"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={removeSelectedProfessor}
-                                            className="h-8 w-8 text-red-500"
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </Card>
+                                    </Card>
 
-                                {/* Display classes list */}
-                                {selectedProfessor.classes && (
-                                    <div className="mt-4">
-                                        <ProfessorClassesList 
-                                            classes={selectedProfessor.classes}
-                                            professor={selectedProfessor}
-                                        />
-                                    </div>
-                                )}
+                                    {/* Display classes list */}
+                                    {selectedProfessor.classes && (
+                                        <div className="mt-4">
+                                            <ProfessorClassesList 
+                                                classes={selectedProfessor.classes}
+                                                professor={selectedProfessor}
+                                            />
+                                        </div>
+                                    )}
 
                                     {showClassesEditor && (
                                         <ProfessorClasses 
@@ -350,7 +347,7 @@ export default function Profesor() {
                             </div>
 
                             {/* Right Column - Availability Grid */}
-                            <div className="flex flex-col">
+                            <div className="flex flex-col lg:col-span-3">
                                 <h2 className="text-lg font-semibold mb-2">Disponibilidad Horaria</h2>
                                 <p className="text-sm text-gray-500 mb-4">
                                     {selectedProfessor.classes ? 

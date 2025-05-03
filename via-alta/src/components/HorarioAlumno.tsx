@@ -8,10 +8,8 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X, Lock, Plus, GripVertical, Search, Check, Star } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { X, Lock, Plus, GripVertical, Star } from 'lucide-react';
 
 // Definir los tipos de elementos para el drag-and-drop
 const ItemTypes = {

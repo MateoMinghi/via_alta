@@ -2,7 +2,7 @@
 
 // Importaciones
 import React, { useState } from 'react';
-import SemesterGrid from '../SemesterGrid';
+import SemesterGrid from '@/components/SemesterGrid';
 import { useGetStudents } from '@/api/useGetStudents';
 import { ResponseType } from "@/types/response";
 import { Button } from '@/components/ui/button';

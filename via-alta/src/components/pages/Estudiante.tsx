@@ -2,16 +2,16 @@
 
 // --- IMPORTACIONES ---
 import React, { useState, useEffect } from 'react';
-import { Button } from '../ui/button';
+import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner'; 
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import EstudianteSchedule from '../EstudianteSchedule';
+import EstudianteSchedule from '@/components/EstudianteSchedule';
 import { useGetStudentSchedule, ScheduleItem } from '@/api/useGetStudentSchedule';
 import { useScheduleChangeRequest } from '@/api/useScheduleChangeRequest';
-import EstudianteStatusBanner from '../EstudianteStatusBanner';
-import EstudianteHeader from '../EstudianteHeader';
+import EstudianteStatusBanner from '@/components/EstudianteStatusBanner';
+import EstudianteHeader from '@/components/EstudianteHeader';
 import { useGetStudentAcademicHistory } from '@/api/useGetStudentAcademicHistory';
 import Cookies from 'js-cookie';
 import { useStudentDbStatus } from '@/api/useStudentDbStatus';

@@ -6,8 +6,8 @@ import {
 } from '@/components/ui/select';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Button } from './ui/button';
-import LogoutButton from './LogoutButton';
+import { Button } from '@/components/ui/button';
+import LogoutButton from '@/components/LogoutButton';
 import { useAuth } from '@/context/AuthContext';
 import useGetSchoolCycles, { SchoolCycle } from '@/api/useGetSchoolCycles';
 import { toast } from 'sonner';

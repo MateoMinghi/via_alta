@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import RequestTable from '../RequestTable';
+import RequestTable from '@/components/RequestTable';
 import { useGetStudents } from '@/api/useGetStudents';
 import { ResponseType } from "@/types/response";
 

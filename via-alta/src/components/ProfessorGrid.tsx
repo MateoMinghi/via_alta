@@ -124,9 +124,9 @@ export default function AvailabilityGrid({ selectedSlots, setSelectedSlots }: Av
 
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[800px]">
+      <div>
         <div className="grid grid-cols-[100px_repeat(5,1fr)]">
-          <div className="h-10" />
+          <div className="h-10 pl-0 " />
           {days.map((day) => (
             <div key={day} className="h-10 flex items-center justify-center font-medium border-b">
               {day}
@@ -135,11 +135,11 @@ export default function AvailabilityGrid({ selectedSlots, setSelectedSlots }: Av
 
           {timeSlots.map((time) => (
             <React.Fragment key={time}>
-              <div className="h-8 flex items-center justify-end pr-2 text-sm text-muted-foreground">{time}</div>
-              {days.map((day) => (
-                <Cell key={`${day}-${time}`} day={day} time={time} />
-              ))}
-            </React.Fragment>
+            <div className="h-8 flex items-center justify-end pr-2 text-sm text-muted-foreground">{time}</div>
+            {days.map((day) => (
+              <Cell key={`${day}-${time}`} day={day} time={time} />
+            ))}
+          </React.Fragment>
           ))}
         </div>
       </div>

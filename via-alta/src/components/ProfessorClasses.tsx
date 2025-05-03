@@ -397,9 +397,9 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
         <Button 
           variant="outline" 
           onClick={onCancel}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 text-black"
         >
-          <X className="w-4 h-4" />
+          <X className="w-4 h-4 " />
           Cancelar
         </Button>
         <Button 
