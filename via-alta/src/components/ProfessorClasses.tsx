@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Professor } from '@/api/getProfessors';
-import { Check, X, Save } from 'lucide-react';
+import { Check, X, Save, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from './ui/input';
 
 interface ProfessorClassesProps {
   professor: Professor | null;
@@ -48,6 +49,8 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
   const [selectedDegreeId, setSelectedDegreeId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [degrees, setDegrees] = useState<Degree[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [initialSelectedSubjects, setInitialSelectedSubjects] = useState<Set<number>>(new Set());
 
   // Log professor data to debug
   useEffect(() => {
@@ -202,6 +205,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
           .map(id => parseInt(id.trim()))
           .filter(id => !isNaN(id));
         setSelectedSubjects(new Set(classIds));
+        setInitialSelectedSubjects(new Set(classIds));
       } else {
         // If it's a list of names (new format)
         // Find the IDs that match the names
@@ -210,6 +214,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
           .filter(subject => classNames.includes(subject.name))
           .map(subject => subject.id);
         setSelectedSubjects(new Set(matchingIds));
+        setInitialSelectedSubjects(new Set(matchingIds));
       }
     } catch (error) {
       console.error("Error processing professor's classes:", error);
@@ -241,8 +246,20 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
       );
     }
     
+    // Remove subjects that are already selected
+    filtered = filtered.filter(subject => !selectedSubjects.has(subject.id));
+    
     setFilteredSubjects(filtered);
-  }, [subjects, selectedDegreeId, searchQuery]);
+  }, [subjects, selectedDegreeId, searchQuery, selectedSubjects]);
+
+  // Helper function to check if two sets are equal
+  const areSetsEqual = (setA: Set<number>, setB: Set<number>) => {
+    if (setA.size !== setB.size) return false;
+    for (const item of setA) {
+      if (!setB.has(item)) return false;
+    }
+    return true;
+  };
 
   // Toggle a subject selection
   const toggleSubject = (subjectId: number) => {
@@ -253,6 +270,7 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
       newSelected.add(subjectId);
     }
     setSelectedSubjects(newSelected);
+    setHasChanges(!areSetsEqual(newSelected, initialSelectedSubjects));
   };
 
   // Save the selected subjects
@@ -289,6 +307,8 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
 
       toast.success('Materias actualizadas correctamente');
       onSave(classesString);
+      setInitialSelectedSubjects(new Set(selectedSubjects));
+      setHasChanges(false);
     } catch (error) {
       console.error("Error saving professor classes:", error);
       toast.error('Error al guardar las materias');
@@ -297,28 +317,68 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
     }
   };
 
+  // Handle cancel button click
+  const handleCancel = () => {
+    // Reset selected subjects to initial state
+    setSelectedSubjects(new Set(initialSelectedSubjects));
+    setHasChanges(false);
+    // Call the parent component's onCancel function
+    onCancel();
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
-        <div>
-          <CardTitle className="text-lg">Asigne las materias para {formatProfessorName()}</CardTitle>
-          <div className="text-sm text-gray-500 mt-1">
-            ID: {professor?.id} {professor?.ivd_id ? `• IVD ID: ${professor.ivd_id}` : ''} • Departamento: {professor?.department}
-          </div>
+      {hasChanges && (
+        <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p className="text-yellow-800 text-sm flex items-center">
+            <Save className="w-4 h-4 mr-2" />
+            Tienes cambios sin guardar. No olvides guardar antes de salir.
+          </p>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Filtrar por Carrera:</label>
-            <Select 
+      )}
+      {selectedSubjects.size > 0 && (
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold mb-2">Materias seleccionadas</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {Array.from(selectedSubjects).map(id => {
+                const subject = subjects.find(s => s.id === id);
+                return subject ? (
+                  <div 
+                    key={`selected-${id}`}
+                    className="p-2 border rounded-md cursor-pointer bg-green-100 border-green-500"
+                    onClick={() => toggleSubject(id)}
+                  >
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 mr-2 flex items-center justify-center border rounded bg-green-500 border-green-500">
+                        <Check className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm">{subject.name}</span>
+                        {subject.plans && subject.plans.length > 0 && (
+                          <span className="text-xs text-gray-500">
+                            {subject.plans[0].degree.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null;
+              })}
+            </div>
+            <div className="border-t border-gray-200 my-3"></div>
+          </div>
+        )}
+        <div className='flex flex-row items-center justify-between grid grid-cols-4'>
+          <CardTitle className="text-xl mb-2 col-span-1">Asignar materias</CardTitle>
+          <Select 
               value={selectedDegreeId}
               onValueChange={(value) => {
                 console.log("Selected degree ID changed to:", value);
                 setSelectedDegreeId(value);
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full text-sm col-span-3">
                 <SelectValue placeholder="Todas las carreras" />
               </SelectTrigger>
               <SelectContent>
@@ -328,43 +388,49 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          
-          <div>
-            <label className="text-sm font-medium mb-2 block">Buscar por Nombre:</label>
-            <input
+        </div>
+      </CardHeader>
+      <CardContent>
+        {/* Selected subjects section */}
+        
+
+        <div className="space-y-4">
+            <div className="relative col-span-3 flex">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
               type="text"
+              placeholder="Buscar materia..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar materia..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className=" pl-10 bg-gray-50 border-gray-200 col-span-3"
             />
+                </div>
           </div>
-        </div>
         
         {isLoading ? (
           <div className="text-center py-8">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mb-2"></div>
             <p className="text-gray-500">Cargando materias disponibles...</p>
-          </div>
+          </div> 
+          
         ) : subjects.length === 0 ? (
           <div className="text-center py-4">
             <p className="text-gray-500">No hay materias disponibles</p>
           </div>
         ) : filteredSubjects.length > 0 ? (
-          <div className="max-h-[400px] overflow-y-auto mt-4">
+          <div className="max-h-[240px] overflow-y-auto mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {filteredSubjects.map((subject) => (
                 <div 
                   key={subject.id} 
                   className={`p-2 border rounded-md cursor-pointer ${
-                    selectedSubjects.has(subject.id) ? 'bg-red-100 border-red-500' : 'hover:bg-gray-50'
+                    selectedSubjects.has(subject.id) ? 'bg-green-100 border-green-500' : 'hover:bg-gray-50'
                   }`}
                   onClick={() => toggleSubject(subject.id)}
                 >
                   <div className="flex items-center">
                     <div className={`w-5 h-5 mr-2 flex items-center justify-center border rounded ${
-                      selectedSubjects.has(subject.id) ? 'bg-red-500 border-red-500' : 'border-gray-400'
+                      selectedSubjects.has(subject.id) ? 'bg-green-500 border-green-500' : 'border-gray-400'
                     }`}>
                       {selectedSubjects.has(subject.id) && <Check className="w-4 h-4 text-white" />}
                     </div>
@@ -387,16 +453,11 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
           </div>
         )}
 
-        <div className="mt-4">
-          <p className="text-sm text-gray-600">
-            <span className="font-medium">Materias seleccionadas:</span> {selectedSubjects.size}
-          </p>
-        </div>
       </CardContent>
-      <CardFooter className="flex justify-between border-t pt-4">
+      <CardFooter className="flex justify-between border-t p-3">
         <Button 
           variant="outline" 
-          onClick={onCancel}
+          onClick={handleCancel}
           className="flex items-center gap-2 text-black"
         >
           <X className="w-4 h-4 " />
@@ -404,8 +465,8 @@ export default function ProfessorClasses({ professor, onSave, onCancel }: Profes
         </Button>
         <Button 
           onClick={handleSave} 
-          disabled={isSaving}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
+          disabled={isSaving || !hasChanges}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
         >
           {isSaving ? (
             <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>

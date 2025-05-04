@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Save, X, RefreshCw, BookOpen } from 'lucide-react';
+import { Save, X, RefreshCw, BookOpen, User, Book, PenLine, Trash, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import ProfessorGrid from '@/components/ProfessorGrid';
 import ProfessorClasses from '@/components/ProfessorClasses';
-import ProfessorClassesList from '@/components/ProfessorClassesList';
 import ProfessorListWithSearch from '@/components/ProfessorListWithSearch';
 import { getProfessors, getProfessorsFromDatabase } from '@/api/getProfessors';
 import { saveAvailabilityToDatabase, getAvailabilityFromDatabase } from '@/lib/utils/availability-utils';
@@ -28,6 +27,8 @@ export default function Profesor() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [selectedSlots, setSelectedSlots] = useState<Record<string, boolean>>({});
+    const [originalSlots, setOriginalSlots] = useState<Record<string, boolean>>({});
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [showClassesEditor, setShowClassesEditor] = useState(false);
@@ -64,6 +65,41 @@ export default function Profesor() {
         fetchData();
     }, []);
 
+    // Effect to detect unsaved changes
+    useEffect(() => {
+        const checkForChanges = () => {
+            // Compare original slots with current selected slots
+            const originalKeys = Object.keys(originalSlots);
+            const currentKeys = Object.keys(selectedSlots);
+            
+            // Quick check if number of keys is different
+            if (originalKeys.length !== currentKeys.length) {
+                setHasUnsavedChanges(true);
+                return;
+            }
+            
+            // Check if any slot has changed status
+            for (const key of currentKeys) {
+                if (selectedSlots[key] !== originalSlots[key]) {
+                    setHasUnsavedChanges(true);
+                    return;
+                }
+            }
+            
+            // Check if any original slot was removed
+            for (const key of originalKeys) {
+                if (selectedSlots[key] !== originalSlots[key]) {
+                    setHasUnsavedChanges(true);
+                    return;
+                }
+            }
+            
+            setHasUnsavedChanges(false);
+        };
+        
+        checkForChanges();
+    }, [selectedSlots, originalSlots]);
+
     const handleProfessorSelect = async (professor: Professor) => {
         console.log("Selected professor details:", professor);
         try {
@@ -72,6 +108,8 @@ export default function Profesor() {
             
             setSelectedProfessor(professor);
             setSelectedSlots(availability); // Set the fetched availability
+            setOriginalSlots(availability); // Track original availability
+            setHasUnsavedChanges(false); // Reset unsaved changes flag
             setShowClassesEditor(false);
             
             // Fetch the latest professor data from database to ensure we have updated classes
@@ -113,8 +151,17 @@ export default function Profesor() {
     };
 
     const removeSelectedProfessor = () => {
+        // Check if there are unsaved changes and confirm before leaving
+        if (hasUnsavedChanges) {
+            const confirmLeave = window.confirm("Tienes cambios sin guardar en la disponibilidad. ¿Deseas salir sin guardar?");
+            if (!confirmLeave) {
+                return; // User chose to stay on the page
+            }
+        }
         setSelectedProfessor(null);
         setSelectedSlots({});
+        setOriginalSlots({});
+        setHasUnsavedChanges(false);
         setShowClassesEditor(false);
     };
 
@@ -148,6 +195,8 @@ export default function Profesor() {
             // Save availability to database
             await saveAvailabilityToDatabase(selectedProfessor.id, selectedSlots);
             alert('Se guardó la disponibilidad del profesor en la base de datos!');
+            setOriginalSlots(selectedSlots); // Update original slots after saving
+            setHasUnsavedChanges(false); // Reset unsaved changes flag
         } catch (err) {
             console.error("Error saving availability:", err);
             alert('Error al guardar la disponibilidad. Por favor intente nuevamente.');
@@ -230,13 +279,7 @@ export default function Profesor() {
 
     return ( 
         <div className="text-start max-w-7xl mx-auto py-8 flex flex-col gap-8">
-             <div>
-        <h2 className="font-bold text-3xl mb-4">Registro de Profesores</h2>
-        <div className="p-4 bg-white rounded-lg text-gray-600">
-          <p>En esta sección, el coordinador puede gestionar los profesores activos, asignar materias, registrar su disponibilidad horaria, buscar profesores, entre otras funciones. Si tienes alguna duda, contacta al soporte técnico.</p>
-        </div>
-      </div>
-
+            
             {loading && (
                 <div className="py-8 flex justify-center items-center">
                     <div className="text-center">
@@ -261,59 +304,52 @@ export default function Profesor() {
                 </div>
             )}
 
-            {!loading && professors !== null && !error && (
+            {!loading && professors && !error && professors.length > 0 &&(
                 <>
-                    {professors.length > 0 ? (
-                        <div className="mb-6">
-                            {!selectedProfessor && (
-                                <div className="mb-4">
+                    {!selectedProfessor && (
+                        <>
+                                 <div>
+                                 <h2 className="font-bold text-3xl mb-4">Registro de Profesores</h2>
+                                 <div className="p-4 bg-white rounded-lg text-gray-600 mb-8">
+                                   <p>En esta sección, el coordinador puede gestionar los profesores activos, asignar materias, registrar su disponibilidad horaria, buscar profesores, entre otras funciones. Si tienes alguna duda, contacta al soporte técnico.</p>
+                                 </div>
+                               </div>
+                             
                                     <ProfessorListWithSearch 
                                         professors={professors}
                                         onSelectProfessor={handleProfessorSelect}
                                         onEditClasses={handleEditClasses}
                                     />
-                                </div>
-                            )}
-                            
-                            {selectedProfessor && (
-                                <Button 
-                                    variant="outline" 
-                                    className="mb-4 text-gray-700 hover:text-gray-900"
-                                    onClick={removeSelectedProfessor}
-                                >
-                                    ← Volver a la lista de profesores
-                                </Button>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4 mb-6">
-                            <p className="font-medium mb-2">No se encontraron profesores</p>
-                            <p>No hay profesores registrados en el sistema. Contacte al administrador para agregar profesores.</p>
-                        </div>
+                                    </>
                     )}
 
-                    {selectedProfessor !== null && (
-                        <div className="mt-6 grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    {selectedProfessor && (
+                        <div className="mt-6 grid grid-cols-1 lg:grid-cols-9 gap-6">
                             {/* Left Column - Professor Details and Classes */}
-                            <div className="flex flex-col space-y-6 lg:col-span-2">
-                                <div>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-lg font-semibold">Gestión de Materias</h2>
-                                        <Button
-                                            onClick={() => setShowClassesEditor(true)}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <BookOpen className="h-4 w-4" />
-                                            {selectedProfessor.classes ? 'Editar Materias' : 'Asignar Materias'}
-                                        </Button>
+                            <div className="flex flex-col gap-4 lg:col-span-5">
+                                    <div className="flex flex-row items-center justify-between">
+                                        <h2 className="text-3xl font-semibold">Gestión de Materias</h2>
+                                        <Button 
+                                    variant="outline" 
+                                    className="text-gray-700 hover:text-gray-900 pl-0"
+                                    onClick={removeSelectedProfessor}
+                                    >
+                                    ← Volver a la lista de profesores
+                                    </Button>
                                     </div>
-                                    <Card className="p-3">
+
+                                    <Card className="p-3 mt-4">
                                         <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-medium text-lg">{formatProfessorName(selectedProfessor)}</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    ID: {selectedProfessor.id} {selectedProfessor.ivd_id && `• IVD ID: ${selectedProfessor.ivd_id}`} • Departamento: {selectedProfessor.department}
-                                                </p>
+                                            <div className="flex items-center gap-3">
+                                                <div className="m-3 p-2 bg-via rounded-full">
+                                                    <User className="h-10 w-10 text-white" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-3xl">{formatProfessorName(selectedProfessor)}</p>
+                                                    <p className="text-md text-muted-foreground">
+                                                        ID: {selectedProfessor.id} {selectedProfessor.ivd_id && `• IVD ID: ${selectedProfessor.ivd_id}`} • Departamento: {selectedProfessor.department}
+                                                    </p>
+                                                </div>
                                             </div>
                                             <Button
                                                 variant="ghost"
@@ -324,57 +360,55 @@ export default function Profesor() {
                                                 <X className="h-4 w-4" />
                                             </Button>
                                         </div>
+                                        
                                     </Card>
 
-                                    {/* Display classes list */}
-                                    {selectedProfessor.classes && (
-                                        <div className="mt-4">
-                                            <ProfessorClassesList 
-                                                classes={selectedProfessor.classes}
-                                                professor={selectedProfessor}
-                                            />
-                                        </div>
-                                    )}
-
-                                    {showClassesEditor && (
+                                    {/* Always show the editor */}
+                                    <div className="mt-4">
                                         <ProfessorClasses 
                                             professor={selectedProfessor} 
                                             onSave={handleClassesEditComplete} 
-                                            onCancel={() => setShowClassesEditor(false)}
+                                            onCancel={() => {}}
                                         />
-                                    )}
-                                </div>
+                                    </div>
                             </div>
 
                             {/* Right Column - Availability Grid */}
-                            <div className="flex flex-col lg:col-span-3">
-                                <h2 className="text-lg font-semibold mb-2">Disponibilidad Horaria</h2>
-                                <p className="text-sm text-gray-500 mb-4">
+                            <div className="flex flex-col lg:col-span-4">
+                                <h2 className="text-3xl font-semibold mb-2">Disponibilidad Horaria</h2>
+                                <p className="text-md text-gray-500 mb-4">
                                     {selectedProfessor.classes ? 
                                         "Seleccione los horarios en que el profesor está disponible" : 
                                         "Primero asigne materias al profesor antes de registrar su disponibilidad"}
                                 </p>
-                                <div className="pt-4">
-                                    <ProfessorGrid 
-                                        selectedSlots={selectedSlots} 
-                                        setSelectedSlots={setSelectedSlots}
-                                        professorId={selectedProfessor.id}
-                                    />
-                                </div>
-
-                                <div className="flex justify-between mt-8 gap-4">
+                                
+                                {hasUnsavedChanges && (
+                                    <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded-md flex items-center gap-2 text-amber-800">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <span>Tienes cambios sin guardar en la disponibilidad</span>
+                                    </div>
+                                )}
+                                
+                                <div className="grid grid-cols-3 justify-between gap-4">
                                     <Button 
                                         variant="outline" 
-                                        onClick={() => setSelectedSlots({})} 
-                                        className="w-full bg-red-700 text-white hover:bg-red-800"
+                                        onClick={() => {
+                                            setSelectedSlots({});
+                                            // Verificar si había slots seleccionados antes para determinar si hay un cambio
+                                            if (Object.keys(selectedSlots).length > 0) {
+                                                setHasUnsavedChanges(true);
+                                            }
+                                        }} 
+                                        className="w-full bg-red-700 text-white hover:bg-red-800 col-span-1"
                                         disabled={!selectedProfessor.classes}
                                     >
+                                        <Trash className="h-4 w-4" />
                                         Limpiar
                                     </Button>
                                     <Button 
-                                        className="w-full flex items-center gap-2" 
+                                        className={`w-full flex items-center gap-2 col-span-2 ${hasUnsavedChanges ? 'bg-green-600' : 'bg-green-400 cursor-not-allowed'}`}
                                         onClick={handleSaveAvailability}
-                                        disabled={isSaving || !selectedProfessor.classes}
+                                        disabled={isSaving || !selectedProfessor.classes || !hasUnsavedChanges}
                                     >
                                         {isSaving ? (
                                             <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
@@ -384,11 +418,27 @@ export default function Profesor() {
                                         {isSaving ? 'Guardando...' : 'Guardar Disponibilidad'}
                                     </Button>
                                 </div>
+                                <div className="pt-4">
+                                    <ProfessorGrid 
+                                        selectedSlots={selectedSlots} 
+                                        setSelectedSlots={(slots) => {
+                                            setSelectedSlots(slots);
+                                            setHasUnsavedChanges(JSON.stringify(slots) !== JSON.stringify(originalSlots));
+                                        }}
+                                        professorId={selectedProfessor.id}
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
-                </>
-            )}
+            </>
+        )}
+        {!loading && (!professors || professors.length === 0) && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4 mb-6">
+            <p className="font-medium mb-2">No se encontraron profesores</p>
+            <p>No hay profesores registrados en el sistema. Contacte al administrador para agregar profesores.</p>
+        </div>
+        )}
         </div>
     );
 }

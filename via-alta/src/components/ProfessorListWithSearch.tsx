@@ -94,7 +94,7 @@ export default function ProfessorListWithSearch({
                 {displayedProfessors.map((professor) => (
                   <TableRow key={professor.id}>
                     <TableCell>{professor.ivd_id || professor.id}</TableCell>
-                    <TableCell className="font-medium">{formatProfessorName(professor)}</TableCell>
+                    <TableCell className="font-xl">{formatProfessorName(professor)}</TableCell>
                     <TableCell>{professor.department}</TableCell>
                     <TableCell>
                       {professor.classes 
