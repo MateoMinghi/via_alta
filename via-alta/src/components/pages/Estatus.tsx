@@ -28,16 +28,15 @@ export default function Estatus() {
   }, []);
 
   return (
-    <div className="text-center">
-      <p className="text-2xl font-bold mb-6">Solicitudes de Cambios</p>
-      
+    <div className="text-start px-16 mx-auto py-8 flex flex-col gap-8">
+      <h2 className="text-3xl font-bold mb-6">Solicitudes de Cambios</h2>
       {loading ? (
         <p className="py-4">Cargando...</p>
       ) : !result ? (
         <p className="py-4 text-red-500">Error cargando datos de estudiantes</p>
       ) : !hasRequests ? (
-        <div className="py-8 border rounded-md bg-white">
-          <p className="text-gray-500">No hay solicitudes de cambio pendientes.</p>
+        <div className="py-4 border rounded-md bg-white">
+          <p className="text-gray-500 pl-4">No hay solicitudes de cambio pendientes.</p>
         </div>
       ) : (
         <RequestTable students={result || []} />

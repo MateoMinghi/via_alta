@@ -8,6 +8,8 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Button } from '../ui/button';
+import { PlusCircle, Save, Calendar, Loader2 } from 'lucide-react';
 
 // Define item types for drag and drop
 const ItemTypes = {
@@ -556,7 +558,7 @@ export default function HorarioGeneral() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="w-full pb-8 flex flex-col gap-4">
+       <div className="text-start px-16  mx-auto py-8 flex flex-col gap-8">
         <div className="flex justify-between items-center mb-2">
           {/* Filters */}
           <div className="flex gap-4 items-center">
@@ -587,30 +589,54 @@ export default function HorarioGeneral() {
             </div>          
           </div>
           <div className="flex gap-3">
-            <button
+            <Button
               onClick={() => {
                 setEditGroupData(null);
                 setAddGroupDialogOpen(true);
               }}
-              className="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-600 disabled:opacity-50"
+              variant="default"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all duration-200 hover:shadow-lg"
               disabled={isLoading}
             >
+              <PlusCircle className="h-5 w-5" />
               Agregar Grupo
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleSaveSchedule}
-              className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
+              variant="default"
+              className="bg-via text-white border-via shadow-md transition-all duration-200 hover:shadow-lg"
               disabled={isLoading}
             >
-              {isLoading ? 'Guardando...' : 'Guardar Horario'}
-            </button>
-            <button
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5" />
+                  Guardar Horario
+                </>
+              )}
+            </Button>
+            <Button
               onClick={handleGenerateSchedule}
-              className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-700 disabled:opacity-50"
+              variant="default"
+              className="bg-transparent text-via border-via shadow-md transition-all duration-200 hover:shadow-lg"
               disabled={isLoading}
             >
-              {isLoading ? 'Generando...' : 'Generar horario general'}
-            </button>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <Calendar className="h-5 w-5" />
+                  Generar horario general
+                </>
+              )}
+            </Button>
           </div>
         </div>
         
@@ -658,8 +684,13 @@ export default function HorarioGeneral() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteGroup} className="bg-red-600 hover:bg-red-700">
+              <AlertDialogCancel className="border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 shadow-sm">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmDeleteGroup} 
+                className="bg-red-600 hover:bg-red-700 text-white shadow-md transition-all duration-200 hover:shadow-lg"
+              >
                 Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -667,10 +698,12 @@ export default function HorarioGeneral() {
         </AlertDialog>
         
         {isLoading && (
-          <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-xl">
-              <p className="text-lg text-center">Cargando horario...</p>
-              <div className="mt-4 w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white p-8 rounded-xl shadow-2xl">
+              <p className="text-lg font-medium text-center text-gray-800">Cargando horario...</p>
+              <div className="mt-6 flex justify-center">
+                <Loader2 className="h-10 w-10 text-purple-600 animate-spin" />
+              </div>
             </div>
           </div>
         )}

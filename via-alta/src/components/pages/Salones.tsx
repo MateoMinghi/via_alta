@@ -5,7 +5,7 @@ import SalonList from '@/components/SalonList';
 
 export default function Salones() {
   return (
-    <div className="text-start max-w-7xl mx-auto py-8 flex flex-col gap-8">
+    <div className="text-start px-16  mx-auto py-8 flex flex-col gap-8">
       <div>
         <h2 className="font-bold text-3xl mb-4">Gestión de Salones</h2>
         <div className="p-4 bg-white rounded-lg text-gray-600">

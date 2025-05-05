@@ -264,7 +264,7 @@ export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
   }
 
   return (
-    <div className="p-4">
+     <div className="text-start px-16  mx-auto py-8 flex flex-col gap-8">
       <div className="mb-4">
         <h1 className="text-2xl font-bold">
           {viewType === 'semestre' 

@@ -278,7 +278,7 @@ export default function Profesor() {
     };
 
     return ( 
-        <div className="text-start max-w-7xl mx-auto py-8 flex flex-col gap-8">
+        <div className="text-start px-16  mx-auto py-8 flex flex-col gap-8">
             
             {loading && (
                 <div className="py-8 flex justify-center items-center">
