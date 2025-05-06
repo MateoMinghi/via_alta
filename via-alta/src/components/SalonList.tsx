@@ -93,9 +93,22 @@ export default function SalonCRUD() {
     cargarSalones();
   };
 
-  const salonesFiltrados = salones.filter((s) =>
-    s.tipo?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Updated search functionality to search across all salon fields
+  const salonesFiltrados = salones.filter((salon) => {
+    if (!search.trim()) return true;
+    
+    const searchLower = search.toLowerCase();
+    return (
+      // Search by ID
+      salon.idsalon.toString().includes(searchLower) ||
+      // Search by type
+      salon.tipo?.toLowerCase().includes(searchLower) ||
+      // Search by capacity
+      salon.cupo.toString().includes(searchLower) ||
+      // Search by notes
+      salon.nota?.toLowerCase().includes(searchLower)
+    );
+  });
 
   const handleEditSalon = (salon: Salon) => {
     setCurrentSalon(salon);
@@ -110,7 +123,7 @@ export default function SalonCRUD() {
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por Id, IVD ID, nombre o departamento..."
+              placeholder="Buscar por ID, tipo, capacidad o notas..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10 bg-gray-50 border-gray-200"
