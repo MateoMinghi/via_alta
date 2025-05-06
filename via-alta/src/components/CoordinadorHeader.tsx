@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Calendar, User, Loader2 } from 'lucide-react';
+import { Calendar, User, Loader2, Menu, X, ChevronDown } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -11,10 +11,12 @@ import LogoutButton from '@/components/LogoutButton';
 import { useAuth } from '@/context/AuthContext';
 import useGetSchoolCycles, { SchoolCycle } from '@/api/useGetSchoolCycles';
 import { toast } from 'sonner';
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export default function Header() {
   const [selectedCycle, setSelectedCycle] = useState<string>('');
   const [activeButton, setActiveButton] = useState('ESTUDIANTES');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
   const { result: schoolCycles, loading, error } = useGetSchoolCycles();
@@ -41,6 +43,7 @@ export default function Header() {
 
   const handleNavClick = (buttonName: string, path: string) => {
     setActiveButton(buttonName);
+    setMobileMenuOpen(false);
     router.push(path);
   };
   
@@ -49,11 +52,22 @@ export default function Header() {
     return cycle.code === "-" ? "Sin código" : cycle.code;
   };
   
+  const navItems = [
+    { name: 'ESTUDIANTES', path: '/dashboard/' },
+    { name: 'PROFESORES', path: '/dashboard/profesores' },
+    { name: 'HORARIOS', path: '/dashboard/horarios' },
+    { name: 'SALONES', path: '/dashboard/salones' },
+  ];
+
   return (
     <div className="bg-black text-white m-4 rounded-lg flex flex-row justify-between items-center p-4">
-      <Image src="/logo.svg" alt="logo" width={50} height={50} className="cursor-pointer" onClick={() => router.push('/dashboard')} />
+      {/* Logo */}
+      <div className="flex items-center">
+        <Image src="/logo.svg" alt="logo" width={50} height={50} className="cursor-pointer" onClick={() => router.push('/dashboard')} />
+      </div>
       
-      <div className="flex items-center gap-2 mx-8">
+      {/* Cycle Selector - Hidden on mobile */}
+      <div className="hidden md:flex items-center gap-2">
         <Calendar className="h-5 w-5" />
         <Select value={selectedCycle} onValueChange={setSelectedCycle}>
           <SelectTrigger className="w-[180px] bg-dark">
@@ -80,23 +94,105 @@ export default function Header() {
         </Select>
       </div>
       
-      <div className="flex flex-row text-lg justify-around gap-4">
-        <Button variant="nav" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('ESTUDIANTES', '/dashboard/')} isActive={activeButton === 'ESTUDIANTES'}>ESTUDIANTES</Button>
-        <Button variant="nav" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('PROFESORES', '/dashboard/profesores')} isActive={activeButton === 'PROFESORES'}>PROFESORES</Button>
-        <Button variant="ghost" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('HORARIOS', '/dashboard/horarios')} isActive={activeButton === 'HORARIOS'}>HORARIOS</Button>
-        <Button variant="ghost" className="cursor-pointer w-full h-full" onClick={() => handleNavClick('SALONES', '/dashboard/salones')} isActive={activeButton === 'SALONES'}>SALONES</Button>
+      {/* Desktop Navigation */}
+      <div className="hidden lg:flex flex-row text-lg justify-around gap-4">
+        {navItems.map((item) => (
+          <Button 
+            key={item.name}
+            variant={activeButton === item.name ? "nav" : "ghost"} 
+            className="cursor-pointer w-full h-full" 
+            onClick={() => handleNavClick(item.name, item.path)} 
+            isActive={activeButton === item.name}
+          >
+            {item.name}
+          </Button>
+        ))}
       </div>
       
-      <div className="flex items-center gap-4">
+      {/* User and Logout (Desktop) */}
+      <div className="hidden md:flex items-center gap-4">
         {user && (
           <div className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            <span className="text-sm font-medium hidden md:inline">
+            <span className="text-sm font-medium">
               {user.name} {user.first_surname}
             </span>
           </div>
         )}
         <LogoutButton variant="ghost" />
+      </div>
+      
+      {/* Mobile Menu Button */}
+      <div className="flex lg:hidden ml-auto">
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-white">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="bg-black text-white border-gray-800 w-[250px] p-0">
+            <div className="flex flex-col h-full">
+              {/* Mobile Cycle Selector */}
+              <div className="flex items-center gap-2 p-4 border-b border-gray-800">
+                <Calendar className="h-5 w-5" />
+                <Select value={selectedCycle} onValueChange={setSelectedCycle}>
+                  <SelectTrigger className="w-full bg-dark">
+                    {loading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Cargando...</span>
+                      </div>
+                    ) : (
+                      <SelectValue placeholder="Ciclo escolar" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schoolCycles?.map((cycle) => (
+                      <SelectItem 
+                        key={cycle.id} 
+                        value={cycle.id.toString()}
+                      >
+                        {formatSchoolCycle(cycle)}
+                        {cycle.active && " (Activo)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Mobile Navigation */}
+              <div className="flex-1 py-4">
+                <div className="flex flex-col space-y-1">
+                  {navItems.map((item) => (
+                    <Button 
+                      key={item.name}
+                      variant="ghost" 
+                      className={`justify-start rounded-none px-4 py-2 text-lg ${
+                        activeButton === item.name ? "bg-white/10 font-medium" : ""
+                      }`} 
+                      onClick={() => handleNavClick(item.name, item.path)}
+                    >
+                      {item.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* User Info and Logout (Mobile) */}
+              <div className="p-4 border-t border-gray-800">
+                {user && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <User className="h-5 w-5" />
+                    <span className="text-sm font-medium">
+                      {user.name} {user.first_surname}
+                    </span>
+                  </div>
+                )}
+                <LogoutButton variant="outline" className="w-full" />
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );
