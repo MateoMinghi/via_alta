@@ -1,9 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Card } from './ui/card';
 import { cn } from '@/lib/utils';
 import { GeneralScheduleItem } from '@/lib/models/general-schedule';
-import GroupInfoDialog from './GroupInfoDialog';
-import { Pencil, Trash2 } from 'lucide-react';
+import GroupInfoDialog from '@/components/GroupInfoDialog';
 
 // Días de la semana
 const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];

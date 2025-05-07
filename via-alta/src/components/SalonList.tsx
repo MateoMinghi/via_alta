@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Pencil, Trash, Search } from "lucide-react";
+import { Plus, Pencil, Trash, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -93,9 +93,22 @@ export default function SalonCRUD() {
     cargarSalones();
   };
 
-  const salonesFiltrados = salones.filter((s) =>
-    s.tipo?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Updated search functionality to search across all salon fields
+  const salonesFiltrados = salones.filter((salon) => {
+    if (!search.trim()) return true;
+    
+    const searchLower = search.toLowerCase();
+    return (
+      // Search by ID
+      salon.idsalon.toString().includes(searchLower) ||
+      // Search by type
+      salon.tipo?.toLowerCase().includes(searchLower) ||
+      // Search by capacity
+      salon.cupo.toString().includes(searchLower) ||
+      // Search by notes
+      salon.nota?.toLowerCase().includes(searchLower)
+    );
+  });
 
   const handleEditSalon = (salon: Salon) => {
     setCurrentSalon(salon);
@@ -104,20 +117,19 @@ export default function SalonCRUD() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6 bg-white rounded-xl shadow-lg">
-      <h2 className="text-3xl font-bold tracking-tight text-gray-800">Gestión de Salones</h2>
+    <>
 
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por tipo"
-            className="pl-8"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <Button
+<div className="flex gap-2 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por ID, tipo, capacidad o notas..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 bg-gray-50 border-gray-200"
+            />
+          </div>
+          <Button
           onClick={() => {
             setIsDialogOpen(true);
             setCurrentSalon(null);
@@ -127,7 +139,7 @@ export default function SalonCRUD() {
           <Plus className="mr-2 h-4 w-4" />
           Agregar Salón
         </Button>
-      </div>
+        </div>
 
       <div className="overflow-x-auto rounded-lg shadow">
         <Table>
@@ -275,6 +287,6 @@ export default function SalonCRUD() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </>
   );
 }

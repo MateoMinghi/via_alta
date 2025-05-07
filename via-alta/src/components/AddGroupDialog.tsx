@@ -387,7 +387,7 @@ export default function AddGroupDialog({
   };
 
   return (
-    <Dialog open={isOpen}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogPortal>
         <DialogOverlay />
         <DialogContent className="sm:max-w-[425px]">
@@ -556,7 +556,7 @@ export default function AddGroupDialog({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} className="text-black border-black">
               Cancelar
             </Button>
             <Button onClick={handleAdd} disabled={isLoading}>

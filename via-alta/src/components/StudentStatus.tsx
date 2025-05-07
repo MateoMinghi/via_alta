@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import confirmStudentsEnrollment from '@/lib/models/student';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -48,41 +47,51 @@ interface StudentStatusProps {
   students: Student[];
 }
 
-function StudentStatusDot({ studentId }: { studentId: string }) {
+function StudentStatusDot({ studentId, hidden }: { studentId: string; hidden?: boolean }) {
   const { status, loading } = useStudentDbStatus(studentId);
-  
   
   if (loading) {
     return <div className="w-4 h-4 rounded-full bg-gray-300 animate-pulse"></div>;
   }
   
-  let dotColor = 'bg-red-500'; // Color por defecto
-  
+  let dotColor = 'bg-red-500'; // Default color
   
   if (status === 'requiere-cambios') {
-    dotColor = 'bg-amber-400'; //Ambar
+    dotColor = 'bg-amber-400'; // Amber
   } else if (status === 'inscrito') {
-    dotColor = 'bg-emerald-500'; //Verde
+    dotColor = 'bg-emerald-500'; // Green
   } else {
-    dotColor = 'bg-red-500'; // Rojo (no inscrito)
+    dotColor = 'bg-red-500'; // Red (not enrolled)
   }
 
-  return <div className={`w-4 h-4 rounded-full ${dotColor}`}></div>;
+  return (
+    <div className="flex items-center gap-1">
+      <div className={`w-4 h-4 rounded-full ${dotColor}`}></div>
+      {!hidden && (
+        <span className="text-xs text-gray-500">
+          {status === 'active' ? 'no-inscrito' : status}
+        </span>
+      )}
+    </div>
+  );
 }
 
 export default function StudentStatus({ students }: StudentStatusProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredStudents, setFilteredStudents] = useState(students);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const router = useRouter();
   const [selectedComment, setSelectedComment] = useState('');
   const [isCommentOpen, setIsCommentOpen] = useState(false);
   const [expandedSemesters, setExpandedSemesters] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState('table');
-  const [isModifyingStatus, setIsModifyingStatus] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [processingStatus, setProcessingStatus] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<{ success: number; failed: number } | null>(null);
+  // Track cached statuses to improve filtering performance
+  const [studentStatuses, setStudentStatuses] = useState<Record<string, string>>({});
 
+ 
   const groupedStudents = filteredStudents.reduce(
     (acc, student) => {
       const key = student.isIrregular ? 'irregular' : student.semestre;
@@ -111,8 +120,40 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     setExpandedSemesters(initialExpandedState);
   }, [students]);
 
-  useEffect(() => {
-    if (!searchQuery.trim()) {
+  // Effect to fetch and cache statuses for all students
+useEffect(() => {
+  const fetchAllStatuses = async () => {
+    const statuses: Record<string, string> = {};
+    
+    // Only fetch statuses for students with valid ivd_id
+    const studentsWithId = students.filter(s => s.ivd_id);
+    
+    // Fetch statuses in parallel with Promise.all
+    await Promise.all(
+      studentsWithId.map(async (student) => {
+        try {
+          const response = await fetch(`/api/student-status?studentId=${student.ivd_id}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              statuses[student.ivd_id] = data.status;
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching status for ${student.ivd_id}:`, error);
+        }
+      })
+    );
+    
+    setStudentStatuses(statuses);
+  };
+  
+  fetchAllStatuses();
+}, [students]);
+
+// Effect for filtering students based on search query and status
+useEffect(() => {
+    if (!searchQuery.trim() && !statusFilter) {
       setFilteredStudents(students);
       setExpandedSemesters((prev) => {
         const newState = { ...prev };
@@ -124,14 +165,29 @@ export default function StudentStatus({ students }: StudentStatusProps) {
       return;
     }
 
-    const query = searchQuery.toLowerCase();
-    const results = students.filter(
-      (student) =>
-        (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)) ||
-        student.name.toLowerCase().includes(query) ||
-        student.first_surname.toLowerCase().includes(query) ||
-        student.second_surname.toLowerCase().includes(query)
-    );
+    let results = [...students];
+    
+    // Apply text search filter if exists
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      results = results.filter(
+        (student) =>
+          (student.ivd_id && String(student.ivd_id).toLowerCase().includes(query)) ||
+          student.name.toLowerCase().includes(query) ||
+          student.first_surname.toLowerCase().includes(query) ||
+          student.second_surname.toLowerCase().includes(query)
+      );
+    }
+    
+    // Apply status filter if selected
+    if (statusFilter) {
+      results = results.filter(student => {
+        // Use the cached status from our studentStatuses state
+        const status = studentStatuses[student.ivd_id] || 'no-inscrito';
+        return status === statusFilter;
+      });
+    }
+
     setFilteredStudents(results);
 
     if (results.length > 0) {
@@ -157,7 +213,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
         return newState;
       });
     }
-  }, [searchQuery, students]);
+  }, [searchQuery, students, statusFilter]);
 
   const handleViewSchedule = (studentId: string) => {
     router.push(`/dashboard/horarios/${studentId}`);
@@ -170,12 +226,6 @@ export default function StudentStatus({ students }: StudentStatusProps) {
     }));
   };
 
-  const showStudentComment = (comment: string) => {
-    if (!comment) return;
-    setSelectedComment(comment);
-    setIsCommentOpen(true);
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'inscrito':
@@ -186,19 +236,6 @@ export default function StudentStatus({ students }: StudentStatusProps) {
         return 'bg-red-500';
       default:
         return 'bg-red-500';
-    }
-  };
-
-  const getTextStatusColor = (status: string) => {
-    switch (status) {
-      case 'inscrito':
-        return 'bg-emerald-500 text-white';
-      case 'requiere-cambios':
-        return 'bg-amber-400 text-white';
-      case 'no-inscrito':
-        return 'bg-red-500 text-white';
-      default:
-        return 'bg-red-500 text-white';
     }
   };
 
@@ -258,7 +295,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
 
           <Button
             variant="secondary"
-            className="bg-red-700 text-white"
+            className="bg-via text-white rounded-md px-6 py-3 text-lg"
             onClick={() => modifyStatus('true')}
             disabled={processingStatus}
           >
@@ -266,28 +303,41 @@ export default function StudentStatus({ students }: StudentStatusProps) {
           </Button>
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
+         <div className="flex gap-2 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar Alumno"
+              placeholder="Buscar Alumno por Id, nombre o estatus..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-gray-50 border-gray-200"
             />
-          </div>
+                </div>
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-md border border-gray-200">
               {['inscrito', 'requiere-cambios', 'no-inscrito'].map((status) => (
-                <div key={status} className="flex items-center gap-2">
+                <button
+                  key={status}
+                  className={`flex items-center gap-2 py-1 px-2 rounded-md transition-colors ${
+                    statusFilter === status ? 'bg-gray-200 ring-1 ring-gray-300' : 'hover:bg-gray-100'
+                  }`}
+                  onClick={() => setStatusFilter(statusFilter === status ? null : status)}
+                  aria-pressed={statusFilter === status}
+                >
                   <div className={`w-4 h-4 rounded-full ${getStatusColor(status)}`} />
                   <span className="text-sm capitalize">{status.replace('-', ' ')}</span>
-                </div>
+                </button>
               ))}
             </div>
+            {statusFilter && (
+              <button
+                className="text-xs text-gray-500 hover:text-gray-700 flex items-center"
+                onClick={() => setStatusFilter(null)}
+              >
+                Limpiar filtro
+              </button>
+            )}
           </div>
         </div>
 
@@ -333,7 +383,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                             </TableCell>
                             <TableCell>
                               <div className="flex justify-center">
-                                <StudentStatusDot studentId={student.ivd_id} />
+                                <StudentStatusDot studentId={student.ivd_id} hidden={true} />
                               </div>
                             </TableCell>
                             <TableCell>
@@ -389,10 +439,7 @@ export default function StudentStatus({ students }: StudentStatusProps) {
                                   {student.name} {student.first_surname} {student.second_surname}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <StudentStatusDot studentId={student.ivd_id} />
-                                  <span className="text-xs">
-                                    {student.status === 'active' ? 'Verificando...' : student.status.replace('-', ' ') || 'Verificando...'}
-                                  </span>
+                                  <StudentStatusDot studentId={student.ivd_id} hidden={false}/>
                                 </div>
                               </div>
                               <div className="flex justify-between items-center text-sm text-gray-500">

@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import { 
   CheckCircle2, 
   Eye, 
-  XCircle,
   Calendar,
   Clock
 } from 'lucide-react';

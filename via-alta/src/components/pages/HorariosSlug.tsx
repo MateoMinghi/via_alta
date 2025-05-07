@@ -5,8 +5,8 @@ import { useParams } from 'next/navigation';
 
 import { GeneralScheduleItem } from '@/lib/models/general-schedule';
 import { toast } from 'sonner';
-import HorarioSemestre from '../HorarioSemestre';
-import HorarioAlumno from '../HorarioAlumno';
+import HorarioSemestre from '@/components/HorarioSemestre';
+import HorarioAlumno from '@/components/HorarioAlumno';
 import { useGetStudentSchedule, ScheduleItem } from '@/api/useGetStudentSchedule';
 
 interface HorariosSlugProps {
@@ -264,7 +264,7 @@ export default function HorariosSlug({ slug: propSlug }: HorariosSlugProps) {
   }
 
   return (
-    <div className="p-4">
+     <div className="text-start px-16  mx-auto py-8 flex flex-col gap-8">
       <div className="mb-4">
         <h1 className="text-2xl font-bold">
           {viewType === 'semestre' 

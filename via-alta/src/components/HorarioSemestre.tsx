@@ -21,9 +21,6 @@ export default function HorarioSemestre({ schedule, semesterNum }: HorariosSlugP
 
     return (
         <div> 
-            <p className="text-3xl font-bold mb-4">
-                Horario del semestre {semesterNum}
-            </p>
             {schedule.length > 0 ? (
                 <CoordinadorSchedule subjects={schedule} />
             ) : (
