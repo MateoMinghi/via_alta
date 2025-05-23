@@ -16,10 +16,10 @@
     "test:watch": "jest --watch",
     "test:schedule": "jest schedule-generator",
     "test:horario-semestre": "jest horario-semestre.integration HorariosSlug CoordinadorSchedule",
-    "test:confirmacion": "jest estudiante-confirmacion useConfirmSchedule.integration confirmacion-page",
-    "db:init": "node src/lib/db-init.js",
+    "test:confirmacion": "jest estudiante-confirmacion useConfirmSchedule.integration confirmacion-page",    "db:init": "node src/lib/db-init.js",
     "db:drop": "node src/lib/db-drop.js",
     "db:delete": "node src/lib/db-delete.js",
+    "db:update-profesores": "node src/lib/db-update-profesores.js",
     "db:init-groups": "node src/lib/db-init-groups.js"
   },
   "dependencies": {
