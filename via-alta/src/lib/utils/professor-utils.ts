@@ -28,19 +28,3 @@ export function parseClassesToSubjects(classes: string = ''): Subject[] {
     name
   }));
 }
-
-/**
- * Parses the metadata JSON string from availability records that contain subject preferences
- */
-export function parseSubjectPreferencesFromMetadata(metadata: string | null): Record<string, number> {
-  if (!metadata) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(metadata);
-  } catch (error) {
-    console.error('Error parsing subject preferences:', error);
-    return {};
-  }
-}

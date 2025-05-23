@@ -298,13 +298,12 @@ export default function HorarioGeneral() {
   const [editGroupData, setEditGroupData] = useState<GeneralScheduleItem | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<GeneralScheduleItem | null>(null);
-  
-  const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
+    const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
   const [selectedProfessor, setSelectedProfessor] = useState<string>('All');
+  const [selectedDegree, setSelectedDegree] = useState<string>('Todas');
 
-  // Available semesters (1-8)
-  const semesters = [1, 2, 3, 4, 5, 6, 7, 8];
-
+  // Available semesters (1-9)
+  const semesters = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   // Get unique professors from schedule
   const professors = useMemo(() => {
     const uniqueProfessors = Array.from(new Set(
@@ -313,15 +312,21 @@ export default function HorarioGeneral() {
         .map(item => item.ProfesorNombre as string)
     )).sort();
     return ['All', ...uniqueProfessors];
-  }, [schedule]);
-
-  // Filter schedule by semester and professor
+  }, [schedule]);  // Get unique degrees from schedule
+  const degrees = useMemo(() => {
+    const uniqueDegrees = Array.from(new Set(
+      schedule
+        .filter(item => item.NombreCarrera)
+        .map(item => item.NombreCarrera)
+    )).sort();
+    return ['Todas', ...uniqueDegrees];
+  }, [schedule]);// Filter schedule by semester, professor and degree
   const filteredSchedule = useMemo(() => {
-    return schedule.filter(item => 
-      (selectedSemester === 'All' || item.Semestre === selectedSemester) &&
-      (selectedProfessor === 'All' || item.ProfesorNombre === selectedProfessor)
+    return schedule.filter(item =>      (selectedSemester === 'All' || item.Semestre === selectedSemester) &&
+      (selectedProfessor === 'All' || item.ProfesorNombre === selectedProfessor) &&
+      (selectedDegree === 'Todas' || item.NombreCarrera === selectedDegree)
     );
-  }, [schedule, selectedSemester, selectedProfessor]);
+  }, [schedule, selectedSemester, selectedProfessor, selectedDegree]);
 
   // Function to fetch schedule with polling capability
   const fetchSchedule = async (showLoading = true) => {
@@ -597,6 +602,17 @@ export default function HorarioGeneral() {
               >
                 {professors.map(p => (
                   <option key={p} value={p}>{p === 'All' ? 'Todos' : p}</option>
+                ))}
+              </select>
+            </div>
+            <div>              <label className="mr-2">Carrera:</label>
+              <select
+                value={selectedDegree}
+                onChange={e => setSelectedDegree(e.target.value)}
+                className="border p-1 rounded"
+              >
+                {degrees.map(d => (
+                  <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             </div>          

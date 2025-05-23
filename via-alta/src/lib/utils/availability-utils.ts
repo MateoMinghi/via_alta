@@ -3,8 +3,7 @@
  */
 export async function saveAvailabilityToDatabase(
   professorId: number,
-  selectedSlots: Record<string, boolean>,
-  subjectPreferences: Record<string, number> = {}
+  selectedSlots: Record<string, boolean>
 ): Promise<void> {
   try {
     const response = await fetch('/api/availability', {
@@ -15,7 +14,6 @@ export async function saveAvailabilityToDatabase(
       body: JSON.stringify({
         professorId,
         availability: selectedSlots,
-        subjectPreferences,
       }),
     });
 
@@ -34,25 +32,21 @@ export async function saveAvailabilityToDatabase(
  */
 export async function getAvailabilityFromDatabase(
   professorId: number
-): Promise<{ slots: Record<string, boolean>; preferences: Record<string, number> }> {
+): Promise<{ slots: Record<string, boolean> }> {
   try {
     const response = await fetch(`/api/availability?professorId=${professorId.toString()}`);
     const data = await response.json();
 
     if (!data.success) {
       console.error('Failed to fetch availability:', data.message);
-      return { slots: {}, preferences: {} };
+      return { slots: {} };
     }
 
-    console.log('Retrieved availability:', data.availability); // Debug log
-    console.log('Retrieved subject preferences:', data.subjectPreferences); // Debug log
-    
     return {
-      slots: data.availability || {},
-      preferences: data.subjectPreferences || {}
+      slots: data.availability || {}
     };
   } catch (error) {
     console.error('Error fetching availability:', error);
-    return { slots: {}, preferences: {} };
+    return { slots: {} };
   }
 }

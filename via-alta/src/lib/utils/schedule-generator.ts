@@ -300,3 +300,5 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
 export function isScheduleGenerationInProgress(): boolean {
   return fs.existsSync(GENERATION_FLAG_PATH);
 }
+
+//me la pelo el algoritmo
