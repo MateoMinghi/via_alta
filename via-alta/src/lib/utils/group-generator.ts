@@ -521,14 +521,51 @@ async function findSubjectByName(subjectName: string) {
     }
 
     // 3. Fuzzy Matching (if no other match is found)
-    const allSubjectsQuery = `SELECT IdMateria, Nombre FROM Materia`;
-    const allSubjectsResult = await pool.query(allSubjectsQuery);
-    const subjectNames = allSubjectsResult.rows.map(row => row.nombre);
+    // First, try to sync with the IVD API since that's where the course data comes from
+    try {
+      console.log('No match found in local database, syncing with IVD API first...');
+      await syncCoursesFromAPI();
+      console.log('Successfully synced courses from IVD API');
+    } catch (syncError) {
+      console.error('Failed to sync courses from IVD API:', syncError);
+      // We'll continue anyway and try with whatever data we have in the local database
+    }
+    
+    // Make query case-insensitive and ensure correct column aliases
+    const allSubjectsQuery = `SELECT IdMateria as idmateria, Nombre as nombre FROM Materia`;
+    
+    try {
+      const allSubjectsResult = await pool.query(allSubjectsQuery);
+      
+      // Debug log to check the structure of the results
+      console.log('Subject query result rows length:', allSubjectsResult.rows.length);
+      console.log('First row of subjects:', allSubjectsResult.rows[0]);
+      
+      // If no subjects were found even after syncing, we can't do fuzzy matching
+      if (allSubjectsResult.rows.length === 0) {
+        console.warn('No subjects found in database after sync attempt, cannot perform fuzzy matching');
+        return null;
+      }
+      
+      // Access with lowercase property name as used in the query alias
+      const subjectNames = allSubjectsResult.rows.map(row => row.nombre);
 
-    const matches = stringSimilarity.findBestMatch(className, subjectNames);
-    if (matches.bestMatch.rating > 0.7) { // Adjust threshold as needed
-      const bestMatchSubject = allSubjectsResult.rows.find(row => row.nombre === matches.bestMatch.target);
-      return bestMatchSubject || null;
+      // Ensure subjectNames is a valid array with data
+      if (!Array.isArray(subjectNames) || subjectNames.length === 0 || subjectNames.some(name => typeof name !== 'string')) {
+        console.error('Invalid subject names array:', subjectNames);
+        return null;
+      }
+
+      // The first argument should be the target string, second argument should be the array of strings
+      const matches = stringSimilarity.findBestMatch(className, subjectNames);
+      if (matches.bestMatch.rating > 0.7) { // Adjust threshold as needed
+        // Use the correct case for property name (nombre instead of Nombre)
+        const bestMatchSubject = allSubjectsResult.rows.find(row => row.nombre === matches.bestMatch.target);
+        return bestMatchSubject || null;
+      }
+    } catch (error) {
+      console.error('Error in fuzzy matching:', error);
+      return null;
     }
   }
 
