@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import GroupInfoDialog from '@/components/GroupInfoDialog';
 import AddGroupDialog from '@/components/AddGroupDialog';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
@@ -300,15 +300,28 @@ export default function HorarioGeneral() {
   const [groupToDelete, setGroupToDelete] = useState<GeneralScheduleItem | null>(null);
   
   const [selectedSemester, setSelectedSemester] = useState<number | 'All'>('All');
-  const [selectedMajor, setSelectedMajor] = useState<string>('All');
-  // Available options
-  const semesters = ['All', 1, 2, 3, 4, 5, 6, 7, 8] as const;
-  const majors = Array.from(new Set(schedule.map(i => i.NombreCarrera)));
-  // Filtered schedule based on selections
-  const filteredSchedule = schedule.filter(i =>
-    (selectedSemester === 'All' || i.Semestre === selectedSemester) &&
-    (selectedMajor === 'All' || i.NombreCarrera === selectedMajor)
-  );
+  const [selectedProfessor, setSelectedProfessor] = useState<string>('All');
+
+  // Available semesters (1-8)
+  const semesters = [1, 2, 3, 4, 5, 6, 7, 8];
+
+  // Get unique professors from schedule
+  const professors = useMemo(() => {
+    const uniqueProfessors = Array.from(new Set(
+      schedule
+        .filter(item => item.ProfesorNombre)
+        .map(item => item.ProfesorNombre as string)
+    )).sort();
+    return ['All', ...uniqueProfessors];
+  }, [schedule]);
+
+  // Filter schedule by semester and professor
+  const filteredSchedule = useMemo(() => {
+    return schedule.filter(item => 
+      (selectedSemester === 'All' || item.Semestre === selectedSemester) &&
+      (selectedProfessor === 'All' || item.ProfesorNombre === selectedProfessor)
+    );
+  }, [schedule, selectedSemester, selectedProfessor]);
 
   // Function to fetch schedule with polling capability
   const fetchSchedule = async (showLoading = true) => {
@@ -569,21 +582,21 @@ export default function HorarioGeneral() {
                 onChange={e => setSelectedSemester(e.target.value === 'All' ? 'All' : Number(e.target.value))}
                 className="border p-1 rounded"
               >
+                <option value="All">Todos</option>
                 {semesters.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="mr-2">Carrera:</label>
+              <label className="mr-2">Profesor:</label>
               <select
-                value={selectedMajor}
-                onChange={e => setSelectedMajor(e.target.value)}
+                value={selectedProfessor}
+                onChange={e => setSelectedProfessor(e.target.value)}
                 className="border p-1 rounded"
               >
-                <option value="All">All</option>
-                {majors.map(m => (
-                  <option key={m} value={m}>{m}</option>
+                {professors.map(p => (
+                  <option key={p} value={p}>{p === 'All' ? 'Todos' : p}</option>
                 ))}
               </select>
             </div>          

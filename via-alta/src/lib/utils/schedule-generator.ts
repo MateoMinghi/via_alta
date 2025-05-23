@@ -76,6 +76,15 @@ function normalizeGroup(group: any) {
   };
 }
 
+// Helper type for tracking course allocations
+type CourseAllocation = {
+    groupId: number;
+    subjectId: number;
+    requiredBlocks: number;
+    assignedBlocks: number;
+    lastAssignedDay?: string;
+};
+
 /**
  * Generates the general schedule based on existing groups, professor availability, and subject requirements.
  * @param idCiclo Optional: The specific cycle ID to generate the schedule for. If not provided, the latest cycle is used.
@@ -147,156 +156,139 @@ export async function generateGeneralSchedule(idCiclo?: number): Promise<boolean
     const daysOfWeek = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
     const scheduleHours = Array.from({ length: (16 - 7) }, (_, i) => 7 + i); // 7 AM to 3 PM (inclusive start hour)
     
-    // Group by teacher for easy access
-    const groupsByProfessor = new Map<string, any[]>();
+    // Group by teacher and prepare course allocations
+    const groupsByProfessor = new Map<string, CourseAllocation[]>();
     groups.forEach(group => {
+        const subject = subjectsMap.get(group.idmateria);
+        if (!subject) return;
+
         if (!groupsByProfessor.has(group.idprofesor)) {
             groupsByProfessor.set(group.idprofesor, []);
         }
-        groupsByProfessor.get(group.idprofesor)?.push(group);
+        groupsByProfessor.get(group.idprofesor)?.push({
+            groupId: group.idgrupo,
+            subjectId: group.idmateria,
+            requiredBlocks: Math.ceil(subject.HorasClase),
+            assignedBlocks: 0
+        });
     });
 
-    // 4. Iterate through professors and assign their groups
+    // 4. Schedule Generation
     console.log("Assigning groups to schedule slots...");
     for (const professorId of professorIds) {
-        const professorGroups = groupsByProfessor.get(professorId) || [];
+        const professorCourses = groupsByProfessor.get(professorId) || [];
         const professorAvail = availabilityMap.get(professorId);
         
-        if (!professorGroups.length) {
-            console.warn(`No groups found for professor ${professorId}. Skipping.`);
+        if (!professorCourses.length || !professorAvail) {
+            console.warn(`Skipping professor ${professorId}: No courses or no availability.`);
             continue;
         }
-        
-        if (!professorAvail) {
-            console.warn(`No availability found for professor ${professorId}. Skipping.`);
-            continue;
+
+        console.log(`Processing professor ${professorId} with ${professorCourses.length} courses`);
+
+        // Iterate through days first to ensure even distribution
+        for (const day of daysOfWeek) {
+            const dayAvailability = professorAvail.get(day) || [];
+            
+            for (const availSlot of dayAvailability) {
+                // Process each hour in the availability slot
+                for (let hour = availSlot.start; hour < availSlot.end; hour++) {
+                    if (hour < 7 || hour >= 16) continue;
+
+                    // Get unfinished courses that weren't last assigned on this day
+                    const eligibleCourses = professorCourses.filter(course => 
+                        course.assignedBlocks < course.requiredBlocks &&
+                        course.lastAssignedDay !== day
+                    );
+                    
+                    if (eligibleCourses.length === 0) continue;
+
+                    const gridKey = `${day}-${hour}`;
+                    const assignments = scheduleGrid.get(gridKey) || [];
+
+                    // Try to assign the course with the least assigned blocks
+                    const courseToAssign = eligibleCourses.reduce((a, b) => 
+                        (a.assignedBlocks / a.requiredBlocks) < (b.assignedBlocks / b.requiredBlocks) ? a : b
+                    );
+
+                    const group = groups.find(g => g.idgrupo === courseToAssign.groupId);
+                    if (!group) continue;
+
+                    // Check for scheduling conflicts
+                    const professorConflict = assignments.some(a => a.professorId === professorId);
+                    const semesterConflict = assignments.some(a => a.semester === group.Semestre);
+
+                    if (!professorConflict && !semesterConflict) {
+                        // Make the assignment
+                        assignments.push({
+                            professorId,
+                            semester: group.Semestre,
+                            subjectId: courseToAssign.subjectId
+                        });
+                        scheduleGrid.set(gridKey, assignments);
+                        
+                        // Update course tracking
+                        courseToAssign.assignedBlocks++;
+                        courseToAssign.lastAssignedDay = day;
+
+                        // Create schedule item
+                        const subject = subjectsMap.get(courseToAssign.subjectId);
+                        if (!subject) continue;
+
+                        const scheduleItem: GeneralScheduleItem = {
+                            IdHorarioGeneral: targetCycleId,
+                            NombreCarrera: subject.Carrera || 'General',
+                            IdGrupo: courseToAssign.groupId,
+                            Dia: day as GeneralScheduleItem['Dia'],
+                            HoraInicio: formatTime(hour),
+                            HoraFin: formatTime(hour + 1)
+                        };
+                        scheduleItems.push(scheduleItem);
+                        console.log(`Assigned Group ${courseToAssign.groupId} to ${day} ${hour}:00-${hour + 1}:00 ` +
+                                  `(Block ${courseToAssign.assignedBlocks}/${courseToAssign.requiredBlocks})`);
+                    }
+                }
+            }
         }
-        
-        console.log(`Processing professor ${professorId} with ${professorGroups.length} groups`);
-        
-        // For each group this professor teaches
-        for (let i = 0; i < professorGroups.length; i++) {
-            const group = professorGroups[i];
-            const subject = subjectsMap.get(group.idmateria);
-            
-            if (!subject) {
-                console.warn(`Subject with ID ${group.idmateria} not found for Group ${group.idgrupo}. Skipping.`);
-                continue;
+
+        // Log any unfinished courses
+        for (const course of professorCourses) {
+            if (course.assignedBlocks < course.requiredBlocks) {
+                console.warn(`Could not fully schedule Group ${course.groupId}. ` +
+                           `Assigned ${course.assignedBlocks}/${course.requiredBlocks} blocks.`);
             }
-            
-            // Use Math.ceil to ensure enough blocks are scheduled for decimal hours
-            const requiredBlocks = Math.ceil(subject.HorasClase);
-            let currentAssignedBlocks = assignedHours.get(group.idgrupo) || 0;
-            
-            console.log(`Processing Group ${group.idgrupo} (Subject: ${subject.Nombre}, Prof: ${group.professor_name}, Required Blocks: ${requiredBlocks})`);
-            
-            // Rotate weekdays to distribute classes evenly
-            const dayOffset = i % daysOfWeek.length;
-            const rotatedDays = [
-                ...daysOfWeek.slice(dayOffset),
-                ...daysOfWeek.slice(0, dayOffset),
-            ];
-            
-            // Iterate through rotated days and professor's available slots for that day
-            daysLoop:
-            for (const day of rotatedDays) {
-                const dayAvailability = professorAvail.get(day) || [];
-                
-                for (const availSlot of dayAvailability) {
-                    // Iterate through each hour within the professor's available block
-                    for (let hour = availSlot.start; hour < availSlot.end; hour++) {
-                        if (currentAssignedBlocks >= requiredBlocks) {
-                            console.log(`Group ${group.idgrupo} fully scheduled.`);
-                            break daysLoop; // Move to the next group
-                        }
-                        
-                        // Check if the hour is within the general schedule time frame (7 AM - 4 PM)
-                        if (hour < 7 || hour >= 16) {
-                            continue; // Skip hours outside the allowed range
-                        }
-                        
-                        const gridKey = `${day}-${hour}`;
-                        // Gather existing assignments for this slot
-                        const assignments = scheduleGrid.get(gridKey) || [];
-                        
-                        // Check for conflicts:
-                        // 1. Same professor teaching another subject at the same time
-                        // 2. Same semester having another class at the same time
-                        const professorConflict = assignments.some(a => a.professorId === professorId);
-                        const semesterConflict = assignments.some(a => a.semester === group.Semestre);
-                        
-                        // If no conflict, assign the group
-                        if (!professorConflict && !semesterConflict) {
-                          // Record this assignment alongside any existing ones
-                          assignments.push({ 
-                              professorId, 
-                              semester: group.Semestre,
-                              subjectId: group.idmateria
-                          });
-                          scheduleGrid.set(gridKey, assignments);
-                          currentAssignedBlocks++;
-                          assignedHours.set(group.idgrupo, currentAssignedBlocks);
-                          
-                          const scheduleItem: GeneralScheduleItem = {
-                              IdHorarioGeneral: targetCycleId, // Use Cycle ID as the Schedule ID
-                              NombreCarrera: subject.Carrera || 'General', // Use subject's career or default
-                              IdGrupo: group.idgrupo,
-                              Dia: day as GeneralScheduleItem['Dia'], // Cast to the specific type
-                              HoraInicio: formatTime(hour),
-                              HoraFin: formatTime(hour + 1), // Assuming 1-hour blocks
-                          };
-                          scheduleItems.push(scheduleItem);
-                          console.log(`  Assigned Group ${group.idgrupo} to ${day} ${hour}:00-${hour + 1}:00 (Block ${currentAssignedBlocks}/${requiredBlocks})`);
-                          
-                          // Re-check if fully scheduled after assignment
-                          if (currentAssignedBlocks >= requiredBlocks) {
-                            console.log(`Group ${group.idgrupo} fully scheduled.`);
-                            break daysLoop;
-                          }
-                        }
-                    } // End hour loop
-                } // End availability slot loop
-            } // End day loop
-            
-            if (currentAssignedBlocks < requiredBlocks) {
-                console.warn(`Could not fully schedule Group ${group.idgrupo}. Assigned ${currentAssignedBlocks}/${requiredBlocks} blocks.`);
-            }
-        } // End group loop for this professor
-    } // End professor loop
+        }
+    }
 
     // 5. Save Schedule
     if (scheduleItems.length > 0) {
-      console.log(`Saving ${scheduleItems.length} schedule items to the database...`);
-      await GeneralSchedule.saveGeneralSchedule(scheduleItems);
-      console.log("General schedule saved successfully.");
+        console.log(`Saving ${scheduleItems.length} schedule items to the database...`);
+        await GeneralSchedule.saveGeneralSchedule(scheduleItems);
+        console.log("General schedule saved successfully.");
     } else {
-      console.log("No schedule items generated to save.");
-       // Attempt to clear any old schedule for this cycle ID if nothing new was generated
-       await GeneralSchedule.saveGeneralSchedule([]); // Pass empty array to clear
-       console.log("Cleared any existing schedule for this cycle as no new items were generated.");
+        console.log("No schedule items generated to save.");
+        await GeneralSchedule.saveGeneralSchedule([]);
+        console.log("Cleared any existing schedule for this cycle.");
     }
 
-    // At the end, after successful generation:
+    // Clean up
     if (fs.existsSync(GENERATION_FLAG_PATH)) {
-      fs.unlinkSync(GENERATION_FLAG_PATH);
-      console.log("Removed schedule generation flag file");
+        fs.unlinkSync(GENERATION_FLAG_PATH);
+        console.log("Removed schedule generation flag file");
     }
 
     return true;
 
   } catch (error) {
     console.error("Error generating general schedule:", error);
-    
-    // Clean up the flag file even if there's an error
     if (fs.existsSync(GENERATION_FLAG_PATH)) {
-      try {
-        fs.unlinkSync(GENERATION_FLAG_PATH);
-        console.log("Removed schedule generation flag file after error");
-      } catch (e) {
-        console.error("Failed to remove flag file:", e);
-      }
+        try {
+            fs.unlinkSync(GENERATION_FLAG_PATH);
+            console.log("Removed schedule generation flag file after error");
+        } catch (e) {
+            console.error("Failed to remove flag file:", e);
+        }
     }
-    
     return false;
   }
 }

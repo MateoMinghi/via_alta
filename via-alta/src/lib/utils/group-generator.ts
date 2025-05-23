@@ -558,34 +558,72 @@ async function deleteGroupsForCycle(idCiclo: number): Promise<void> {
 
 /**
  * Generates groups for all professors in the database.
- * Creates one group per professor based on their assigned classes.
+ * Creates one group per class per professor based on their assigned classes.
  * 
  * @param idSalon - The classroom ID to be used for all groups (ignored, will use all classrooms)
  * @param idCiclo - Optional cycle ID (will use latest if not provided)
  * @returns Object containing created groups and any errors that occurred
  */
 export async function generateGroupsForAllProfessors(idSalon: number, idCiclo?: number) {
-  // First, delete all existing groups for the cycle (if idCiclo provided)
-  if (idCiclo) {
-    console.log(`Deleting all groups for cycle ${idCiclo}...`);
-    await deleteGroupsForCycle(idCiclo);
-    console.log(`Existing groups for cycle ${idCiclo} deleted.`);
-  } else {
-    console.log("Deleting all existing groups (no cycle specified)...");
-    await deleteAllGroups();
-    console.log("Existing groups deleted.");
-  }
-  // Get all professors from the database
-  const query = 'SELECT * FROM Profesor WHERE Clases IS NOT NULL AND Clases <> \'\'';
-  const result = await pool.query(query);
-  const professors = result.rows;
+    // First, delete all existing groups for the cycle (if idCiclo provided)
+    if (idCiclo) {
+        console.log(`Deleting all groups for cycle ${idCiclo}...`);
+        await deleteGroupsForCycle(idCiclo);
+        console.log(`Existing groups for cycle ${idCiclo} deleted.`);
+    } else {
+        console.log("Deleting all existing groups (no cycle specified)...");
+        await deleteAllGroups();
+        console.log("Existing groups deleted.");
+    }    // Get all professors with assigned classes from the database
+    const query = 'SELECT * FROM Profesor WHERE Clases IS NOT NULL AND Clases <> \'\'';
+    const result = await pool.query(query);
+    const professors = result.rows;
 
-  // Prepare parameters for each professor, do NOT assign classrooms
-  const groupParams: GroupGenerationParams[] = professors.map((professor) => ({
-    idProfesor: professor.idprofesor,
-    idCiclo: idCiclo
-  }));
+    // Array to store all group parameters
+    const groupParams: GroupGenerationParams[] = [];
 
-  // Generate groups using the existing batch function
-  return await generateGroupsBatch(groupParams);
+    // Process each professor's classes
+    for (const professor of professors) {        // Handle case sensitivity of the Clases field
+        const professorClases = professor.Clases || professor.clases;
+        
+        if (!professorClases || typeof professorClases !== 'string') {
+            console.warn(`Professor ${professor.idprofesor} has no valid classes defined, skipping`);
+            continue;
+        }
+
+        const classes = professorClases.split(',')
+            .map((cls: string) => cls.trim())
+            .filter(Boolean);
+
+        if (classes.length === 0) {
+            console.warn(`Professor ${professor.idprofesor} has no valid classes after processing, skipping`);
+            continue;
+        }
+
+        console.log(`Processing ${classes.length} classes for professor ${professor.idprofesor}:`, classes);
+
+        // For each class, find the corresponding subject and create a group
+        for (const className of classes) {
+            try {
+                const subject = await findSubjectByName(className);
+                if (subject) {
+                    groupParams.push({
+                        idProfesor: professor.idprofesor,
+                        idMateria: subject.idmateria, // Explicitly set the subject ID
+                        idCiclo: idCiclo,
+                    });
+                    console.log(`Added group for professor ${professor.idprofesor}, subject: ${className} (ID: ${subject.idmateria})`);
+                } else {
+                    console.warn(`Could not find subject matching class name: ${className} for professor ${professor.idprofesor}`);
+                }
+            } catch (error) {
+                console.error(`Error processing class ${className} for professor ${professor.idprofesor}:`, error);
+            }
+        }
+    }
+
+    console.log(`Prepared ${groupParams.length} groups for generation`);
+    
+    // Generate all groups using the batch function
+    return await generateGroupsBatch(groupParams);
 }
