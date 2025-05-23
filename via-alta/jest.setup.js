@@ -1,6 +1,11 @@
 // Jest Setup File
 require('@testing-library/jest-dom');
 
+// Polyfill for TextEncoder/TextDecoder (required for pg module)
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 // Mock para Next.js Image
 jest.mock('next/image', () => ({
   __esModule: true,

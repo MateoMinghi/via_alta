@@ -11,17 +11,31 @@ export async function GET(request: Request) {
 
   try {
     console.log('Fetching availability for professor:', professorId);
-    const availabilityData = await Availability.findByProfessor(professorId);
-    console.log('Raw availability data:', availabilityData);
+    const availabilityData = await Availability.findByProfessor(professorId);    console.log('Raw availability data:', availabilityData);
     
     // Transform the data into the format expected by the frontend
     const formattedAvailability: Record<string, boolean> = {};
+    // Store any subject preferences found in the metadata
+    let subjectPreferences: Record<string, number> = {};
     
     availabilityData.forEach((slot) => {
       // Since we're now using the normalized data, we don't need all the null checks
       // Get the start time and end time (remove seconds part)
       const startTime = slot.HoraInicio.split(':').slice(0, 2).join(':');
       const endTime = slot.HoraFin.split(':').slice(0, 2).join(':');
+      
+      // Check for metadata with subject preferences
+      if (slot.Metadata) {
+        try {
+          const parsedMetadata = JSON.parse(slot.Metadata);
+          if (parsedMetadata && typeof parsedMetadata === 'object') {
+            // Merge with existing preferences
+            subjectPreferences = { ...subjectPreferences, ...parsedMetadata };
+          }
+        } catch (err) {
+          console.warn('Error parsing metadata:', err);
+        }
+      }
       
       try {
         // Parse the times to create 30-minute intervals
@@ -42,11 +56,15 @@ export async function GET(request: Request) {
         }
       } catch (err) {
         console.warn('Error processing slot:', slot, err);
-      }
-    });
+      }    });
 
     console.log('Formatted availability:', formattedAvailability);
-    return NextResponse.json({ success: true, availability: formattedAvailability });
+    console.log('Subject preferences:', subjectPreferences);
+    return NextResponse.json({ 
+      success: true, 
+      availability: formattedAvailability,
+      subjectPreferences: subjectPreferences
+    });
   } catch (error) {
     console.error('Error fetching availability:', error);
     return NextResponse.json(
@@ -59,7 +77,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { professorId, availability } = body;
+    const { professorId, availability, subjectPreferences = {} } = body;
 
     if (!professorId || !availability) {
       return NextResponse.json(
@@ -94,6 +112,13 @@ export async function POST(request: Request) {
       }
     });
 
+    // Store any subject preferences for future use in scheduling
+    // This information is saved in metadata but not directly used in availability slots
+    // It will be retrieved and used by the schedule generator
+    const subjectPreferenceData = Object.entries(subjectPreferences).length > 0 
+      ? JSON.stringify(subjectPreferences)
+      : null;
+
     // For each day, create consolidated availability slots
     for (const [day, times] of Object.entries(slotsByDay)) {
       // Sort times chronologically
@@ -125,7 +150,9 @@ export async function POST(request: Request) {
             IdProfesor: professorId.toString(),
             Dia: day as 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes',
             HoraInicio: startTime,
-            HoraFin: endTime
+            HoraFin: endTime,
+            // Store subject preference metadata if available
+            Metadata: subjectPreferenceData || undefined
           });
           
           // Start a new period if we're not at the end
@@ -138,7 +165,11 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Availability saved successfully' });
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Availability saved successfully',
+      subjectPreferencesSaved: subjectPreferenceData !== null
+    });
   } catch (error) {
     console.error('Error saving availability:', error);
     return NextResponse.json(

@@ -7,12 +7,14 @@ interface RawAvailabilityData {
   dia?: string;
   horainicio?: string;
   horafin?: string;
+  metadata?: string;
   // También permitimos las versiones en PascalCase
   IdDisponibilidad?: number;
   IdProfesor?: string;
   Dia?: string;
   HoraInicio?: string;
   HoraFin?: string;
+  Metadata?: string;
 }
 
 // Definimos la interfaz para los datos de disponibilidad normalizados
@@ -22,6 +24,7 @@ interface AvailabilityData {
   Dia: 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes';
   HoraInicio: string;
   HoraFin: string;
+  Metadata?: string;
 }
 
 // Función auxiliar para normalizar los datos de la base de datos
@@ -31,7 +34,8 @@ function normalizeAvailabilityData(raw: RawAvailabilityData): AvailabilityData {
     IdProfesor: raw.idprofesor || raw.IdProfesor || '',
     Dia: (raw.dia || raw.Dia || 'Lunes') as AvailabilityData['Dia'],
     HoraInicio: raw.horainicio || raw.HoraInicio || '',
-    HoraFin: raw.horafin || raw.HoraFin || ''
+    HoraFin: raw.horafin || raw.HoraFin || '',
+    Metadata: raw.metadata || raw.Metadata
   };
 }
 
@@ -41,16 +45,16 @@ class Availability {
    * Crea una nueva disponibilidad en la base de datos.
    * param {AvailabilityData} availability - Los datos de disponibilidad a crear.
    * returns {Promise<AvailabilityData>} Los datos de la disponibilidad creada.
-   */
-  static async create(availability: AvailabilityData): Promise<AvailabilityData> {
+   */  static async create(availability: AvailabilityData): Promise<AvailabilityData> {
     const query =
-      "INSERT INTO Disponibilidad (IdDisponibilidad, IdProfesor, Dia, HoraInicio, HoraFin) VALUES ($1, $2, $3, $4, $5) RETURNING *";
+      "INSERT INTO Disponibilidad (IdDisponibilidad, IdProfesor, Dia, HoraInicio, HoraFin, Metadata) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *";
     const result = await pool.query(query, [
       availability.IdDisponibilidad,
       availability.IdProfesor,
       availability.Dia,
       availability.HoraInicio,
       availability.HoraFin,
+      availability.Metadata || null,
     ]);
     return result.rows[0] as AvailabilityData; // Retornamos la disponibilidad creada
   }

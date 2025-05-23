@@ -9,6 +9,7 @@ import ProfessorClasses from '@/components/ProfessorClasses';
 import ProfessorListWithSearch from '@/components/ProfessorListWithSearch';
 import { getProfessors, getProfessorsFromDatabase } from '@/api/getProfessors';
 import { saveAvailabilityToDatabase, getAvailabilityFromDatabase } from '@/lib/utils/availability-utils';
+import { parseClassesToSubjects, type Subject } from '@/lib/utils/professor-utils';
 
 export type Professor = {
     id: number;
@@ -25,14 +26,16 @@ export type Professor = {
 export default function Profesor() {
     const [professors, setProfessors] = useState<Professor[] | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-    const [selectedSlots, setSelectedSlots] = useState<Record<string, boolean>>({});
+    const [error, setError] = useState("");    const [selectedSlots, setSelectedSlots] = useState<Record<string, boolean>>({});
     const [originalSlots, setOriginalSlots] = useState<Record<string, boolean>>({});
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [selectedProfessor, setSelectedProfessor] = useState<Professor | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [showClassesEditor, setShowClassesEditor] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'search'>('list');
+    // Add state for subject preferences
+    const [subjectPreferences, setSubjectPreferences] = useState<Record<string, number>>({});
+    const [originalSubjectPreferences, setOriginalSubjectPreferences] = useState<Record<string, number>>({});
 
     const fetchData = async () => {
         setLoading(true);
@@ -63,17 +66,20 @@ export default function Profesor() {
 
     useEffect(() => {
         fetchData();
-    }, []);
-
-    // Effect to detect unsaved changes
+    }, []);    // Effect to detect unsaved changes
     useEffect(() => {
         const checkForChanges = () => {
             // Compare original slots with current selected slots
             const originalKeys = Object.keys(originalSlots);
             const currentKeys = Object.keys(selectedSlots);
             
+            // Compare original preferences with current subject preferences
+            const originalPrefKeys = Object.keys(originalSubjectPreferences);
+            const currentPrefKeys = Object.keys(subjectPreferences);
+            
             // Quick check if number of keys is different
-            if (originalKeys.length !== currentKeys.length) {
+            if (originalKeys.length !== currentKeys.length || 
+                originalPrefKeys.length !== currentPrefKeys.length) {
                 setHasUnsavedChanges(true);
                 return;
             }
@@ -94,21 +100,29 @@ export default function Profesor() {
                 }
             }
             
+            // Check if any subject preference has changed
+            for (const key of currentPrefKeys) {
+                if (subjectPreferences[key] !== originalSubjectPreferences[key]) {
+                    setHasUnsavedChanges(true);
+                    return;
+                }
+            }
+            
             setHasUnsavedChanges(false);
         };
         
         checkForChanges();
-    }, [selectedSlots, originalSlots]);
-
-    const handleProfessorSelect = async (professor: Professor) => {
+    }, [selectedSlots, originalSlots, subjectPreferences, originalSubjectPreferences]);const handleProfessorSelect = async (professor: Professor) => {
         console.log("Selected professor details:", professor);
         try {
             // First, fetch availability before updating any state
-            const availability = await getAvailabilityFromDatabase(professor.id);
+            const { slots, preferences } = await getAvailabilityFromDatabase(professor.id);
             
             setSelectedProfessor(professor);
-            setSelectedSlots(availability); // Set the fetched availability
-            setOriginalSlots(availability); // Track original availability
+            setSelectedSlots(slots); // Set the fetched availability
+            setOriginalSlots(slots); // Track original availability
+            setSubjectPreferences(preferences); // Set subject preferences
+            setOriginalSubjectPreferences(preferences); // Track original preferences
             setHasUnsavedChanges(false); // Reset unsaved changes flag
             setShowClassesEditor(false);
             
@@ -148,9 +162,7 @@ export default function Profesor() {
         handleProfessorSelect(professor).then(() => {
             setShowClassesEditor(true);
         });
-    };
-
-    const removeSelectedProfessor = () => {
+    };    const removeSelectedProfessor = () => {
         // Check if there are unsaved changes and confirm before leaving
         if (hasUnsavedChanges) {
             const confirmLeave = window.confirm("Tienes cambios sin guardar en la disponibilidad. ¿Deseas salir sin guardar?");
@@ -161,6 +173,8 @@ export default function Profesor() {
         setSelectedProfessor(null);
         setSelectedSlots({});
         setOriginalSlots({});
+        setSubjectPreferences({});
+        setOriginalSubjectPreferences({});
         setHasUnsavedChanges(false);
         setShowClassesEditor(false);
     };
@@ -181,9 +195,7 @@ export default function Profesor() {
         }
         // Fallback to just the name field
         return professor.name || 'Profesor';
-    };
-
-    const handleSaveAvailability = async () => {
+    };    const handleSaveAvailability = async () => {
         if (!selectedProfessor) {
             alert("Please select a professor.");
             return;
@@ -192,10 +204,15 @@ export default function Profesor() {
         setIsSaving(true);
         
         try {
-            // Save availability to database
-            await saveAvailabilityToDatabase(selectedProfessor.id, selectedSlots);
+            // Save availability and subject preferences to database
+            await saveAvailabilityToDatabase(
+                selectedProfessor.id, 
+                selectedSlots,
+                subjectPreferences
+            );
             alert('Se guardó la disponibilidad del profesor en la base de datos!');
             setOriginalSlots(selectedSlots); // Update original slots after saving
+            setOriginalSubjectPreferences(subjectPreferences); // Update original preferences
             setHasUnsavedChanges(false); // Reset unsaved changes flag
         } catch (err) {
             console.error("Error saving availability:", err);
@@ -418,14 +435,23 @@ export default function Profesor() {
                                         {isSaving ? 'Guardando...' : 'Guardar Disponibilidad'}
                                     </Button>
                                 </div>
-                                <div className="pt-4">
-                                    <ProfessorGrid 
+                                <div className="pt-4">                                    <ProfessorGrid 
                                         selectedSlots={selectedSlots} 
                                         setSelectedSlots={(slots) => {
                                             setSelectedSlots(slots);
-                                            setHasUnsavedChanges(JSON.stringify(slots) !== JSON.stringify(originalSlots));
+                                            const slotsChanged = JSON.stringify(slots) !== JSON.stringify(originalSlots);
+                                            const preferencesChanged = JSON.stringify(subjectPreferences) !== JSON.stringify(originalSubjectPreferences);
+                                            setHasUnsavedChanges(slotsChanged || preferencesChanged);
                                         }}
                                         professorId={selectedProfessor.id}
+                                        subjects={selectedProfessor.classes ? parseClassesToSubjects(selectedProfessor.classes) : []}
+                                        subjectPreferences={subjectPreferences}
+                                        setSubjectPreferences={(prefs) => {
+                                            setSubjectPreferences(prefs);
+                                            const slotsChanged = JSON.stringify(selectedSlots) !== JSON.stringify(originalSlots);
+                                            const preferencesChanged = JSON.stringify(prefs) !== JSON.stringify(originalSubjectPreferences);
+                                            setHasUnsavedChanges(slotsChanged || preferencesChanged);
+                                        }}
                                     />
                                 </div>
                             </div>
